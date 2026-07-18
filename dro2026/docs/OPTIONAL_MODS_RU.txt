@@ -1,0 +1,34 @@
+ОПЦИОНАЛЬНЫЕ МОДЫ И КЛАССЫ
+
+Сторонние моды не являются жёсткой зависимостью. Они подключаются только через проверку isClass.
+
+Дальние/односторонние пусковые платформы:
+- B_FP5_Launcher_F            — kba_fp5_flamingo
+- FRTZ_FP2_Launcher           — frtz_fp2
+- bulava_tripod_launcher_b    — frtz_bulava
+- KBA_BM35_Launcher           — kba_bm35
+
+Разведывательные и ударные БПЛА:
+- RUS_VKS_forpostru
+- rksla3_uav_rq7shadow_01_blufor
+- HE_MQ4A_Blufor
+- B_UAV_02_dynamicLoadout_F
+- O_UAV_02_dynamicLoadout_F
+- стандартные B/O/I_UAV_01_F
+
+Артиллерия:
+- DRA_MLRS_H_B                — Drongo's Artillery
+- классы артиллерии и миномётов выбранной в DRO фракции
+- ванильные O_MBT_02_arty_F, O_Mortar_01_F, I_Truck_02_MRL_F как резерв
+
+ПВО/РЛС:
+- S300_F_UCG
+- S300_RS_F_UCG
+- O_T_APC_Tracked_02_AA_ghex_F
+- классы ПВО выбранной фракции
+
+Логистика/РЭБ:
+- техника снабжения выбранной фракции
+- O_Truck_03_device_F и совместимые грузовые классы как резерв
+
+Constructor/FPV AI/HBQ/Nagas Convoy не являются обязательными зависимостями. Их тяжёлая глобальная логика не запускается: необходимые идеи реализованы внутри DRO 2026 более узкими single-player директорами.

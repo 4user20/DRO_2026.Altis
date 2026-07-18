@@ -1,0 +1,328 @@
+#include "sunday_system\dialogs\defines.hpp"
+#include "sunday_system\dialogs\dialogs.hpp"
+#include "sunday_system\dialogs\dialogsMainMenu.hpp"
+#include "sunday_system\dialogs\dialogsLobby.hpp"
+#include "dro2026\CfgFunctions.hpp"
+
+enableDebugConsole = 1;
+allowFunctionsLog = 0;
+
+corpseManagerMode = 1;
+corpseLimit = 1;
+corpseRemovalMinTime = 900;
+corpseRemovalMaxTime = 3600;
+
+respawn = 3;
+respawnButton = 1;
+respawnDelay = 45;
+respawnVehicleDelay = 30;
+respawnDialog = 0;
+respawnOnStart = 0;
+respawnTemplates[] = {"MenuPosition", "Tickets", "Spectator", "EndMission"};
+
+class Params
+{
+	class Respawn
+	{
+		title = "Возрождение";
+		values[] = {0,1,2,3};
+		texts[] = {"20 секунд", "45 секунд", "90 секунд", "Отключено"};
+		default = 1;
+	};		
+	class RespawnPositions
+	{
+		title = "Точки возрождения";
+		values[] = {0,1,2};
+		texts[] = {"Обе", "Только стартовая", "Только группа"};
+		default = 0;               
+	};
+};
+
+class RscTitles {
+	class DRO_Splash {
+		idd = -1;
+		duration = 60;
+		movingenable = 0;	
+		class Controls {	
+			class facade1: sundayText
+			{
+				idc = 1000;
+				text = "";
+				x = 0 * safezoneW + safezoneX;
+				y = 0 * safezoneH + safezoneY;
+				w = 0.15 * safezoneW;
+				h = 1 * safezoneH;
+				colorBackground[] = { 0, 0, 0, 1 };			
+				fade = 0;
+			};
+			class facade2: sundayText
+			{
+				idc = 1001;
+				text = "";
+				x = 0.85 * safezoneW + safezoneX;
+				y = 0 * safezoneH + safezoneY;
+				w = 0.15 * safezoneW;
+				h = 1 * safezoneH;
+				colorBackground[] = { 0, 0, 0, 1 };			
+				fade = 0;
+			};	
+			class splash: RscPicture
+			{			
+				idc = 1002;
+				text = "images\DRO_splash_square.paa";
+				x = 0.15 * safezoneW + safezoneX;
+				y = 0.0 * safezoneH + safezoneY;
+				w = 0.7 * safezoneW;
+				h = 1 * safezoneH;
+				fade = 0;
+			};		
+		};		
+	};
+};
+
+class CfgCommunicationMenu
+{   
+	class heliExtract
+    {
+        text = "Запросить эвакуацию"; // Text displayed in the menu and in a notification
+        submenu = ""; // Submenu opened upon activation (expression is ignored when submenu is not empty.)
+        expression = "[_pos] execVM 'sunday_system\heliExtract.sqf'"; // Code executed upon activation
+        icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\transport_ca.paa"; // Icon displayed permanently next to the command menu
+        cursor = "\a3\Ui_f\data\IGUI\Cfg\Cursors\iconCursorSupport_ca.paa"; // Custom cursor displayed when the item is selected
+        enable = "1"; // Simple expression condition for enabling the item
+        removeAfterExpressionCall = 1; // 1 to remove the item after calling
+    };
+	class extractLeave
+    {
+        text = "Эвакуация"; // Text displayed in the menu and in a notification
+        submenu = ""; // Submenu opened upon activation (expression is ignored when submenu is not empty.)
+        expression = "extractLeave = true; publicVariable 'extractLeave'"; // Code executed upon activation
+        icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\transport_ca.paa"; // Icon displayed permanently next to the command menu
+        cursor = ""; // Custom cursor displayed when the item is selected
+        enable = "1"; // Simple expression condition for enabling the item
+        removeAfterExpressionCall = 1; // 1 to remove the item after calling
+    };	
+	class DRO_Support_Request_Artillery
+	{
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		expression = "[_pos] execVM 'sunday_system\supports\supportArtyComms.sqf'";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\artillery_ca.paa";
+		text = "Артиллерийский удар";		
+	};
+	class DRO_Support_Request_CAS_Bombing
+	{
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		expression = "[_pos] execVM 'sunday_system\supports\supportCASHeli.sqf'";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\cas_ca.paa";
+		text = "Авиаудар";	
+	};
+	class DRO_Support_Request_CAS_Heli
+	{
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		expression = "[_pos] execVM 'sunday_system\supports\supportCASHeli.sqf'";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\casheli_ca.paa";
+		text = "Ударный вертолёт";
+		removeAfterExpressionCall = 1;
+	};
+	class DRO_Support_Request_Drop
+	{
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		expression = "[_pos] execVM 'sunday_system\supports\heliDrop.sqf'";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\supplydrop_ca.paa";
+		text = "Сброс снабжения";
+		removeAfterExpressionCall = 1;
+	};
+	class DRO_Support_Request_Transport
+	{
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		expression = "player setVariable ['BIS_SUPP_request', ['Transport', _pos]]";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\transport_ca.paa";
+		text = "Транспортный вертолёт";
+	};
+
+	class DRO2026_Request_FPV
+	{
+		text = "FPV: удар по подтверждённой цели";
+		submenu = "";
+		expression = "[_pos] call DRO2026_fnc_requestFPV";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\cas_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_ISR
+	{
+		text = "БПЛА: разведка выбранного сектора";
+		submenu = "";
+		expression = "[_pos] call DRO2026_fnc_requestISR";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_ISR_Micro
+	{
+		text = "БПЛА: микроразведчик";
+		submenu = "";
+		expression = "[_pos, 'MICRO'] call DRO2026_fnc_requestISR";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_ISR_RQ7
+	{
+		text = "БПЛА: RQ-7 Shadow";
+		submenu = "";
+		expression = "[_pos, 'RQ7'] call DRO2026_fnc_requestISR";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_ISR_MQ4
+	{
+		text = "БПЛА: MQ-4A";
+		submenu = "";
+		expression = "[_pos, 'MQ4A'] call DRO2026_fnc_requestISR";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_Strike_FP1
+	{
+		text = "Дальний БПЛА: FP-1";
+		submenu = "";
+		expression = "[_pos, 'FP1', false] call DRO2026_fnc_requestLongRangeSupport";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\cas_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_Strike_FP2
+	{
+		text = "Дальний БПЛА: FP-2";
+		submenu = "";
+		expression = "[_pos, 'FP2', false] call DRO2026_fnc_requestLongRangeSupport";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\cas_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_Strike_BM35
+	{
+		text = "Дальний БПЛА: BM-35";
+		submenu = "";
+		expression = "[_pos, 'BM35', false] call DRO2026_fnc_requestLongRangeSupport";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\cas_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_Strike_Bulava
+	{
+		text = "Дальний БПЛА: Bulava";
+		submenu = "";
+		expression = "[_pos, 'BULAVA', false] call DRO2026_fnc_requestLongRangeSupport";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\cas_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_Strike_FP5
+	{
+		text = "Дальний БПЛА: FP-5 Flamingo";
+		submenu = "";
+		expression = "[_pos, 'FP5', false] call DRO2026_fnc_requestLongRangeSupport";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\cas_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO2026_Request_Decoy
+	{
+		text = "БПЛА-обманка";
+		submenu = "";
+		expression = "[_pos, 'AUTO', true] call DRO2026_fnc_requestLongRangeSupport";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa";
+		cursor = "\A3\ui_f\data\igui\cfg\cursors\iconCursorSupport_ca.paa";
+		enable = "cursorOnGround";
+		removeAfterExpressionCall = 0;
+	};
+
+	class DRO2026_Status
+	{
+		text = "Запросить сводку штаба";
+		submenu = "";
+		expression = "[] call DRO2026_fnc_showStatus";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa";
+		cursor = "";
+		enable = "1";
+		removeAfterExpressionCall = 0;
+	};
+	class DRO_Friendly_Engage
+	{
+		cursor = "";
+		enable = "1";
+		expression = "DRO_beginFriendlyAssault = true; publicVariable 'DRO_beginFriendlyAssault'";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\attack_ca.paa";
+		text = "Начать наступление";
+		removeAfterExpressionCall = 1;
+	};
+};
+
+class CfgDebriefing
+{  
+	class DROEnd_Full
+	{
+		title = "Операция завершена";
+		subtitle = "";
+		description = "Ключевые задачи выполнены. Противник потерял часть разведывательных, огневых и логистических возможностей в районе операции.";
+		pictureBackground = "images\recon_image_notext.jpg";
+		picture = "";
+		pictureColor[] = {0.0,0.3,0.6,1};
+	};
+	class DROEnd_Partial
+	{
+		title = "Операция завершена";
+		subtitle = "";
+		description = "Часть задач выполнить не удалось. Обстановка изменилась, а последующие действия потребуют нового замысла.";
+		pictureBackground = "images\recon_image_notext.jpg";
+		picture = "";
+		pictureColor[] = {0.0,0.3,0.6,1};
+	};
+	class DROEnd_Fail
+	{
+		title = "Операция провалена";
+		subtitle = "";
+		description = "Ни одна из поставленных задач не выполнена. Противник сохранил логистику, огневую поддержку и свободу действий.";
+		pictureBackground = "images\recon_image_notext.jpg";
+		picture = "";
+		pictureColor[] = {0.5,0.4,0.4,1};
+	};
+	class DROEnd_FailCiv1
+	{
+		title = "Операция провалена";
+		subtitle = "Недопустимые потери среди гражданских";
+		description = "После завершения операции действия группы были подробно разобраны командованием. Потери среди гражданских осложнили обстановку, снизили доверие к союзным силам и перечеркнули часть достигнутого результата.";
+		pictureBackground = "images\recon_image_notext.jpg";
+		picture = "";
+		pictureColor[] = {0.5,0.4,0.4,1};
+	};
+	class DROEnd_FailCiv2
+	{
+		title = "Операция провалена";
+		subtitle = "Недопустимые потери среди гражданских";		
+		description = "Недопустимые потери среди гражданских привели к провалу операции. Противник использовал произошедшее в информационных целях, а достигнутые тактические результаты потеряли значение.";
+		pictureBackground = "images\recon_image_notext.jpg";
+		picture = "";
+		pictureColor[] = {0.5,0.4,0.4,1};
+	};
+};
+

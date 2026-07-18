@@ -1,0 +1,24 @@
+params ["_prefix", "_start", "_end", ["_color", "ColorOPFOR"], ["_labelStart", "Точка A"], ["_labelEnd", "Точка B"]];
+private _distance = _start distance2D _end;
+private _mid = [((_start select 0) + (_end select 0)) / 2, ((_start select 1) + (_end select 1)) / 2, 0];
+private _corridor = format ["%1_CORRIDOR", _prefix];
+createMarker [_corridor, _mid];
+_corridor setMarkerShape "RECTANGLE";
+_corridor setMarkerBrush "Border";
+_corridor setMarkerColor _color;
+_corridor setMarkerAlpha 0.48;
+_corridor setMarkerDir (_start getDir _end);
+_corridor setMarkerSize [(_distance / 2) max 500, 230];
+private _a = format ["%1_A", _prefix];
+createMarker [_a, _start];
+_a setMarkerShape "ICON";
+_a setMarkerType "mil_start";
+_a setMarkerColor _color;
+_a setMarkerText format [" %1", _labelStart];
+private _b = format ["%1_B", _prefix];
+createMarker [_b, _end];
+_b setMarkerShape "ICON";
+_b setMarkerType "mil_end";
+_b setMarkerColor _color;
+_b setMarkerText format [" %1", _labelEnd];
+[_corridor, _a, _b]

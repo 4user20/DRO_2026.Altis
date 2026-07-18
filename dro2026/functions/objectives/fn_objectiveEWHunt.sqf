@@ -1,0 +1,25 @@
+params ["_AOIndex"];
+private _pos = ["ENEMY_EW"] call DRO2026_fnc_getTheaterNode;
+private _taskName = format ["D26_EW_%1", floor random 1000000];
+private _marker = format ["D26_M_EW_%1", floor random 1000000];
+private _color = if (isNil "markerColorEnemy") then {"ColorOPFOR"} else {markerColorEnemy};
+createMarker [_marker, _pos]; _marker setMarkerShape "ELLIPSE"; _marker setMarkerSize [360,360]; _marker setMarkerBrush "Border"; _marker setMarkerColor _color; _marker setMarkerAlpha 0.58; _marker setMarkerText " Район работы РЭБ";
+private _role = if (enemySide == west) then {"EW_WEST"} else {"EW_EAST"};
+private _fallback = if (enemySide == west) then {"B_Truck_01_box_F"} else {"O_Truck_03_device_F"};
+private _vehicle = createVehicle [[_role, _fallback] call DRO2026_fnc_getRoleClass, _pos, [], 0, "NONE"];
+if (isNull _vehicle) exitWith {[_AOIndex] call DRO2026_fnc_objectiveUAVTeam};
+private _group = enemySide createVehicleCrew _vehicle;
+if (!isNull _group) then {[_group, false] call DRO2026_fnc_registerManagedGroup};
+DRO2026_managedVehicles pushBackUnique _vehicle;
+private _antenna = createVehicle ["Land_SatelliteAntenna_01_F", _pos getPos [45, random 360], [], 0, "NONE"];
+private _generator = createVehicle ["Land_PortableGenerator_01_F", _pos getPos [20, random 360], [], 0, "CAN_COLLIDE"];
+private _critical = [_vehicle, _antenna, _generator];
+[_pos, 3, 5, 110] call DRO2026_fnc_spawnGuard;
+DRO2026_sites pushBack createHashMapFromArray [["type", "EW_SITE"], ["position", _pos], ["object", _vehicle], ["objects", _critical]];
+private _title = "Подавить мобильный комплекс РЭБ";
+private _desc = "Комплекс РЭБ работает из конкретного тылового района и снижает достоверность разведконтактов, задерживает союзные автоматические удары и повышает вероятность потери управления БПЛА. Уничтожьте машину, антенну и источник питания.";
+private _meta = createHashMapFromArray [["type", "EW_HUNT"], ["critical", _critical]];
+[_taskName, _desc, _title, _marker, "destroy", _pos, 0.88, [], _meta] call DRO2026_fnc_createObjectiveRecord;
+[_taskName, _critical] spawn {params ["_task", "_critical"]; waitUntil {sleep 3; ({alive _x} count _critical) == 0}; DRO2026_resources set ["enemyEW", 0]; [_task, "TARGET_DESTROYED", [["enemyEW", -65]]] call DRO2026_fnc_completeObjective};
+[] spawn {waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1}; sleep 8; ["EW_TASK"] call DRO2026_fnc_hqVoice};
+_taskName

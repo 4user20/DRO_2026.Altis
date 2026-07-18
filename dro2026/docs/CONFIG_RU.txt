@@ -1,0 +1,39 @@
+НАСТРОЙКА DRO 2026
+
+Основные параметры находятся в:
+DRO_2026.Altis\dro2026\functions\core\fn_preInit.sqf
+
+DRO2026_PHYSICAL_DRONE_LIMIT = 8
+Максимум одновременно существующих физических БПЛА нового слоя.
+
+DRO2026_GROUP_ACTIVATION_DISTANCE = 1650
+Дальность пробуждения второстепенных пехотных групп.
+
+DRO2026_VEHICLE_ACTIVATION_DISTANCE = 2300
+Дальность пробуждения обычной техники.
+
+DRO2026_MIN_FPS_FOR_REINFORCEMENTS = 24
+Ниже этого среднего FPS новые реактивные подкрепления не создаются.
+
+DRO2026_CONTACT_TTL = 420
+Максимальный срок жизни разведконтакта в секундах.
+
+DRO2026_CONTACT_REQUIRED_FOR_FPV = 0.62
+Минимальная достоверность контакта для FPV-удара.
+
+DRO2026_FPV_COOLDOWN = 75
+Пауза между запросами союзного FPV.
+
+DRO2026_ISR_COOLDOWN = 180
+Пауза между запросами разведывательного БПЛА.
+
+Начальные ресурсы находятся в fn_initState.sqf:
+- enemySupply;
+- enemyArtilleryAmmo;
+- enemyDroneStock;
+- enemyLongRangeStock;
+- enemyReinforcement;
+- enemyEW;
+- enemyAirDefence;
+- friendlyFPVStock;
+- friendlyISRStock.

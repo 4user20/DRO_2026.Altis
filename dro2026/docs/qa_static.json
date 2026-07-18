@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0-rc1",
+  "syntax_text_files_checked": 155,
+  "custom_functions_registered": 38,
+  "embedded_ogg_count": 182,
+  "voice_events_referenced": 23,
+  "errors": [],
+  "informational": [
+    "requestFPV, requestISR and showStatus are invoked through CfgCommunicationMenu"
+  ],
+  "runtime_test": "not available in this environment"
+}
