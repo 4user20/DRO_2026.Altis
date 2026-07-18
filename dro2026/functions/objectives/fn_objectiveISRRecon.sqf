@@ -24,7 +24,7 @@ private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _pos
         if (_qualified) then {_observed = _observed + 2} else {_observed = (_observed - 1) max 0};
         if (_observed >= 90) exitWith {
             DRO2026_intelQuality = (DRO2026_intelQuality + 0.32) min 1;
-            {private _veh = _x; private _vehSide = side _veh; if (!isNull driver _veh) then {_vehSide = side (group (driver _veh))}; if (alive _veh && {_vehSide == enemySide} && {_veh distance2D _pos < 2200}) then {["PLAYER", _veh, getPosATL _veh, 0.86, "ISR_CONFIRMED"] call DRO2026_fnc_addContact}} forEach DRO2026_managedVehicles;
+            {private _veh = _x; private _vehSide = side _veh; if (!isNull (driver _veh)) then {_vehSide = side (group (driver _veh))}; if (alive _veh && {_vehSide == enemySide} && {_veh distance2D _pos < 2200}) then {["PLAYER", _veh, getPosATL _veh, 0.86, "ISR_CONFIRMED"] call DRO2026_fnc_addContact}} forEach DRO2026_managedVehicles;
             [_task, "TASK_COMPLETE", []] call DRO2026_fnc_completeObjective;
         };
         sleep 2;

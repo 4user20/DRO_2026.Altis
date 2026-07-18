@@ -1,5 +1,5 @@
 if (!isServer) exitWith {};
-while {true} do {
+while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep (105 + random 105);
     private _stock = DRO2026_resources getOrDefault ["enemyDroneStock", 0];
     if (_stock > 0 && {(count DRO2026_activeDrones) < DRO2026_PHYSICAL_DRONE_LIMIT}) then {
@@ -44,10 +44,11 @@ while {true} do {
                     private _angle = random 360;
                     private _announced = false;
                     while {alive _uav && {time < _end} && {alive _operator}} do {
-                        _angle = (_angle + 22) mod 360;
-                        private _orbitRadius = if (_isMicro) then {360} else {720};
+                        _angle = (_angle + 14 + random 17) mod 360;
+                        private _baseRadius = if (_isMicro) then {360} else {720};
+                        private _orbitRadius = (_baseRadius + (-70 + random 140)) max 180;
                         private _orbit = _searchCenter getPos [_orbitRadius, _angle];
-                        _orbit set [2, if (_isMicro) then {105} else {255}];
+                        _orbit set [2, (if (_isMicro) then {105} else {255}) + (-15 + random 30)];
                         if (!isNull (driver _uav)) then {(driver _uav) doMove _orbit};
 
                         if (!_announced && {((player knowsAbout _uav) > 1.1) || {player distance2D _uav < 900}}) then {
@@ -58,7 +59,9 @@ while {true} do {
                         {
                             private _friendly = vehicle _x;
                             if (alive _friendly && {_friendly distance2D _uav < (if (_isMicro) then {900} else {1550})}) then {
-                                private _vis = [_uav, "VIEW", _friendly] checkVisibility [eyePos _uav, aimPos _friendly];
+                                private _to = aimPos _friendly;
+                                if (_to isEqualTo [0,0,0]) then {_to = getPosASL _friendly vectorAdd [0,0,1.5]};
+                                private _vis = _uav checkVisibility [eyePos _uav, _to];
                                 if (_vis > 0.10) then {
                                     ["ENEMY", _friendly, getPosATL _friendly, (0.58 + (_vis * 0.32)) min 0.94, "БПЛА_РАЗВЕДКА"] call DRO2026_fnc_addContact;
                                     DRO2026_alertLevel = DRO2026_alertLevel max 0.54;

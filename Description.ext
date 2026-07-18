@@ -82,6 +82,16 @@ class RscTitles {
 
 class CfgCommunicationMenu
 {   
+	class DRO2026_OpenSupportConsole
+	{
+		text = "Панель поддержки штаба";
+		submenu = "";
+		expression = "[] call DRO2026_fnc_openSupportConsole";
+		icon = "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa";
+		cursor = "";
+		enable = "1";
+		removeAfterExpressionCall = 0;
+	};
 	class heliExtract
     {
         text = "Запросить эвакуацию"; // Text displayed in the menu and in a notification

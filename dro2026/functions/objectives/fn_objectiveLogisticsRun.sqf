@@ -26,7 +26,7 @@ DRO2026_managedVehicles pushBackUnique _truck;
 if (!isNull _group) then {
     [_group, false] call DRO2026_fnc_registerManagedGroup;
     _group setBehaviourStrong "SAFE"; _group setCombatMode "YELLOW"; _group setSpeedMode "NORMAL";
-    if (!isNull driver _truck) then {(driver _truck) disableAI "PATH"; doStop (driver _truck)};
+    if (!isNull (driver _truck)) then {(driver _truck) disableAI "PATH"; doStop (driver _truck)};
 };
 DRO2026_sites pushBack createHashMapFromArray [["type", "LOGISTICS_RUN"], ["position", _source], ["object", _truck], ["destination", _destination]];
 private _title = "Перехватить отдельный транспорт снабжения";
@@ -37,7 +37,7 @@ private _meta = createHashMapFromArray [["type", "LOGISTICS_RUN"], ["vehicle", _
     params ["_task", "_truck", "_destination", "_group"];
     waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1};
     sleep (15 + random 25);
-    if (alive _truck && {!isNull driver _truck} && {!isNull _group}) then {
+    if (alive _truck && {!isNull (driver _truck)} && {!isNull _group}) then {
         (driver _truck) enableAI "PATH";
         private _wp = _group addWaypoint [_destination, 15];
         _wp setWaypointType "MOVE";
