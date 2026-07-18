@@ -68,7 +68,7 @@ while {
         };
     };
 
-    if (_shotsAtPosition >= 2 && {canMove _arty} && {count _positions > 1} && {!isNull driver _arty}) then {
+    if (_shotsAtPosition >= 2 && {canMove _arty} && {count _positions > 1} && {!isNull (driver _arty)}) then {
         private _alternatives = _positions select {_arty distance2D _x > 180};
         if (count _alternatives > 0) then {
             private _next = selectRandom _alternatives;

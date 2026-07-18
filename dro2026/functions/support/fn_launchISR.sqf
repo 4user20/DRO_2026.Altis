@@ -63,10 +63,11 @@ if (!isNull _group) then {
 private _end = time + (if (_isMicro) then {360} else {if (_isHALE) then {720} else {520}});
 private _angle = 0;
 while {alive _uav && {time < _end} && {(isNull _operator) || {alive _operator}}} do {
-    _angle = (_angle + 18) mod 360;
-    private _orbitRadius = if (_isMicro) then {240} else {if (_isHALE) then {1600} else {650}};
+    _angle = (_angle + 12 + random 16) mod 360;
+    private _baseRadius = if (_isMicro) then {240} else {if (_isHALE) then {1600} else {650}};
+    private _orbitRadius = (_baseRadius + (-80 + random 160)) max 160;
     private _orbit = _position getPos [_orbitRadius, _angle];
-    _orbit set [2, _height];
+    _orbit set [2, _height + (-18 + random 36)];
     if (!isNull (driver _uav)) then {(driver _uav) doMove _orbit};
 
     private _ew = DRO2026_resources getOrDefault ["enemyEW", 0];
@@ -82,7 +83,9 @@ while {alive _uav && {time < _end} && {(isNull _operator) || {alive _operator}}}
         if (!isNull _grp && {(side _grp) == enemySide} && {count units _grp > 0}) then {
             private _target = vehicle (leader _grp);
             if (alive _target && {_target distance2D _uav < _scanRadius}) then {
-                private _vis = [_uav, "VIEW", _target] checkVisibility [eyePos _uav, aimPos _target];
+                private _to = aimPos _target;
+                if (_to isEqualTo [0,0,0]) then {_to = getPosASL _target vectorAdd [0,0,1.5]};
+                private _vis = _uav checkVisibility [eyePos _uav, _to];
                 if (_vis > 0.08) then {
                     ["PLAYER", _target, getPosATL _target, (_baseConfidence + (_vis * 0.1)) min 0.97, "БПЛА"] call DRO2026_fnc_addContact;
                 };

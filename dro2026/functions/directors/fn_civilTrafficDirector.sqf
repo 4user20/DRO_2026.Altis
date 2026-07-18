@@ -1,5 +1,5 @@
 if (!isServer) exitWith {};
-while {true} do {
+while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep (140 + random 110);
     DRO2026_civilTraffic = DRO2026_civilTraffic select {
         private _veh = _x getOrDefault ["vehicle", objNull];

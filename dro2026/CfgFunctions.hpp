@@ -26,6 +26,8 @@ class CfgFunctions
             class completeObjective {};
             class createFriendlyPositions {};
             class createStrategicInfrastructure {};
+            class calculateTerrainAwareAim {};
+            class resolveLauncherAmmo {};
             class clientInit {postInit = 1;};
         };
         class Directors
@@ -70,6 +72,10 @@ class CfgFunctions
             class requestFPV {};
             class requestISR {};
             class requestLongRangeSupport {};
+            class openSupportConsole {};
+            class beginSupportTargeting {};
+            class requestArtillery {};
+            class requestAirSupport {};
             class launchISR {};
             class showStatus {};
         };

@@ -1,5 +1,8 @@
 params ["_objectivePos", "_thisTask", ["_reinfType", 1]];
 
+// DRO2026 tasks own their completion, voice and reaction lifecycle. Do not attach legacy extras or reinforcements.
+if ((toUpperANSI _thisTask find "D26_") == 0) exitWith {};
+
 // Add cancel button to task
 _taskData = [_thisTask] call BIS_fnc_taskDescription;
 _taskDesc = (_taskData select 0) select 0;
@@ -43,7 +46,7 @@ switch (_reinfType) do {
 				["TASK_SUCCEED"] spawn dro_sendProgressMessage;
 			};
 			reinforceChance = ((reinforceChance + 0.1) * aiMultiplier);
-			if ((random 1) < reinforceChance) then {
+			if (!(missionNamespace getVariable ["DRO2026_DISABLE_LEGACY_REINFORCEMENTS", false]) && {(random 1) < reinforceChance}) then {
 				if (!stealthActive && enemyCommsActive) then {
 					[_objectivePos, [1,2]] execVM 'sunday_system\reinforce.sqf';
 				};
