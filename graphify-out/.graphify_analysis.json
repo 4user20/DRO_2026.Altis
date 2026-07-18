@@ -1,0 +1,402 @@
+{
+  "communities": {
+    "0": [
+      "access",
+      "linespacing",
+      "sunday_system_dialogs_defines_drobigbutton",
+      "sunday_system_dialogs_defines_drobigbutton_ct_button",
+      "sunday_system_dialogs_defines_drocheckboxremove",
+      "sunday_system_dialogs_defines_drocheckboxremove_ct_checkboxes",
+      "sunday_system_dialogs_defines_drocheckboxremove_st_center",
+      "sunday_system_dialogs_defines_drocheckboxsupports",
+      "sunday_system_dialogs_defines_drocheckboxsupports_ct_checkboxes",
+      "sunday_system_dialogs_defines_drocheckboxsupports_st_center",
+      "sunday_system_dialogs_defines_hpp_fade",
+      "sunday_system_dialogs_defines_hpp_font",
+      "sunday_system_dialogs_defines_hpp_h",
+      "sunday_system_dialogs_defines_hpp_idc",
+      "sunday_system_dialogs_defines_hpp_style",
+      "sunday_system_dialogs_defines_hpp_text",
+      "sunday_system_dialogs_defines_hpp_type",
+      "sunday_system_dialogs_defines_hpp_w",
+      "sunday_system_dialogs_defines_hpp_x",
+      "sunday_system_dialogs_defines_hpp_y",
+      "sunday_system_dialogs_defines_sundayheading",
+      "sunday_system_dialogs_defines_sundayheading_ct_static",
+      "sunday_system_dialogs_defines_sundayheading_st_center",
+      "sunday_system_dialogs_defines_sundayselbutton",
+      "sunday_system_dialogs_defines_sundayselbutton_ct_button",
+      "sunday_system_dialogs_defines_sundayselbuttonpic",
+      "sunday_system_dialogs_defines_sundayselbuttonpic_ct_static",
+      "sunday_system_dialogs_defines_sundayselbuttonselect",
+      "sunday_system_dialogs_defines_sundayselbuttonselect_ct_static",
+      "sunday_system_dialogs_defines_sundayselbuttonselect_st_right",
+      "sunday_system_dialogs_defines_sundayselbuttontitle",
+      "sunday_system_dialogs_defines_sundayselbuttontitle_ct_static",
+      "sunday_system_dialogs_defines_sundayselbuttontitle_st_left",
+      "sunday_system_dialogs_defines_sundaytext",
+      "sunday_system_dialogs_defines_sundaytext_ct_static",
+      "sunday_system_dialogs_defines_sundaytext_st_left",
+      "sunday_system_dialogs_defines_sundaytextmt",
+      "sunday_system_dialogs_defines_sundaytextmt_ct_static",
+      "sunday_system_dialogs_defines_sundaytextmt_st_multi"
+    ],
+    "1": [
+      "icon",
+      "sunday_system_dialogs_defines",
+      "sunday_system_dialogs_defines_activemarker",
+      "sunday_system_dialogs_defines_bunker",
+      "sunday_system_dialogs_defines_bush",
+      "sunday_system_dialogs_defines_busstop",
+      "sunday_system_dialogs_defines_chapel",
+      "sunday_system_dialogs_defines_church",
+      "sunday_system_dialogs_defines_command",
+      "sunday_system_dialogs_defines_cross",
+      "sunday_system_dialogs_defines_custommark",
+      "sunday_system_dialogs_defines_fortress",
+      "sunday_system_dialogs_defines_fountain",
+      "sunday_system_dialogs_defines_fuelstation",
+      "sunday_system_dialogs_defines_hospital",
+      "sunday_system_dialogs_defines_legend",
+      "sunday_system_dialogs_defines_lighthouse",
+      "sunday_system_dialogs_defines_power",
+      "sunday_system_dialogs_defines_powersolar",
+      "sunday_system_dialogs_defines_powerwave",
+      "sunday_system_dialogs_defines_powerwind",
+      "sunday_system_dialogs_defines_quay",
+      "sunday_system_dialogs_defines_rock",
+      "sunday_system_dialogs_defines_ruin",
+      "sunday_system_dialogs_defines_shipwreck",
+      "sunday_system_dialogs_defines_smalltree",
+      "sunday_system_dialogs_defines_stack",
+      "sunday_system_dialogs_defines_tourism",
+      "sunday_system_dialogs_defines_transmitter",
+      "sunday_system_dialogs_defines_tree",
+      "sunday_system_dialogs_defines_viewtower",
+      "sunday_system_dialogs_defines_watertower",
+      "sunday_system_dialogs_defines_waypoint",
+      "sunday_system_dialogs_defines_waypointcompleted"
+    ],
+    "2": [
+      "drobasicbutton",
+      "sunday_system_dialogs_dialogslobby",
+      "sunday_system_dialogs_dialogslobby_dro_lobbydialog",
+      "sunday_system_dialogs_dialogslobby_hpp_action",
+      "sunday_system_dialogs_dialogslobby_hpp_font",
+      "sunday_system_dialogs_dialogslobby_hpp_h",
+      "sunday_system_dialogs_dialogslobby_hpp_idc",
+      "sunday_system_dialogs_dialogslobby_hpp_idd",
+      "sunday_system_dialogs_dialogslobby_hpp_movingenable",
+      "sunday_system_dialogs_dialogslobby_hpp_sizeex",
+      "sunday_system_dialogs_dialogslobby_hpp_style",
+      "sunday_system_dialogs_dialogslobby_hpp_text",
+      "sunday_system_dialogs_dialogslobby_hpp_w",
+      "sunday_system_dialogs_dialogslobby_hpp_x",
+      "sunday_system_dialogs_dialogslobby_hpp_y",
+      "sunday_system_dialogs_dialogslobby_insertgroup",
+      "sunday_system_dialogs_dialogslobby_loadoutgroup",
+      "sunday_system_dialogs_dialogslobby_loadoutgroup_safezonex",
+      "sunday_system_dialogs_dialogslobby_menuleft",
+      "sunday_system_dialogs_dialogslobby_menuright",
+      "sunday_system_dialogs_dialogslobby_previewmap",
+      "sunday_system_dialogs_dialogslobby_sundaystartbutton",
+      "sunday_system_dialogs_dialogslobby_supportsgroup",
+      "sunday_system_dialogs_dialogslobby_unittext",
+      "sunday_system_dialogs_dialogslobby_unittextbg"
+    ],
+    "3": [
+      "rsccontrolsgroup",
+      "sunday_system_dialogs_dialogsmainmenu_addfactionsgroup",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_action",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_h",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_text",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_w",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_x",
+      "sunday_system_dialogs_dialogsmainmenu_infogroup",
+      "sunday_system_dialogs_dialogsmainmenu_infogroup_safezonex",
+      "sunday_system_dialogs_dialogsmainmenu_menuleft",
+      "sunday_system_dialogs_dialogsmainmenu_menuright",
+      "sunday_system_dialogs_dialogsmainmenu_objectivesgroup",
+      "sunday_system_dialogs_dialogsmainmenu_scenariogroup",
+      "sunday_system_dialogs_dialogsmainmenu_sundaystartbutton",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitleaisize",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitlecivilians",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitleenemy",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitlepic",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitleplayer",
+      "sunday_system_dialogs_dialogsmainmenu_sundaywarningbox"
+    ],
+    "4": [
+      "rscpicture",
+      "sunday_system_dialogs_dialogs",
+      "sunday_system_dialogs_dialogs_dro_facade",
+      "sunday_system_dialogs_dialogs_dro_splash",
+      "sunday_system_dialogs_dialogs_hpp_fade",
+      "sunday_system_dialogs_dialogs_hpp_font",
+      "sunday_system_dialogs_dialogs_hpp_h",
+      "sunday_system_dialogs_dialogs_hpp_idc",
+      "sunday_system_dialogs_dialogs_hpp_idd",
+      "sunday_system_dialogs_dialogs_hpp_movingenable",
+      "sunday_system_dialogs_dialogs_hpp_sizeex",
+      "sunday_system_dialogs_dialogs_hpp_text",
+      "sunday_system_dialogs_dialogs_hpp_w",
+      "sunday_system_dialogs_dialogs_hpp_x",
+      "sunday_system_dialogs_dialogs_hpp_y",
+      "sunday_system_dialogs_dialogs_splash",
+      "sunday_system_dialogs_dialogs_sun_loadscreen"
+    ],
+    "5": [
+      "rsccontrolsgroupnoscrollbars",
+      "rscmapcontrol",
+      "sunday_system_dialogs_dialogsmainmenu",
+      "sunday_system_dialogs_dialogsmainmenu_animalsswitchbutton",
+      "sunday_system_dialogs_dialogsmainmenu_civsswitchbutton",
+      "sunday_system_dialogs_dialogsmainmenu_dynsimswitchbutton",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_idc",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_y",
+      "sunday_system_dialogs_dialogsmainmenu_mapbox",
+      "sunday_system_dialogs_dialogsmainmenu_minesswitchbutton",
+      "sunday_system_dialogs_dialogsmainmenu_reviveswitchbutton",
+      "sunday_system_dialogs_dialogsmainmenu_spacer2",
+      "sunday_system_dialogs_dialogsmainmenu_spacer3",
+      "sunday_system_dialogs_dialogsmainmenu_spacer4",
+      "sunday_system_dialogs_dialogsmainmenu_stealthswitchbutton",
+      "sundayspacer"
+    ],
+    "6": [
+      "drocombo",
+      "onlbselchanged",
+      "rowheight",
+      "sunday_system_dialogs_dialogsmainmenu_sundaycbday",
+      "sunday_system_dialogs_dialogsmainmenu_sundaycbmonth",
+      "sunday_system_dialogs_dialogsmainmenu_sundaycombocivfactions",
+      "sunday_system_dialogs_dialogsmainmenu_sundaycomboenemyfactions",
+      "sunday_system_dialogs_dialogsmainmenu_sundaycomboplayerfactions",
+      "wholeheight"
+    ],
+    "7": [
+      "linedistancemin",
+      "linelengthmin",
+      "linewidththick",
+      "linewidththin",
+      "sunday_system_dialogs_defines_linemarker",
+      "texturecomboboxcolor"
+    ],
+    "8": [
+      "dro2026_docs_credits_ru",
+      "dro2026_dynamic_recon_ops",
+      "images_recon_image",
+      "images_recon_image_collection",
+      "images_recon_image_notext"
+    ],
+    "9": [
+      "size",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_fade",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_type",
+      "sunday_system_dialogs_dialogsmainmenu_sundaywarningtext",
+      "sunday_system_dialogs_dialogsmainmenu_sundaywarningtext_ct_structured_text"
+    ],
+    "10": [
+      "sunday_system_dialogs_dialogsmainmenu_environmentgroup",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_font",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_sizeex",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitleday",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitlemonth"
+    ],
+    "11": [
+      "sunday_system_dialogs_dialogsmainmenu_hpp_style",
+      "sunday_system_dialogs_dialogsmainmenu_sundaysliderweatherbad",
+      "sunday_system_dialogs_dialogsmainmenu_sundaysliderweatherbad_st_right",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitlechoose",
+      "sunday_system_dialogs_dialogsmainmenu_sundaytitlechoose_st_center"
+    ],
+    "12": [
+      "onsliderposchanged",
+      "sunday_system_dialogs_dialogsmainmenu_sundayslideraisize",
+      "sunday_system_dialogs_dialogsmainmenu_sundaysliderweather",
+      "sundayslider"
+    ],
+    "13": [
+      "dro2026_docs_config_ru",
+      "dro2026_functions_core_fn_initstate",
+      "dro2026_functions_core_fn_preinit"
+    ],
+    "14": [
+      "dro2026_docs_optional_mods_ru",
+      "dro2026_docs_readme_ru",
+      "dro2026_docs_test_report_ru"
+    ],
+    "15": [
+      "sunday_system_dialogs_dialogsmainmenu_hpp_idd",
+      "sunday_system_dialogs_dialogsmainmenu_hpp_movingenable",
+      "sunday_system_dialogs_dialogsmainmenu_sundaydialog"
+    ],
+    "16": [
+      "dro2026_cfgfunctions",
+      "dro2026_cfgfunctions_cfgfunctions"
+    ],
+    "17": [
+      "dro2026_docs_changelog_ru"
+    ],
+    "18": [
+      "dro2026_docs_voice_transcript_ru"
+    ]
+  },
+  "cohesion": {
+    "0": 0.10931174089068826,
+    "1": 0.11051693404634581,
+    "2": 0.25333333333333335,
+    "3": 0.29473684210526313,
+    "4": 0.15441176470588236,
+    "5": 0.3333333333333333,
+    "6": 0.4444444444444444,
+    "7": 0.3333333333333333,
+    "8": 0.4,
+    "9": 0.4,
+    "10": 0.6,
+    "11": 0.4,
+    "12": 0.6666666666666666,
+    "13": 0.6666666666666666,
+    "14": 0.6666666666666666,
+    "15": 0.6666666666666666,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0
+  },
+  "gods": [
+    {
+      "id": "sunday_system_dialogs_defines_sundaytext",
+      "label": "sundayText",
+      "degree": 19
+    },
+    {
+      "id": "sunday_system_dialogs_defines_drocheckboxremove",
+      "label": "DROCheckBoxRemove",
+      "degree": 12
+    },
+    {
+      "id": "sunday_system_dialogs_defines_drocheckboxsupports",
+      "label": "DROCheckBoxSupports",
+      "degree": 12
+    },
+    {
+      "id": "sunday_system_dialogs_dialogsmainmenu_sundaywarningtext",
+      "label": "sundayWarningText",
+      "degree": 12
+    },
+    {
+      "id": "sunday_system_dialogs_dialogsmainmenu_sundaytitlechoose",
+      "label": "sundayTitleChoose",
+      "degree": 11
+    },
+    {
+      "id": "sunday_system_dialogs_dialogsmainmenu_sundaycomboplayerfactions",
+      "label": "sundayComboPlayerFactions",
+      "degree": 11
+    },
+    {
+      "id": "sunday_system_dialogs_dialogsmainmenu_sundaycomboenemyfactions",
+      "label": "sundayComboEnemyFactions",
+      "degree": 11
+    },
+    {
+      "id": "sunday_system_dialogs_dialogsmainmenu_sundaycombocivfactions",
+      "label": "sundayComboCivFactions",
+      "degree": 11
+    },
+    {
+      "id": "sunday_system_dialogs_defines_sundayheading",
+      "label": "sundayHeading",
+      "degree": 10
+    },
+    {
+      "id": "sunday_system_dialogs_defines_sundaytextmt",
+      "label": "sundayTextMT",
+      "degree": 10
+    }
+  ],
+  "surprises": [
+    {
+      "source": "sundayTitleChoose",
+      "target": "sundayHeading",
+      "source_files": [
+        "sunday_system/dialogs/dialogsMainMenu.hpp",
+        "sunday_system/dialogs/defines.hpp"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "unitTextBG",
+      "target": "sundayText",
+      "source_files": [
+        "sunday_system/dialogs/dialogsLobby.hpp",
+        "sunday_system/dialogs/defines.hpp"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "sundaySliderWeatherBad",
+      "target": "sundayText",
+      "source_files": [
+        "sunday_system/dialogs/dialogsMainMenu.hpp",
+        "sunday_system/dialogs/defines.hpp"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "sundayTitleAISize",
+      "target": "sundayText",
+      "source_files": [
+        "sunday_system/dialogs/dialogsMainMenu.hpp",
+        "sunday_system/dialogs/defines.hpp"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "sundayTitleCivilians",
+      "target": "sundayText",
+      "source_files": [
+        "sunday_system/dialogs/dialogsMainMenu.hpp",
+        "sunday_system/dialogs/defines.hpp"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "inherits",
+      "why": "bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `sundayText` connect `UI Checkbox Components` to `Map Marker Icons`, `Lobby Dialog UI`, `Faction Selection UI`, `Warning Text Elements`, `Environment Settings UI`, `Weather Selection UI`?",
+      "why": "High betweenness centrality (0.311) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `sundayTitlePic` connect `Faction Selection UI` to `Splash Screen UI`, `Main Menu Settings`?",
+      "why": "High betweenness centrality (0.143) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `CfgFunctions`, `CT_STATIC`, `ST_CENTER` to the rest of the system?",
+      "why": "33 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `UI Checkbox Components` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.10931174089068826 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Map Marker Icons` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.11051693404634581 - nodes in this community are weakly interconnected."
+    }
+  ]
+}
