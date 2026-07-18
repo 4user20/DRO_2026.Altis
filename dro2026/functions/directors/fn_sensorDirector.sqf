@@ -2,32 +2,34 @@ if (!isServer) exitWith {};
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     // Разведданные игрока: только реально созданные и отслеживаемые силы.
     {
-        private _grp = _x;
-        if (!isNull _grp && {(side _grp) == enemySide} && {count units _grp > 0}) then {
-            private _lead = leader _grp;
-            if (alive _lead) then {
-                private _knowledge = player knowsAbout _lead;
+        private _group = _x;
+        if (!isNull _group && {(side _group) == enemySide} && {count units _group > 0}) then {
+            private _leader = leader _group;
+            if (alive _leader) then {
+                private _knowledge = player knowsAbout _leader;
                 private _visible = false;
-                if ((player distance2D _lead) < 550) then {
-                    _visible = (player checkVisibility [eyePos player, eyePos _lead]) > 0.30;
+                if ((player distance2D _leader) < 550) then {
+                    _visible = ([player, "VIEW"] checkVisibility [eyePos player, eyePos _leader]) > 0.30;
                 };
                 if (_knowledge > 1.2 || {_visible}) then {
-                    private _confidence = if (_visible) then {0.74} else {linearConversion [1.2, 4, _knowledge, 0.45, 0.95, true]};
-                    ["PLAYER", vehicle _lead, getPosATL (vehicle _lead), _confidence, "ГРУППА"] call DRO2026_fnc_addContact;
+                    private _confidence = if (_visible) then {0.74} else {
+                        linearConversion [1.2, 4, _knowledge, 0.45, 0.95, true]
+                    };
+                    ["PLAYER", vehicle _leader, getPosATL (vehicle _leader), _confidence, "ГРУППА"] call DRO2026_fnc_addContact;
                 };
             };
         };
     } forEach DRO2026_managedGroups;
 
     {
-        private _veh = _x;
-        if (alive _veh) then {
-            private _vehSide = side _veh;
-            if (!isNull (driver _veh)) then {_vehSide = side (group (driver _veh))};
-            if (_vehSide == enemySide) then {
-                private _knowledge = player knowsAbout _veh;
+        private _vehicle = _x;
+        if (alive _vehicle) then {
+            private _vehicleSide = side _vehicle;
+            if (!isNull (driver _vehicle)) then {_vehicleSide = side (group (driver _vehicle))};
+            if (_vehicleSide == enemySide) then {
+                private _knowledge = player knowsAbout _vehicle;
                 if (_knowledge > 1.1) then {
-                    ["PLAYER", _veh, getPosATL _veh, linearConversion [1.1, 4, _knowledge, 0.5, 1, true], "ТЕХНИКА"] call DRO2026_fnc_addContact;
+                    ["PLAYER", _vehicle, getPosATL _vehicle, linearConversion [1.1, 4, _knowledge, 0.5, 1, true], "ТЕХНИКА"] call DRO2026_fnc_addContact;
                 };
             };
         };
@@ -51,7 +53,6 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         };
     } forEach units (group player);
 
-    // Контакты стареют; точные данные не сохраняются бесконечно.
     private _now = time;
     {
         private _age = _now - (_x getOrDefault ["lastSeen", _now]);
@@ -68,7 +69,9 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _expired = DRO2026_contacts select {
         private _age = _now - (_x getOrDefault ["lastSeen", _now]);
         private _target = _x getOrDefault ["target", objNull];
-        _age >= DRO2026_CONTACT_TTL || {(!isNull _target) && {!alive _target}} || {(_x getOrDefault ["confidence", 0]) <= 0.04}
+        _age >= DRO2026_CONTACT_TTL ||
+        {(!isNull _target) && {!alive _target}} ||
+        {(_x getOrDefault ["confidence", 0]) <= 0.04}
     };
     {
         private _marker = _x getOrDefault ["marker", ""];
