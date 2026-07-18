@@ -111,7 +111,10 @@ if (_requestedType == "FP5") then {
 [_origin, _baseContact, _operator, _requestedType, _decoy, _launchCount] spawn {
     params ["_origin", "_baseContact", "_operator", "_type", "_decoy", "_count"];
     for "_index" from 0 to (_count - 1) do {
-        private _contact = +_baseContact;
+        private _contact = createHashMap;
+        {
+            _contact set [_x, _baseContact get _x];
+        } forEach keys _baseContact;
         private _basePosition = _baseContact getOrDefault ["position", [0,0,0]];
         if (_count > 1 && {isNull (_baseContact getOrDefault ["target", objNull])}) then {
             _contact set ["position", _basePosition getPos [40 + random 260, random 360]];
