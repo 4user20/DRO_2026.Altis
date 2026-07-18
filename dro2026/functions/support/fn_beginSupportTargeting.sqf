@@ -17,6 +17,8 @@ switch true do {
     case (_upper == "ISR_MICRO"): {[_position, "MICRO"] call DRO2026_fnc_requestISR};
     case (_upper == "ISR_RQ7"): {[_position, "RQ7"] call DRO2026_fnc_requestISR};
     case (_upper == "ISR_MQ4A"): {[_position, "MQ4A"] call DRO2026_fnc_requestISR};
+    case (_upper == "ISR_TACTICAL"): {[_position, "TACTICAL"] call DRO2026_fnc_requestISR};
+    case (_upper == "ISR_HALE"): {[_position, "HALE"] call DRO2026_fnc_requestISR};
     case (_upper == "STRIKE_FP1"): {[_position, "FP1", false, _quantity] call DRO2026_fnc_requestLongRangeSupport};
     case (_upper == "STRIKE_FP2"): {[_position, "FP2", false, _quantity] call DRO2026_fnc_requestLongRangeSupport};
     case (_upper == "STRIKE_BM35"): {[_position, "BM35", false, _quantity] call DRO2026_fnc_requestLongRangeSupport};
