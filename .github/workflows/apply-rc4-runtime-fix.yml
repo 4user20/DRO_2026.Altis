@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode tools/rc4_payload.tar.gz.b64 | tar -xz
+          tar -xzf tools/rc4_payload.tar.gz.b64
           rm -f tools/rc4_payload.tar.gz.b64
           rm -f .github/workflows/apply-rc4-runtime-fix.yml
 
