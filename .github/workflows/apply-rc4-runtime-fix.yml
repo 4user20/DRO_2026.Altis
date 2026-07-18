@@ -6,17 +6,12 @@ on:
       - fix/runtime-performance-drone-orchestration
     paths:
       - .github/workflows/apply-rc4-runtime-fix.yml
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.event_name == 'push' || github.head_ref == 'fix/runtime-performance-drone-orchestration'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout fix branch
@@ -31,7 +26,6 @@ jobs:
           set -euo pipefail
           tar -xzf tools/rc4_payload.tar.gz.b64
           rm -f tools/rc4_payload.tar.gz.b64
-          rm -f .github/workflows/apply-rc4-runtime-fix.yml
           python3 - <<'PY'
           from pathlib import Path
           p = Path('tools/validate_rc4.py')
