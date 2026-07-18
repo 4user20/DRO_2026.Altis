@@ -25,20 +25,26 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _count = (1 + floor random _maxSalvo) min _stock min _slots;
             private _type = "AUTO";
             private _enemyPool = DRO2026_assetRegistry getOrDefault [if (enemySide == west) then {"LONG_RANGE_WEST"} else {"LONG_RANGE_EAST"}, []];
-            private _hasShahed = (_enemyPool findIf {private _n = toLowerANSI _x; (_n find "shahed") >= 0 || {(_n find "geran") >= 0}}) >= 0;
+            private _hasShahed = (_enemyPool findIf {
+                private _name = toLowerANSI _x;
+                (_name find "shahed") >= 0 || {(_name find "geran") >= 0}
+            }) >= 0;
             if (_hasShahed && {enemySide == east} && {random 1 < 0.72}) then {_type = "SHAHED"};
 
             DRO2026_resources set ["enemyLongRangeStock", (_stock - _count) max 0];
             DRO2026_lastEnemyLongRange = time;
             [_origin, _contact, _operator, _type, _count] spawn {
                 params ["_origin", "_contact", "_operator", "_type", "_count"];
-                for "_i" from 0 to (_count - 1) do {
-                    private _c = +_contact;
+                for "_index" from 0 to (_count - 1) do {
+                    private _copy = createHashMap;
+                    {
+                        _copy set [_x, _contact get _x];
+                    } forEach keys _contact;
                     if (isNull (_contact getOrDefault ["target", objNull]) && {_count > 1}) then {
-                        private _p = _contact getOrDefault ["position", [0,0,0]];
-                        _c set ["position", _p getPos [80 + random 300, random 360]];
+                        private _position = _contact getOrDefault ["position", [0,0,0]];
+                        _copy set ["position", _position getPos [80 + random 300, random 360]];
                     };
-                    [_origin, _c, enemySide, false, _operator, _type, false, _i, _count] spawn DRO2026_fnc_launchLongRangeStrike;
+                    [_origin, _copy, enemySide, false, _operator, _type, false, _index, _count] spawn DRO2026_fnc_launchLongRangeStrike;
                     sleep (3 + random 5);
                 };
             };
