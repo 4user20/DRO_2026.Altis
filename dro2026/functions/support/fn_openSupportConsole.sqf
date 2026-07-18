@@ -88,7 +88,7 @@ private _fp1Launcher = ["FP1"] call _launcherRole;
 private _fp2Launcher = ["FP2"] call _launcherRole;
 private _bm35Launcher = ["BM35"] call _launcherRole;
 private _bulavaLauncher = ["BULAVA"] call _launcherRole;
-if ([_fp1Launcher] call _hasRole || {[_isWest && {"STRIKE_AMMO_FP1" != ""}, "STRIKE_AMMO_FP1"] select 1 call _hasAmmo}) then {
+if ([_fp1Launcher] call _hasRole || {_isWest && {(["STRIKE_AMMO_FP1"] call _hasAmmo)}}) then {
     ["Дальний удар — FP-1", "STRIKE_FP1"] call _addRow;
 };
 if ([_longRole, ["fp2"]] call _roleContains || {[_fp2Launcher] call _hasRole}) then {
