@@ -1,17 +1,17 @@
 name: Apply RC4 runtime fix
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/runtime-performance-drone-orchestration
-    paths:
-      - .github/workflows/apply-rc4-runtime-fix.yml
+      - main
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   apply:
+    if: github.head_ref == 'fix/runtime-performance-drone-orchestration'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout fix branch
@@ -20,7 +20,19 @@ jobs:
           ref: fix/runtime-performance-drone-orchestration
           fetch-depth: 0
 
+      - name: Detect unapplied payload
+        id: payload
+        shell: bash
+        run: |
+          if [[ -f tools/rc4_payload.tar.gz.b64 ]]; then
+            echo "apply=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "apply=false" >> "$GITHUB_OUTPUT"
+            echo "RC4 payload already applied; nothing to do."
+          fi
+
       - name: Expand reviewed RC4 source payload
+        if: steps.payload.outputs.apply == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -35,9 +47,11 @@ jobs:
           PY
 
       - name: Static SQF validation
+        if: steps.payload.outputs.apply == 'true'
         run: python3 tools/validate_rc4.py
 
       - name: Commit expanded RC4 implementation
+        if: steps.payload.outputs.apply == 'true'
         shell: bash
         run: |
           set -euo pipefail
