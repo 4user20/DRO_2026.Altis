@@ -32,6 +32,13 @@ jobs:
           tar -xzf tools/rc4_payload.tar.gz.b64
           rm -f tools/rc4_payload.tar.gz.b64
           rm -f .github/workflows/apply-rc4-runtime-fix.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/validate_rc4.py')
+          text = p.read_text()
+          text = text.replace("root=Path('/mnt/data/worktree/DRO_2026.Altis')", "root=Path(__file__).resolve().parents[1]")
+          p.write_text(text)
+          PY
 
       - name: Static SQF validation
         run: python3 tools/validate_rc4.py
