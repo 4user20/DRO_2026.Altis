@@ -33,9 +33,9 @@ private _launcherHasAmmo = {
 
 private _available = switch _requestedType do {
     case "FP1": {[["FP1"] call _launcherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};
-    case "FP2": {[_longRole, ["fp2"]] call _roleHasToken || {["FP2" call _launcherRole, "STRIKE_AMMO_FP2"] call _launcherHasAmmo}};
-    case "BM35": {[_longRole, ["bm35"]] call _roleHasToken || {["BM35" call _launcherRole, "STRIKE_AMMO_BM35"] call _launcherHasAmmo}};
-    case "BULAVA": {["BULAVA" call _launcherRole, ""] call _launcherHasAmmo};
+    case "FP2": {[_longRole, ["fp2"]] call _roleHasToken || {[(["FP2"] call _launcherRole), "STRIKE_AMMO_FP2"] call _launcherHasAmmo}};
+    case "BM35": {[_longRole, ["bm35"]] call _roleHasToken || {[(["BM35"] call _launcherRole), "STRIKE_AMMO_BM35"] call _launcherHasAmmo}};
+    case "BULAVA": {[(["BULAVA"] call _launcherRole), ""] call _launcherHasAmmo};
     case "FP5": {playersSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _launcherHasAmmo}};
     case "SHAHED": {[_longRole, ["shahed", "geran"]] call _roleHasToken || {count (DRO2026_ammoRegistry getOrDefault ["STRIKE_AMMO_SHAHED", []]) > 0}};
     default {count (DRO2026_assetRegistry getOrDefault [_longRole, []]) > 0};
