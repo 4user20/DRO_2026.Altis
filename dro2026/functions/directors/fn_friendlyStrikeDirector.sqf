@@ -1,5 +1,5 @@
 if (!isServer) exitWith {};
-while {true} do {
+while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep 18;
     if ((time - DRO2026_lastFriendlyStrike) > (85 + random 95) && {(count DRO2026_activeDrones) < DRO2026_PHYSICAL_DRONE_LIMIT}) then {
         private _contacts = DRO2026_contacts select {

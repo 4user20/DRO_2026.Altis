@@ -29,9 +29,20 @@ private _critical = [];
     };
 } forEach [_lr, _radar, _sr];
 if (count _critical == 0) exitWith {[_AOIndex] call DRO2026_fnc_objectiveEWHunt};
-[_longPos, 4, 6, 120] call DRO2026_fnc_spawnGuard;
-[_shortPos, 3, 4, 80] call DRO2026_fnc_spawnGuard;
-DRO2026_sites pushBack createHashMapFromArray [["type", "AIR_DEFENCE_SITE"], ["position", _longPos], ["object", _lr], ["objects", _critical]];
+[_longPos, 2, 3, 120] call DRO2026_fnc_spawnGuard;
+[_shortPos, 2, 3, 80] call DRO2026_fnc_spawnGuard;
+DRO2026_sites pushBack createHashMapFromArray [["type", "AIR_DEFENCE_SITE"], ["position", _longPos], ["object", _lr], ["radar", _radar], ["shorad", _sr], ["objects", _critical], ["networked", true]];
+if (!isNull _lr && {!isNull _radar}) then {
+    [_lr, _radar] spawn {
+        params ["_launcher", "_radar"];
+        waitUntil {sleep 2; isNull _launcher || {!alive _launcher} || {isNull _radar} || {!alive _radar}};
+        if (!isNull _launcher && {alive _launcher}) then {
+            _launcher setVehicleReceiveRemoteTargets false;
+            _launcher setVehicleReportRemoteTargets false;
+            if (!isNull (gunner _launcher)) then {(gunner _launcher) disableAI "AUTOTARGET"; (gunner _launcher) disableAI "TARGET"};
+        };
+    };
+};
 private _title = "Подавить эшелонированный район ПВО";
 private _desc = format ["В глубоком тылу противника развёрнут эшелонированный район ПВО: дальнобойный комплекс, радиолокационный пост и ближнее прикрытие. Район закрывает дальние БПЛА и авиацию. Дальность до центра района — около %1 км. Уничтожьте минимум дальнюю пусковую, радар и ближний компонент прикрытия.", (((AOLocations select _AOIndex) select 0 distance2D _longPos) / 1000) toFixed 1];
 private _meta = createHashMapFromArray [["type", "AIR_DEFENCE"], ["critical", _critical]];

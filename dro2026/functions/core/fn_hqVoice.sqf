@@ -6,6 +6,7 @@ if (count _variants == 0) exitWith {
 };
 private _variant = +(selectRandom _variants);
 if (_forceSubtitle != "") then {_variant set [2, _forceSubtitle]};
+if (count DRO2026_voiceQueue >= 8) then {DRO2026_voiceQueue deleteAt 0};
 DRO2026_voiceQueue pushBack _variant;
 if (!DRO2026_voiceWorkerActive) then {
     DRO2026_voiceWorkerActive = true;
@@ -16,12 +17,10 @@ if (!DRO2026_voiceWorkerActive) then {
             if (_subtitle != "") then {
                 [parseText format ["<t font='RobotoCondensedBold' color='#b9e5ff' size='1.05'>%1</t>", _subtitle], true, nil, 5, 0.4, 0] spawn BIS_fnc_textTiles;
             };
+            // fileExists only resolves relative virtual paths and rejects getMissionPath absolute paths.
+            // playSoundUI accepts the mission absolute path, including files packed inside a mission PBO.
             private _absolute = getMissionPath _path;
-            if (fileExists _absolute) then {
-                playSoundUI [_absolute, 1, 1];
-            } else {
-                diag_log format ["[DRO2026] Не найден файл озвучки: %1", _absolute];
-            };
+            playSoundUI [_absolute, 1, 1];
             uiSleep (_duration + 0.45);
         };
         DRO2026_voiceWorkerActive = false;

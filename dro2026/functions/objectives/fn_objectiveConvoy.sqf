@@ -49,7 +49,7 @@ private _dir = _source getDir _destination;
         if (!isNull _convoyGroup) then {_convoyGroup addVehicle _veh};
         _veh addEventHandler ["Hit", {
             params ["_vehicle"];
-            private _grp = if (isNull driver _vehicle) then {grpNull} else {group driver _vehicle};
+            private _grp = if (isNull (driver _vehicle)) then {grpNull} else {group driver _vehicle};
             if (!isNull _grp) then {_grp setBehaviourStrong "AWARE"; _grp setCombatMode "YELLOW"; _grp setSpeedMode "NORMAL"};
             DRO2026_alertLevel = (DRO2026_alertLevel + 0.12) min 1;
         }];
@@ -63,7 +63,7 @@ _convoyGroup setCombatMode "YELLOW";
 _convoyGroup setSpeedMode "LIMITED";
 _convoyGroup setFormation "COLUMN";
 {
-    if (!isNull driver _x) then {
+    if (!isNull (driver _x)) then {
         (driver _x) disableAI "PATH";
         doStop (driver _x);
     };
@@ -84,7 +84,7 @@ private _meta = createHashMapFromArray [["type", "CONVOY_INTERDICTION"], ["vehic
     waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1};
     sleep (12 + random 20);
     {
-        if (alive _x && {!isNull driver _x}) then {
+        if (alive _x && {!isNull (driver _x)}) then {
             (driver _x) enableAI "PATH";
             (driver _x) doFollow (leader _group);
         };
@@ -105,9 +105,9 @@ private _meta = createHashMapFromArray [["type", "CONVOY_INTERDICTION"], ["vehic
         private _lead = _alive select 0;
         if (count _lastLeadPos > 1 && {_lead distance2D _lastLeadPos < 5} && {speed _lead < 3}) then {_stuckTime = _stuckTime + 5} else {_stuckTime = 0};
         _lastLeadPos = getPosATL _lead;
-        if (_stuckTime > 35 && {!isNull driver _lead}) then {
+        if (_stuckTime > 35 && {!isNull (driver _lead)}) then {
             (group driver _lead) move _destination;
-            {if (alive _x && {!isNull driver _x}) then {(driver _x) doMove _destination}} forEach _alive;
+            {if (alive _x && {!isNull (driver _x)}) then {(driver _x) doMove _destination}} forEach _alive;
             _stuckTime = 0;
         };
         if ((_lead distance2D _destination) < 120) exitWith {

@@ -1,5 +1,5 @@
 if (!isServer) exitWith {};
-while {true} do {
+while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     // Разведданные игрока: только реально созданные и отслеживаемые силы.
     {
         private _grp = _x;
@@ -9,7 +9,7 @@ while {true} do {
                 private _knowledge = player knowsAbout _lead;
                 private _visible = false;
                 if ((player distance2D _lead) < 550) then {
-                    _visible = ([player, "VIEW"] checkVisibility [eyePos player, eyePos _lead]) > 0.30;
+                    _visible = (player checkVisibility [eyePos player, eyePos _lead]) > 0.30;
                 };
                 if (_knowledge > 1.2 || {_visible}) then {
                     private _confidence = if (_visible) then {0.74} else {linearConversion [1.2, 4, _knowledge, 0.45, 0.95, true]};
@@ -23,7 +23,7 @@ while {true} do {
         private _veh = _x;
         if (alive _veh) then {
             private _vehSide = side _veh;
-            if (!isNull driver _veh) then {_vehSide = side (group (driver _veh))};
+            if (!isNull (driver _veh)) then {_vehSide = side (group (driver _veh))};
             if (_vehSide == enemySide) then {
                 private _knowledge = player knowsAbout _veh;
                 if (_knowledge > 1.1) then {

@@ -31,6 +31,14 @@ DRO2026_lastEnemyLongRange = -999;
 DRO2026_lastFriendlyStrike = -999;
 DRO2026_lastLongSupportRequest = -999;
 DRO2026_friendlyFP5Used = 0;
+DRO2026_reinforcementWaves = 0;
+DRO2026_supportAssets = createHashMap;
+DRO2026_supportDialogOpen = false;
+DRO2026_missionEnding = false;
+if (isServer) then {
+    addMissionEventHandler ["Ended", {missionNamespace setVariable ["DRO2026_missionEnding", true]}];
+    addMissionEventHandler ["MPEnded", {missionNamespace setVariable ["DRO2026_missionEnding", true]}];
+};
 DRO2026_civilTraffic = [];
 DRO2026_supportPreset = createHashMapFromArray [["isrDefault", "AUTO"], ["strikeDefault", "AUTO"]];
 
@@ -38,7 +46,7 @@ DRO2026_resources = createHashMapFromArray [
     ["enemySupply", 100], ["enemyArtilleryAmmo", 80], ["enemyDroneStock", 48],
     ["enemyLongRangeStock", 12], ["enemyReinforcement", 78], ["enemyEW", 65],
     ["enemyAirDefence", 70], ["friendlySupply", 80], ["friendlyFPVStock", 18],
-    ["friendlyISRStock", 8], ["friendlyLongRangeStock", 8], ["friendlyFP5Stock", 2], ["friendlyDecoyStock", 4]
+    ["friendlyISRStock", 8], ["friendlyLongRangeStock", 20], ["friendlyFP5Stock", 2], ["friendlyDecoyStock", 6], ["friendlyArtilleryStock", 18], ["friendlyAirSorties", 4]
 ];
 
 DRO2026_voiceMap = createHashMapFromArray [

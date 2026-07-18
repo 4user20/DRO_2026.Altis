@@ -64,5 +64,5 @@ DRO2026_theaterNodes set ["AXIS", _axis];
 
 DRO2026_theaterNodes set ["FRIENDLY_DRONE_SITE", DRO2026_theaterNodes get "FRIENDLY_DRONE_REAR"];
 missionNamespace setVariable ["DRO2026_theaterBuilt", true];
-[format ["Театральный граф RC3 создан. Ось %1° (красные восточнее, синие западнее), узлов %2", round _axis, count DRO2026_theaterNodes]] call DRO2026_fnc_log;
+[format ["Театральный граф RC4 создан. Ось %1° (красные восточнее, синие западнее), узлов %2", round _axis, count DRO2026_theaterNodes]] call DRO2026_fnc_log;
 DRO2026_theaterNodes
