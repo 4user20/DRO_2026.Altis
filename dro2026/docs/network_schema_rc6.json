@@ -1,0 +1,89 @@
+{
+  "version": "1.5.0-rc6-capability-network",
+  "records": {
+    "networkNode": {
+      "required": ["schema", "id", "type", "side", "position", "status", "physicalState", "components", "stocks", "capabilities", "createdAt", "lastUpdatedAt"],
+      "status": ["ACTIVE", "DEGRADED", "RELOCATING", "DISABLED", "DESTROYED"],
+      "physicalState": ["VIRTUAL", "MATERIALIZING", "ACTIVE", "DEMATERIALIZING", "DESTROYED"],
+      "fields": {
+        "physicalRefs": "OBJECT[]",
+        "emissionState": "STRING",
+        "knownByPlayer": "UNKNOWN|DETECTED|CONFIRMED|TRACKED",
+        "knownByEnemy": "UNKNOWN|DETECTED|CONFIRMED|TRACKED",
+        "destroyedAt": "NUMBER"
+      }
+    },
+    "networkEdge": {
+      "required": ["schema", "id", "from", "to", "cargoTypes", "capacity", "travelTime", "route", "risk", "status", "interdictionPressure", "nextDeliveryAt"],
+      "status": ["OPEN", "PAUSED", "CLOSED"],
+      "fields": {
+        "lastDeliveryAt": "NUMBER",
+        "escortLevel": "0..3"
+      }
+    },
+    "contact": {
+      "required": ["schema", "id", "owner", "positionMean", "uncertaintyRadius", "confidence", "classification", "sources", "lastSeen", "bdaState"],
+      "owner": ["PLAYER", "ENEMY"],
+      "bdaState": ["DETECTED", "CONFIRMED", "ENGAGED", "PROBABLY_DISABLED", "PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"],
+      "fields": {
+        "subjectId": "STRING",
+        "target": "OBJECT",
+        "velocityEstimate": "VECTOR3",
+        "sourceQuality": "0..1",
+        "decayRate": "NUMBER",
+        "uncertaintyGrowth": "METERS_PER_SECOND",
+        "falseContactProbability": "0..0.8"
+      }
+    },
+    "delivery": {
+      "required": ["schema", "id", "edgeId", "fromNode", "toNode", "cargoType", "amount", "status", "physicalState", "createdAt", "eta"],
+      "status": ["VIRTUAL", "EN_ROUTE", "IN_TRANSIT", "DELIVERED", "INTERDICTED", "CANCELLED"],
+      "fields": {
+        "virtualPosition": "VECTOR3",
+        "vehicles": "OBJECT[]",
+        "processed": "BOOL",
+        "completedAt": "NUMBER"
+      }
+    },
+    "event": {
+      "required": ["schema", "id", "type", "sourceId", "payload", "createdAt"]
+    },
+    "intent": {
+      "required": ["id", "actor", "action", "utility", "resourceCost", "earliestAt", "expiresAt", "status"],
+      "status": ["PROPOSED", "EXECUTED", "CANCELLED", "EXPIRED"],
+      "actions": ["FPV_ATTACK", "ARTILLERY_FIRE", "LONG_RANGE_ATTACK", "REINFORCE", "ROUTE_ADAPT"]
+    },
+    "operationState": {
+      "required": ["schema", "phase", "doctrine", "alertState", "playerNoise", "civilianTrust", "operationScore", "activeOpportunities", "completedEffects", "startedAt"],
+      "phase": ["RECON", "DISRUPTION", "EXPLOITATION", "COUNTERATTACK"],
+      "doctrine": ["DRONE_HEAVY", "ARTILLERY_HEAVY", "DEFENSIVE_NETWORK", "MOBILE_RESERVES"],
+      "alertState": ["GREEN", "YELLOW", "RED"]
+    }
+  },
+  "events": [
+    "CONTACT_UPDATED",
+    "CONTACT_EXPIRED",
+    "BDA_UPDATED",
+    "EMISSION_DETECTED",
+    "DELIVERY_STARTED",
+    "DELIVERY_MATERIALIZED",
+    "DELIVERY_COMPLETED",
+    "DELIVERY_INTERDICTED",
+    "SITE_DESTROYED",
+    "NETWORK_NODE_DESTROYED",
+    "SITE_RELOCATION_STARTED",
+    "SITE_RELOCATED",
+    "FIRE_MISSION_EXECUTED",
+    "DRONE_LAUNCHED",
+    "DRONE_LOST",
+    "AA_MISSILE_LAUNCHED",
+    "AA_EMISSION_CHANGED",
+    "SUPPORT_REQUESTED",
+    "AIR_MISSION_STATE_CHANGED",
+    "PHASE_CHANGED",
+    "INTENT_PROPOSED",
+    "INTENT_EXECUTED",
+    "OBJECTIVE_EXPOSED",
+    "OBJECTIVE_COMPLETED"
+  ]
+}
