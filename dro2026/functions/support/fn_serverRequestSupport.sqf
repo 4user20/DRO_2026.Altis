@@ -34,9 +34,9 @@ private _validPosition = {
 _kind = toUpperANSI _kind;
 switch _kind do {
     case "FPV": {
-        _payload params ["_position", ["_manual", false], ["_quantity", 1]];
+        _payload params ["_position", ["_manual", false], ["_quantity", 1], ["_class", ""]];
         if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка FPV.", _requester] call DRO2026_fnc_supportMessage};
-        [_position, _manual, _quantity, _requester] call DRO2026_fnc_requestFPV;
+        [_position, _manual, _quantity, _requester, _class] call DRO2026_fnc_requestFPV;
     };
     case "ISR": {
         _payload params ["_position", ["_type", "AUTO"]];
