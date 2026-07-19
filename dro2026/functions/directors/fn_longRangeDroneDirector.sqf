@@ -3,10 +3,15 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep 16;
     private _intent = missionNamespace getVariable ["DRO2026_currentIntent", createHashMap];
     private _intentAction = _intent getOrDefault ["action", ""];
-    private _authorized = count _intent == 0 || {
-        _intentAction == "LONG_RANGE_ATTACK" && {time >= (_intent getOrDefault ["earliestAt", 0])} && {time <= (_intent getOrDefault ["expiresAt", time])}
+    private _networkReady = missionNamespace getVariable ["DRO2026_networkBuilt", false];
+    private _authorized = !_networkReady || {
+        count _intent > 0 && {
+            _intentAction == "LONG_RANGE_ATTACK" &&
+            {time >= (_intent getOrDefault ["earliestAt", 0])} &&
+            {time <= (_intent getOrDefault ["expiresAt", time])}
+        }
     };
-    if (!_authorized && {missionNamespace getVariable ["DRO2026_networkBuilt", false]}) then {continue};
+    if (!_authorized) then {continue};
 
     private _node = DRO2026_networkNodes getOrDefault ["NODE_DRONE_REAR_01", createHashMap];
     if (count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"]}) then {continue};
@@ -71,12 +76,10 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 };
             };
             ["DRONE_LAUNCHED", createHashMapFromArray [["role", "LONG_RANGE"], ["type", _type], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]]], "NODE_DRONE_REAR_01"] call DRO2026_fnc_emitEvent;
-            if (_intentAction == "LONG_RANGE_ATTACK") then {
-                _intent set ["status", "EXECUTED"];
-                _intent set ["executedAt", time];
-                missionNamespace setVariable ["DRO2026_currentIntent", _intent];
-                ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "LONG_RANGE_ATTACK"]], "NODE_DRONE_REAR_01"] call DRO2026_fnc_emitEvent;
-            };
+            _intent set ["status", "EXECUTED"];
+            _intent set ["executedAt", time];
+            missionNamespace setVariable ["DRO2026_currentIntent", _intent];
+            ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "LONG_RANGE_ATTACK"]], "NODE_DRONE_REAR_01"] call DRO2026_fnc_emitEvent;
             [format ["Тыловой drone-node запустил %1 x %2, остаток %3", _count, _type, (_airframes - _count) max 0]] call DRO2026_fnc_log;
         };
     };
