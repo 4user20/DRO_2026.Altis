@@ -102,7 +102,7 @@ if (isNull _uav) exitWith {
     objNull
 };
 private _group = playersSide createVehicleCrew _uav;
-if (isNull _group || {isNull driver _uav}) exitWith {
+if (isNull _group || {isNull (driver _uav)}) exitWith {
     deleteVehicleCrew _uav;
     deleteVehicle _uav;
     DRO2026_resources set ["friendlyISRStock", (DRO2026_resources getOrDefault ["friendlyISRStock", 0]) + 1];
