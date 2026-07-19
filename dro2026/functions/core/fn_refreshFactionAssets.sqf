@@ -22,6 +22,12 @@ private _appendFiltered = {
     DRO2026_assetRegistry set [_role, _pool];
 };
 
+// These roles must reflect the actually selected player faction, not the WEST
+// compatibility defaults registered during preInit.
+{
+    DRO2026_assetRegistry set [_x, []];
+} forEach ["PLAYER_ISR_UAV", "PLAYER_ARTILLERY_MORTAR", "PLAYER_ARTILLERY_SPG", "PLAYER_ARTILLERY_MLRS", "PLAYER_CAS_AIR"];
+
 private _enemyArtyRole = if (enemySide == west) then {"ARTILLERY_WEST"} else {"ARTILLERY_EAST"};
 private _enemyLogRole = if (enemySide == west) then {"LOGISTICS_WEST"} else {"LOGISTICS_EAST"};
 if (!isNil "eArtyClasses") then {[_enemyArtyRole, eArtyClasses, true, _enemySideNumber] call _appendFiltered};
@@ -44,4 +50,5 @@ if (!isNil "pArtyClasses") then {
 if (!isNil "pPlaneClasses") then {["PLAYER_CAS_AIR", pPlaneClasses, false, _playerSideNumber, true] call _appendFiltered};
 if (!isNil "pHeliClasses") then {["PLAYER_CAS_AIR", pHeliClasses, false, _playerSideNumber, true] call _appendFiltered};
 
-[format ["Реестр техники обновлён: %1 ролей; player artillery=%2/%3/%4, CAS=%5", count DRO2026_assetRegistry, count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MORTAR", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_SPG", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MLRS", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_CAS_AIR", []])]] call DRO2026_fnc_log;
+[format ["Реестр техники обновлён: %1 ролей; player artillery=%2/%3/%4, CAS=%5, ISR=%6", count DRO2026_assetRegistry, count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MORTAR", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_SPG", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MLRS", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_CAS_AIR", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ISR_UAV", []])]] call DRO2026_fnc_log;
+if (isServer) then {[] call DRO2026_fnc_publishSupportCatalog};
