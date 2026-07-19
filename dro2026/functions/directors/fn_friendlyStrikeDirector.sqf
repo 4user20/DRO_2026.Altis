@@ -40,7 +40,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
     if (count _targetPosition < 2) then {continue};
 
-    private _nearFriendly = (allPlayers findIf {alive _x && {_x distance2D _targetPosition < 1700}}) >= 0;
+    private _humanPlayers = allPlayers select {!(_x isKindOf "VirtualMan_F")};
+    private _nearFriendly = (_humanPlayers findIf {alive _x && {_x distance2D _targetPosition < 1700}}) >= 0;
     if (!_nearFriendly) then {
         _nearFriendly = (DRO2026_friendlyPositions findIf {
             private _position = _x getOrDefault ["position", []];
@@ -67,9 +68,13 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _fpvStock = DRO2026_resources getOrDefault ["friendlyFPVStock", 0];
     private _longStock = DRO2026_resources getOrDefault ["friendlyLongRangeStock", 0];
     private _fp5Stock = DRO2026_resources getOrDefault ["friendlyFP5Stock", 0];
-    private _strategicStock = _longStock + _fp5Stock;
+    private _canUseFP5 = _mode == "AUTO_FULL" &&
+        {DRO2026_friendlyFP5Used < 2} &&
+        {_fp5Stock > 0} &&
+        {([_contact] call _contactValue) > 1.1};
+    private _strategicAvailable = _longStock > 0 || {_canUseFP5};
     private _recommendedSystem = if (count _fpvSites > 0 && {_fpvStock > 0}) then {"FPV"} else {
-        if (count _strategicSites > 0 && {_strategicStock > 0}) then {"LONG_RANGE"} else {"NONE"}
+        if (count _strategicSites > 0 && {_strategicAvailable}) then {"LONG_RANGE"} else {"NONE"}
     };
     if (_recommendedSystem == "NONE") then {continue};
 
@@ -109,10 +114,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         private _site = _strategicSites select 0;
         private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
         private _operator = _site getOrDefault ["operator", objNull];
-        private _preferFP5 = _mode == "AUTO_FULL" &&
-            {DRO2026_friendlyFP5Used < 2} &&
-            {_fp5Stock > 0} &&
-            {([_contact] call _contactValue) > 1.1};
+        private _preferFP5 = _canUseFP5;
         private _type = if (_preferFP5) then {"FP5"} else {"AUTO"};
         private _reservePool = if (_preferFP5) then {"friendlyFP5Stock"} else {"friendlyLongRangeStock"};
         private _reserveStock = DRO2026_resources getOrDefault [_reservePool, 0];
