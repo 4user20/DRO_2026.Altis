@@ -1,6 +1,10 @@
 params ["_position", ["_origin", []], ["_operator", objNull], ["_requestedType", "AUTO"]];
 if (!isServer) exitWith {objNull};
-if (!isNull _operator && {!alive _operator}) exitWith {objNull};
+private _refundReservation = {
+    DRO2026_resources set ["friendlyISRStock", (DRO2026_resources getOrDefault ["friendlyISRStock", 0]) + 1];
+    DRO2026_lastISRRequest = -999;
+};
+if (!isNull _operator && {!alive _operator}) exitWith {call _refundReservation; objNull};
 
 private _sideSuffix = switch (playersSide) do {
     case west: {"WEST"};
@@ -46,11 +50,14 @@ private _offMap = false;
 private _requestUpper = toUpperANSI _requestedType;
 if ((_requestUpper find "CLASS:") == 0) then {
     private _exact = _requestedType select [6];
-    if (_exact in _allAllowed) then {
-        _class = _exact;
-        private _lowerExact = toLowerANSI _exact;
-        _offMap = !(_exact isKindOf "UAV_01_base_F") && {(_lowerExact find "mavic") < 0} && {(_lowerExact find "quad") < 0};
+    if !(_exact in _allAllowed) exitWith {
+        [format ["Отменён ISR launch: exact class %1 больше не доступен в реестре", _exact]] call DRO2026_fnc_log;
+        call _refundReservation;
+        _class = "";
     };
+    _class = _exact;
+    private _lowerExact = toLowerANSI _exact;
+    _offMap = !(_exact isKindOf "UAV_01_base_F") && {(_lowerExact find "mavic") < 0} && {(_lowerExact find "quad") < 0};
 } else {
     switch _requestUpper do {
         case "MICRO": {if (count _microPool > 0) then {_class = selectRandom _microPool}};
@@ -75,7 +82,12 @@ if ((_requestUpper find "CLASS:") == 0) then {
         };
     };
 };
+if (_class == "") exitWith {objNull};
 if (!isClass (configFile >> "CfgVehicles" >> _class) || {!(_class isKindOf "Air")}) then {_class = _fallback};
+if (!isClass (configFile >> "CfgVehicles" >> _class) || {!(_class isKindOf "Air")}) exitWith {
+    call _refundReservation;
+    objNull
+};
 
 private _lowerName = toLowerANSI _class;
 private _isMicro = (_class isKindOf "UAV_01_base_F") || {(_lowerName find "mavic") >= 0} || {(_lowerName find "quad") >= 0};
@@ -98,14 +110,15 @@ private _spawn = if (_offMap) then {
 };
 private _uav = createVehicle [_class, _spawn, [], 0, "FLY"];
 if (isNull _uav) exitWith {
-    DRO2026_resources set ["friendlyISRStock", (DRO2026_resources getOrDefault ["friendlyISRStock", 0]) + 1];
+    call _refundReservation;
     objNull
 };
 private _group = playersSide createVehicleCrew _uav;
 if (isNull _group || {isNull (driver _uav)}) exitWith {
     deleteVehicleCrew _uav;
     deleteVehicle _uav;
-    DRO2026_resources set ["friendlyISRStock", (DRO2026_resources getOrDefault ["friendlyISRStock", 0]) + 1];
+    if (!isNull _group) then {deleteGroup _group};
+    call _refundReservation;
     objNull
 };
 private _height = if (_isMicro) then {115} else {if (_isHALE) then {900} else {320}};
@@ -123,7 +136,7 @@ private _end = time + (if (_isMicro) then {360} else {if (_isHALE) then {720} el
 private _angle = random 360;
 private _lastEWProvocation = -999;
 private _lastFalseContact = -999;
-while {alive _uav && {time < _end} && {(isNull _operator) || {alive _operator}}} do {
+while {alive _uav && {time < _end} && {(isNull _operator) || {alive _operator}} && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}} do {
     _angle = (_angle + 12 + random 16) mod 360;
     private _baseRadius = if (_isMicro) then {240} else {if (_isHALE) then {1600} else {650}};
     private _orbitRadius = (_baseRadius + (-80 + random 160)) max 160;
@@ -204,5 +217,6 @@ if (alive _uav) then {
 };
 private _activeIndex = DRO2026_activeDrones find _uav;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
+if (!isNull _group) then {deleteGroup _group};
 ["DRONE_LOST", createHashMapFromArray [["class", _class], ["role", "ISR"], ["returned", alive _uav]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
 _uav
