@@ -9,10 +9,10 @@ missionNamespace setVariable ["DRO2026_directorsStarted", true];
 {
     if ((side _x) == enemySide && {({isPlayer _x} count units _x) == 0}) then {
         [_x] call DRO2026_fnc_registerManagedGroup;
-        {private _veh = vehicle _x; if (_veh != _x) then {DRO2026_managedVehicles pushBackUnique _veh}} forEach units _x;
+        {private _vehicle = vehicle _x; if (_vehicle != _x) then {DRO2026_managedVehicles pushBackUnique _vehicle}} forEach units _x;
     };
 } forEach allGroups;
-{private _obj = _x getOrDefault ["object", objNull]; if (!isNull _obj) then {DRO2026_managedVehicles pushBackUnique _obj}} forEach DRO2026_sites;
+{private _object = _x getOrDefault ["object", objNull]; if (!isNull _object) then {DRO2026_managedVehicles pushBackUnique _object}} forEach DRO2026_sites;
 [] spawn DRO2026_fnc_performanceGovernor;
 [] spawn DRO2026_fnc_sensorDirector;
 [] spawn DRO2026_fnc_enemyFPVDirector;
@@ -24,4 +24,4 @@ missionNamespace setVariable ["DRO2026_directorsStarted", true];
 [] spawn DRO2026_fnc_enemyAirDirector;
 [] spawn DRO2026_fnc_reactionDirector;
 ["RADIO_CHECK"] call DRO2026_fnc_hqVoice;
-["Директоры современной операции RC3 запущены"] call DRO2026_fnc_log;
+[format ["Директоры современной операции %1 запущены", DRO2026_VERSION]] call DRO2026_fnc_log;
