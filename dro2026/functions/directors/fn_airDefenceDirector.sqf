@@ -27,7 +27,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         private _nodeId = _unit getVariable ["DRO2026_networkNodeId", ""];
                         if (_nodeId == "") exitWith {};
                         private _lower = toLowerANSI format ["%1 %2 %3", _weapon, _magazine, _ammo];
-                        if ((_lower find "missile") >= 0 || {(_lower find "rocket") >= 0} || {(_lower find "sam") >= 0} || {(_lower find "aa") >= 0}) then {
+                        if ((_lower find "missile") >= 0 || {(_lower find "rocket") >= 0} || {(_lower find "sam") >= 0}) then {
                             [_nodeId, "AA_MISSILES", -1, "AA_LAUNCH"] call DRO2026_fnc_changeNetworkNodeStock;
                             ["AA_MISSILE_LAUNCHED", createHashMapFromArray [["nodeId", _nodeId], ["weapon", _weapon], ["magazine", _magazine], ["projectile", _projectile]], _nodeId] call DRO2026_fnc_emitEvent;
                         };
@@ -57,9 +57,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     private _airSide = side _air;
                     if (count crew _air > 0) then {_airSide = side (group ((crew _air) select 0))};
                     private _alreadyTracked = (_tracks findIf {(_x select 0) == _air}) >= 0;
-                    if (_airSide == playersSide && {!_alreadyTracked}) then {
-                        _tracks pushBack [_air, 0.9, _air distance2D _nodePos];
-                    };
+                    if (_airSide == playersSide && {!_alreadyTracked}) then {_tracks pushBack [_air, 0.9, _air distance2D _nodePos]};
                 };
             } forEach vehicles;
             _tracks = [_tracks, [], {-((_x select 1) - ((_x select 2) / (_coverage * 2)))}, "ASCEND"] call BIS_fnc_sortBy;
