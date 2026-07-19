@@ -1,14 +1,12 @@
 params [["_requester", objNull], ["_rendered", ""]];
 
-if (!isServer) exitWith {
-    if (_rendered != "") then {
-        hint parseText _rendered;
-        ["STATUS_QUERY"] call DRO2026_fnc_hqVoice;
-    } else {
-        [player, ""] remoteExecCall ["DRO2026_fnc_showStatus", 2, false];
-    };
+if (_rendered != "" && {hasInterface}) exitWith {
+    hint parseText _rendered;
+    ["STATUS_QUERY"] call DRO2026_fnc_hqVoice;
 };
-if (_rendered != "") exitWith {};
+if (!isServer) exitWith {
+    [player, ""] remoteExecCall ["DRO2026_fnc_showStatus", 2, false];
+};
 if (isNull _requester && {hasInterface}) then {_requester = player};
 if (isNull _requester) exitWith {};
 
