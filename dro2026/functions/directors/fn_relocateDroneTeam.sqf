@@ -20,9 +20,13 @@ if (isNull _operator || {!alive _operator} || {isNull _group}) exitWith {false};
 private _current = _site getOrDefault ["position", getPosATL _operator];
 private _nearestPlayer = objNull;
 private _nearestDistance = 1e10;
+private _humanPlayers = allPlayers select {alive _x && {!(_x isKindOf "VirtualMan_F")}};
 {
-    if (alive _x && {_x distance2D _current < _nearestDistance}) then {_nearestPlayer = _x; _nearestDistance = _x distance2D _current};
-} forEach allPlayers;
+    if (_x distance2D _current < _nearestDistance) then {
+        _nearestPlayer = _x;
+        _nearestDistance = _x distance2D _current;
+    };
+} forEach _humanPlayers;
 private _escapeBearing = if (isNull _nearestPlayer) then {random 360} else {(_nearestPlayer getDir _current) + (-35 + random 70)};
 private _destination = [_current, 650, 1500, _escapeBearing, 55, false, 450] call DRO2026_fnc_findStrategicPosition;
 if (_destination isEqualTo [0,0,0]) exitWith {false};
