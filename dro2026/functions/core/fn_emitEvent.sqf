@@ -4,9 +4,7 @@ if !(_type isEqualType "") exitWith {createHashMap};
 if (_type == "") exitWith {createHashMap};
 
 private _emptyMap = createHashMap;
-if !(_payload isEqualType _emptyMap) then {
-    _payload = createHashMapFromArray [["value", _payload]];
-};
+if !(_payload isEqualType _emptyMap) then {_payload = createHashMapFromArray [["value", _payload]]};
 DRO2026_eventSequence = DRO2026_eventSequence + 1;
 private _event = createHashMapFromArray [
     ["schema", 1],
@@ -17,7 +15,8 @@ private _event = createHashMapFromArray [
     ["createdAt", time]
 ];
 DRO2026_eventLog pushBack _event;
-if (count DRO2026_eventLog > 600) then {
-    DRO2026_eventLog deleteRange [0, (count DRO2026_eventLog) - 600];
+private _limit = missionNamespace getVariable ["DRO2026_MAX_EVENT_LOG", 600];
+if (count DRO2026_eventLog > _limit) then {
+    DRO2026_eventLog deleteRange [0, (count DRO2026_eventLog) - _limit];
 };
 _event
