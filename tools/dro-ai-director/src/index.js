@@ -53,11 +53,12 @@ async function main() {
     const profile = snapshot.jobType === 'STRATEGIC_POLICY' ? 'strategic' : 'tactical';
     const started = Date.now();
     try {
+      if ((Date.now() - job.receivedAt) > config.maxSnapshotAgeSeconds * 1000) throw new Error('STALE_JOB');
       if (config.mode === 'OFF') throw new Error('AI_MODE_OFF');
       if (Date.now() < circuitOpenUntil) throw new Error('CIRCUIT_OPEN');
       const response = await callModel(config, profile, snapshot.jobType, promptSnapshot, memory.view());
       const result = snapshot.jobType === 'STRATEGIC_POLICY' ? validateStrategic(response.result, promptSnapshot) : validateTactical(response.result, promptSnapshot);
-      const meta = {latencyMs:Date.now()-started,provider:response.provider,model:response.model,attempts:response.attempts,fallbackUsed:response.provider !== profile};
+      const meta = {latencyMs:Date.now()-started,provider:response.provider,model:response.model,attempts:response.attempts,fallbackUsed:response.provider !== profile && response.provider !== 'mock'};
       transport.send(snapshot.jobType === 'STRATEGIC_POLICY' ? 'strategic-policy' : 'decision', snapshot.jobType === 'STRATEGIC_POLICY' ? toSqfPolicy(result,meta) : toSqfDecision(result,meta));
       memory.recordDecision(promptSnapshot,result,meta); memory.ingestEvents(snapshot.recentEvents);
       consecutiveFailures = 0;
@@ -82,7 +83,7 @@ async function main() {
     try { await runOne(job); } finally { running = false; }
   }
 
-  sendStatus(); transport.send('ping',[Date.now(),VERSION]);
+  sendStatus(); transport.send('ping',[Date.now(),VERSION]); lastHeartbeat=Date.now();
   while (true) {
     const entries = transport.readOutgoing(); const ack = [];
     for (const entry of entries) {
