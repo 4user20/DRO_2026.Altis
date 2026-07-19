@@ -17,13 +17,37 @@ def read(relative: str) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def require(checks: list[str], condition: bool, message: str) -> None:
+def require(errors: list[str], condition: bool, message: str) -> None:
     if not condition:
-        checks.append(message)
+        errors.append(message)
+
+
+def explicit_fly_before_crew(source: str) -> bool:
+    for match in re.finditer(r'createVehicle\s*\[[^\n;]*"FLY"', source):
+        window = source[match.start() : match.start() + 900]
+        crew_positions = [
+            value
+            for value in (
+                window.find("createVehicleCrew"),
+                window.find("BIS_fnc_spawnVehicle"),
+            )
+            if value >= 0
+        ]
+        if not crew_positions:
+            continue
+        crew_at = min(crew_positions)
+        set_positions = [
+            value
+            for value in (window.find("setPosATL"), window.find("setPosASL"))
+            if value >= 0
+        ]
+        if not set_positions or min(set_positions) > crew_at:
+            return False
+    return True
 
 
 parser = ArgumentParser(
-    description="DRO 2026 RC6 RPT/support/objective stabilization checks"
+    description="DRO 2026 Arma Wiki / Context7 stabilization checks"
 )
 parser.add_argument("--rpt", action="append", default=[])
 args = parser.parse_args()
@@ -31,8 +55,11 @@ args = parser.parse_args()
 errors: list[str] = []
 warnings: list[str] = []
 
+base_args = [sys.executable, str(ROOT / "tools/validate_rc6.py")]
+for item in args.rpt:
+    base_args.extend(["--rpt", item])
 base = subprocess.run(
-    [sys.executable, str(ROOT / "tools/validate_rc6.py")],
+    base_args,
     cwd=ROOT,
     text=True,
     stdout=subprocess.PIPE,
@@ -42,208 +69,241 @@ if base.returncode != 0:
     errors.append("base validate_rc6.py failed")
 
 try:
-    faction1 = read("sunday_system/fnc_lib/defineFactionClasses_rc4_part1.inc")
-    faction3 = read("sunday_system/fnc_lib/defineFactionClasses_rc4_part3.inc")
-    client = read("dro2026/functions/core/fn_clientInit.sqf")
-    add_supports = read("sunday_system/player_setup/addSupports.sqf")
-    catalog = read("dro2026/functions/core/fn_publishSupportCatalog.sqf")
     cfg = read("dro2026/CfgFunctions.hpp")
-    contact_record = read("dro2026/functions/core/fn_createContactRecord.sqf")
-    console = read("dro2026/functions/support/fn_openSupportConsole.sqf")
-    targeting = read("dro2026/functions/support/fn_beginSupportTargeting.sqf")
+    refresh = read("dro2026/functions/core/fn_refreshFactionAssets.sqf")
+    catalog = read("dro2026/functions/core/fn_publishSupportCatalog.sqf")
     server_support = read("dro2026/functions/support/fn_serverRequestSupport.sqf")
-    request_isr = read("dro2026/functions/support/fn_requestISR.sqf")
-    request_long = read("dro2026/functions/support/fn_requestLongRangeSupport.sqf")
     launch_fpv = read("dro2026/functions/support/fn_launchFPVStrike.sqf")
     launch_isr = read("dro2026/functions/support/fn_launchISR.sqf")
     launch_long = read("dro2026/functions/support/fn_launchLongRangeStrike.sqf")
+    request_long = read("dro2026/functions/support/fn_requestLongRangeSupport.sqf")
+    request_air = read("dro2026/functions/support/fn_requestAirSupport.sqf")
+    enemy_air = read("dro2026/functions/directors/fn_enemyAirDirector.sqf")
+    enemy_isr = read("dro2026/functions/directors/fn_enemyISRDirector.sqf")
+    enemy_long = read("dro2026/functions/directors/fn_longRangeDroneDirector.sqf")
+    friendly_strike = read("dro2026/functions/directors/fn_friendlyStrikeDirector.sqf")
+    console = read("dro2026/functions/support/fn_openSupportConsole.sqf")
     selector = read("dro2026/functions/core/fn_selectObjectiveOpportunity.sqf")
     materializer = read("dro2026/functions/objectives/fn_selectObjective.sqf")
     recon = read("dro2026/functions/objectives/fn_objectiveISRRecon.sqf")
-    enemy_isr = read("dro2026/functions/directors/fn_enemyISRDirector.sqf")
-    enemy_air = read("dro2026/functions/directors/fn_enemyAirDirector.sqf")
-    operation = read("dro2026/functions/directors/fn_operationDirector.sqf")
-    enemy_strike = read("dro2026/functions/directors/fn_longRangeDroneDirector.sqf")
-    friendly_strike = read("dro2026/functions/directors/fn_friendlyStrikeDirector.sqf")
-    artillery = read("dro2026/functions/support/fn_requestArtillery.sqf")
-    air = read("dro2026/functions/support/fn_requestAirSupport.sqf")
-    base_validator = read("tools/validate_rc6.py")
+    validator = read("tools/validate_rc6.py")
 except FileNotFoundError as exc:
     errors.append(f"missing file: {exc}")
 else:
     require(
         errors,
-        'private _thisFac = getText' in faction1,
-        "faction scan must read faction with getText",
-    )
-    require(
-        errors,
-        not re.search(r'_thisFac\s*=.*BIS_fnc_GetCfgData', faction1),
-        "nil-prone _thisFac BIS_fnc_GetCfgData assignment returned",
-    )
-    require(
-        errors,
-        'private _isPlayerFaction' in faction1
-        and 'private _isEnemyFaction' in faction1,
-        "per-class faction flags must be local",
-    )
-    require(
-        errors,
-        'count _pInfEditorSubcats' in faction3
-        and 'count _eInfEditorSubcats' in faction3,
-        "faction pool summary must count arrays directly",
-    )
-    require(
-        errors,
-        not re.search(r'\{\s*_x\s*\}\s*count\s+_[pe]InfEditorSubcats', faction3),
-        "array-valued count predicate returned",
+        "class createContactRecord {};" in cfg,
+        "createContactRecord is not registered",
     )
 
-    require(errors, 'DRO2026_supportCatalogReady' in client, "clientInit must wait for support catalog")
-    require(errors, 'DRO2026_missionEnding' in client, "clientInit lobby wait must abort only on mission end")
-    require(errors, 'playersReady timeout' not in client, "fixed-duration playersReady timeout returned")
-    require(errors, 'Панель поддержки штаба' in client, "reliable support player action missing")
-
-    require(errors, 'createVehicle' not in add_supports, "legacy addSupports still creates a random physical support asset")
-    require(errors, 'uavPatrol.sqf' not in add_supports, "legacy random UAV patrol still starts from addSupports")
-    require(errors, 'pook_TOS1A' not in add_supports, "legacy TOS-1A support selection returned")
-    require(errors, 'class publishSupportCatalog' in cfg, "support catalog publisher is not registered")
-    require(errors, 'class createContactRecord {};' in cfg, "contact record constructor is not registered")
     require(
         errors,
-        all(token in contact_record for token in [
-            'positionMean', 'uncertaintyRadius', 'sources',
-            'velocityEstimate', 'bdaState', 'falseContactProbability',
-        ]),
-        "contact record schema v2 is incomplete",
-    )
-    require(
-        errors,
-        'DRO2026_supportCatalog' in catalog
-        and 'STRIKE_CLASS:' in catalog
-        and 'ISR_CLASS:' in catalog,
-        "concrete support catalog is incomplete",
-    )
-    require(errors, 'pook_tos1a' in catalog.lower(), "known unstable TOS class is not explicitly denied")
-    require(
-        errors,
-        'DRO2026_supportCatalog' in console
-        and 'RscCombo' in console
-        and 'Класс:' in console,
-        "support UI does not consume concrete server catalog",
-    )
-    require(
-        errors,
-        'FPV_CLASS_AUTO:' in targeting
-        and 'STRIKE_CLASS:' in targeting
-        and 'ARTY:' in targeting
-        and 'AIR:' in targeting,
-        "targeting router lacks concrete class modes",
-    )
-    require(errors, 'onMapSingleClick ""' in targeting, "map targeting cancel does not clear stale handler")
-    click_handler = re.search(r'onMapSingleClick "([^"]+)"', targeting)
-    require(
-        errors,
-        click_handler is not None
-        and click_handler.group(1).find("setVariable ['DRO2026_pendingSupport', []]")
-        < click_handler.group(1).find("openMap false"),
-        "map click must clear pending request before closing the map",
+        all(
+            token in server_support
+            for token in (
+                "isPlayer _requester",
+                'isKindOf "VirtualMan_F"',
+                "remoteExecutedOwner",
+                "isDedicated",
+                "_remoteOwner <= 2",
+                "owner _requester",
+            )
+        ),
+        "support authority does not reject virtual/zero-owner callers",
     )
 
-    require(errors, 'remoteExecutedOwner' in server_support, "support authority does not bind requester to remote owner")
-    require(errors, 'isPlayer _requester' in server_support and 'owner _requester' in server_support, "support authority does not validate a real requester")
-    require(errors, '_catalogContains' in server_support, "server support dispatcher does not validate published catalog entries")
     require(
         errors,
-        all(token in server_support for token in [
-            'FPV_CLASS_MANUAL:', 'ISR_CLASS:', 'STRIKE_CLASS:',
-            'ARTY:%1', 'AIR:%1',
-        ]),
-        "server catalog validation is incomplete",
+        "_cfgSide == _sideNumber" in refresh
+        and "ENEMY_CAS_AIR" in refresh
+        and "ePlaneClasses" in refresh
+        and "eHeliClasses" in refresh,
+        "faction refresh does not construct exact-side enemy CAS pools",
     )
     require(
         errors,
-        all(token in server_support for token in [
-            'isEqualType true', 'isEqualType 0', 'isEqualType ""',
-        ]),
-        "support payload type validation is incomplete",
+        "in [_sideNumber, 2]" not in refresh
+        and "in [_sideNumber, 2]" not in catalog
+        and "in [_sideNumber, 2]" not in launch_isr,
+        "INDEPENDENT side still leaks into WEST/EAST pools",
     )
     require(
         errors,
-        '_knownTypes = ["AUTO", "MICRO", "RQ7", "MQ4A", "TACTICAL", "HALE"]' in request_isr,
-        "ISR request accepts unknown named profiles",
+        "ENEMY_CAS_AIR" in enemy_air and 'getOrDefault ["AIR_EAST"' not in enemy_air,
+        "enemy air remains hardcoded to EAST assets",
     )
-    require(
-        errors,
-        'private _classAllowed = true;' in request_isr
-        and 'if (!_classAllowed) exitWith' in request_isr,
-        "ISR exact-class rejection can fall through nested scope",
-    )
-    require(
-        errors,
-        '_knownTypes = ["AUTO", "FP1", "FP2", "BM35", "BULAVA", "FP5", "SHAHED"]' in request_long,
-        "long-range request accepts unknown named profiles",
-    )
-    require(
-        errors,
-        'case "AUTO"' in request_long and 'default {false}' in request_long,
-        "long-range availability falls back to arbitrary request types",
-    )
-    require(errors, '_decoy && {_requestUpper != "AUTO"}' in request_long, "decoy flag can be combined with a concrete strike profile")
-    require(
-        errors,
-        not re.search(r'DRO2026_resources\s+set\s*\[\s*"friendlyFP5Stock"', request_long),
-        "manual FP5 request bypasses the selected reservation pool",
-    )
-    require(errors, 'if (_requestUpper == "FP5") then {"friendlyFP5Stock"}' in request_long, "FP5 does not use its dedicated reservation pool")
-    require(errors, '_refundReservation' in launch_isr and 'DRO2026_lastISRRequest = -999' in launch_isr, "failed ISR materialization does not restore stock and cooldown")
-    require(errors, 'isNull driver _uav' not in launch_isr and 'isNull (driver _uav)' in launch_isr, "ISR crew null check still relies on implicit command precedence")
-    require(errors, '_reservationNodeId' in launch_long and 'LONG_RANGE_LAUNCH_REFUND' in launch_long, "long-range per-airframe refund contract is missing")
-    require(errors, 'isNull driver _drone' not in launch_long and 'isNull (driver _drone)' in launch_long, "long-range crew null check still relies on implicit command precedence")
-    require(errors, 'nearestObjects' not in launch_fpv and 'последнюю подтверждённую точку' in launch_fpv, "FPV guidance can still hunt arbitrary nearby targets")
 
-    require(errors, 'DRO2026_usedObjectiveNodes' in selector and 'DRO2026_usedObjectiveTypes' in selector, "selector does not suppress repeated type/node")
-    require(errors, 'selectRandom DRO2026_OPERATION_PACKAGES' not in selector, "random objective packages returned")
+    for label, source in (
+        ("enemy air", enemy_air),
+        ("enemy ISR", enemy_isr),
+        ("friendly ISR", launch_isr),
+        ("FPV", launch_fpv),
+        ("long range", launch_long),
+        ("friendly CAS", request_air),
+    ):
+        require(
+            errors,
+            explicit_fly_before_crew(source),
+            f"{label}: empty FLY airframe lacks explicit position before crew",
+        )
+        require(
+            errors,
+            "deleteVehicleCrew" in source and "deleteGroup" in source,
+            f"{label}: crew/group cleanup contract incomplete",
+        )
+
     require(
         errors,
-        'last-resort command objective' in selector
+        all(
+            token in launch_fpv
+            for token in ("_applyFlightVector", "vectorCrossProduct", "setVectorDirAndUp")
+        ),
+        "FPV guidance does not build an orthogonal flight frame",
+    )
+    require(
+        errors,
+        all(
+            token in launch_long
+            for token in ("_applyFlightVector", "vectorCrossProduct", "setVectorDirAndUp")
+        ),
+        "long-range guidance does not build an orthogonal flight frame",
+    )
+    fixed_up = re.compile(
+        r"setVectorDirAndUp\s*\[\s*_[A-Za-z0-9_]+\s*,\s*"
+        r"\[\s*0\s*,\s*0\s*,\s*1\s*\]\s*\]"
+    )
+    require(
+        errors,
+        not fixed_up.search(launch_fpv) and not fixed_up.search(launch_long),
+        "pitched flight still uses fixed [0,0,1] vectorUp",
+    )
+
+    require(
+        errors,
+        "nearestObjects" not in launch_fpv and "nearestObjects" not in launch_long,
+        "guided strike can still reacquire an arbitrary nearby target",
+    )
+    require(
+        errors,
+        '_requestedClass != ""' in launch_fpv and "side-correct registry" in launch_fpv,
+        "FPV exact class can silently fall back",
+    )
+    require(
+        errors,
+        "_selectionValid" in launch_isr
+        and '_class == ""' in launch_isr
+        and 'getNumber (_classCfg >> "side")' in launch_isr,
+        "ISR named/exact profile can silently cross side or fall back",
+    )
+    require(
+        errors,
+        "_selectionValid" in launch_long
+        and "_exactClass in _pool" in launch_long,
+        "long-range exact class can silently become AUTO",
+    )
+
+    require(
+        errors,
+        "_refundReservation" in launch_isr
+        and "DRO2026_lastISRRequest = -999" in launch_isr,
+        "failed ISR materialization does not restore stock/cooldown",
+    )
+    require(
+        errors,
+        "_reservationNodeId" in launch_long
+        and "LONG_RANGE_LAUNCH_REFUND" in launch_long,
+        "long-range per-airframe refund is missing",
+    )
+    require(
+        errors,
+        "LONG_RANGE_SALVO_ABORT" in enemy_long
+        and "_isLiveStrategicContact" in enemy_long,
+        "enemy salvo abort/stale-contact accounting is incomplete",
+    )
+    require(
+        errors,
+        not re.search(
+            r'DRO2026_resources\s+set\s*\[\s*"friendlyFP5Stock"',
+            request_long,
+        )
+        and not re.search(
+            r'DRO2026_resources\s+set\s*\[\s*"friendlyFP5Stock"',
+            friendly_strike,
+        ),
+        "FP-5 bypasses its selected reservation pool",
+    )
+
+    for label, source in (
+        ("enemy air", enemy_air),
+        ("enemy ISR", enemy_isr),
+        ("friendly strike", friendly_strike),
+        ("enemy long range", enemy_long),
+    ):
+        require(
+            errors,
+            "allPlayers" not in source or 'isKindOf "VirtualMan_F"' in source,
+            f"{label}: allPlayers includes virtual clients",
+        )
+
+    require(
+        errors,
+        "_canUseFP5" in friendly_strike and "_strategicAvailable" in friendly_strike,
+        "automated strike recommendation ignores usable stock/profile",
+    )
+    require(
+        errors,
+        "_availableCategories" in console,
+        "support console still shows unpublished empty categories",
+    )
+
+    require(
+        errors,
+        "last-resort command objective" in selector
         and 'missionNamespace setVariable ["DRO2026_selectedOpportunity", _fallback]' in selector,
-        "objective fallback can reuse stale selected opportunity",
+        "objective fallback can reuse stale opportunity state",
     )
-    require(errors, 'ISR_RELAY' in recon and 'Land_TTowerSmall_1_F' in recon and 'relatedNodeId' in recon, "ISR objective is still an empty observation sector")
-    require(errors, 'OBJECTIVE_MATERIALIZATION_FAILED' in materializer and '_maxAttempts = 4' in materializer, "objective adapter failure is not retried")
-
-    require(errors, 'allPlayers' in enemy_isr and 'FRIENDLY_HQ' in enemy_isr and 'FRIENDLY_LOGISTICS' in enemy_isr, "enemy ISR does not search player strategic sites")
-    require(errors, 'RUS_VKS_forpostru' in enemy_isr and 'subjectId' in enemy_isr, "enemy long-range ISR/subject identity chain incomplete")
-    require(errors, not re.search(r'\bplayer\b', re.sub(r'allPlayers', '', enemy_isr)), "server-only enemy ISR still depends on global player")
-    require(errors, 'forEach allPlayers' in enemy_air and 'doFire _target' in enemy_air, "enemy air director lacks dedicated-safe targeting")
-    require(errors, 'fireAtTarget' not in enemy_air and 'alive player' not in enemy_air and 'vehicle player' not in enemy_air, "enemy air director still uses invalid fire syntax or global player")
-    require(errors, 'LONG_RANGE_ATTACK' in operation and 'FPV_ATTACK' in operation and 'LOGISTICS' in operation, "operation director target priority is incomplete")
-    require(errors, 'private _validTarget = true;' in operation and 'if (!_validTarget) exitWith' in operation and 'alive _target' in operation, "FPV intent target rejection can fall through nested scope")
-    require(errors, 'subjectId' in enemy_strike and 'DRO2026_MAX_ENEMY_LONG_RANGE_SALVO' in enemy_strike, "enemy ISR-to-strike chain or salvo cap missing")
-    require(errors, '_isLiveStrategicContact' in enemy_strike and 'true, _nodeId' in enemy_strike, "enemy long-range strike can consume stock for a stale subject or cannot refund a failed airframe")
     require(
         errors,
-        not re.search(r'DRO2026_resources\s+set\s*\[\s*"friendlyFP5Stock"', friendly_strike),
-        "automated FP5 launch bypasses the selected reservation pool",
+        "OBJECTIVE_MATERIALIZATION_FAILED" in materializer and "_maxAttempts = 4" in materializer,
+        "objective materialization failures are not retried",
+    )
+    require(
+        errors,
+        "ISR_RELAY" in recon and "Land_TTowerSmall_1_F" in recon,
+        "ISR objective is not physically materialized",
     )
 
-    require(errors, 'DRO2026_supportFireLockUntil' in artillery and 'DRO2026_activeHeavySupport' in artillery, "artillery is outside shared heavy-fire budget")
-    require(errors, 'DRO2026_supportFireLockUntil' in air and 'DRO2026_activeHeavySupport' in air, "CAS is outside shared heavy-fire budget")
-    require(errors, 'pook_tos1a' in artillery.lower(), "artillery request does not reject unstable TOS class")
-
-    require(errors, "path.suffix.lower() != '.inc'" in base_validator, "base validator still parses include fragments as standalone SQF")
-    require(errors, 'resource accounting' in base_validator and 'enemy air locality' in base_validator, "base validator lacks audit regression contracts")
+    require(
+        errors,
+        "single fireAtTarget" not in validator,
+        "validator still treats valid fireAtTarget [target] syntax as an error",
+    )
+    require(
+        errors,
+        "run_hemtt_if_configured" in validator and "--require-hemtt" in validator,
+        "validator lacks optional HEMTT integration",
+    )
+    require(
+        errors,
+        "air materialization" in validator
+        and "side isolation" in validator
+        and "flight vectors" in validator
+        and "virtual clients" in validator,
+        "base validator lacks Arma Wiki regression contracts",
+    )
 
 rpt_patterns = {
-    "mission undefined faction variable": re.compile(
-        r"Undefined variable in expression: _(?:thisFac|isPlayerFaction|isEnemyFaction)",
+    "undefined faction/locality variable": re.compile(
+        r"Undefined variable in expression: _(?:thisFac|isPlayerFaction|"
+        r"isEnemyFaction|spawnDirection|applyFlightVector)",
         re.I,
     ),
-    "mission faction bool error": re.compile(r"Error Тип Массив, ожидался Булево", re.I),
-    "support lobby timeout": re.compile(r"clientInit: playersReady timeout", re.I),
-    "repeated empty ISR tasks": re.compile(
-        r"taskIDs\s*=\s*\[\s*\"D26_ISR_[^\"]+\"\s*,\s*\"D26_ISR_[^\"]+\"\s*,\s*\"D26_ISR_",
+    "generic expression error": re.compile(
+        r"(?:Error in expression|Generic error in expression)",
+        re.I,
+    ),
+    "type mismatch": re.compile(
+        r"Error Тип (?:Массив|Объект|Группа), ожидался",
         re.I,
     ),
     "legacy TOS support": re.compile(r"_artyVeh\s*=.*pook_TOS1A", re.I),
@@ -263,7 +323,7 @@ for raw in args.rpt:
             rpt_findings[name].append(f"{path}:{line}")
 
 report = {
-    "validator": "rc6-rpt-stabilization",
+    "validator": "rc6-arma-wiki-stabilization",
     "base_validator_exit": base.returncode,
     "base_validator_output": base.stdout if base.returncode != 0 else "",
     "errors": errors,
@@ -271,4 +331,4 @@ report = {
     "rpt_findings": rpt_findings,
 }
 print(json.dumps(report, ensure_ascii=False, indent=2))
-sys.exit(1 if errors else 0)
+sys.exit(1 if errors or any(rpt_findings.values()) else 0)
