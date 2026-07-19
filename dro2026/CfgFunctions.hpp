@@ -24,6 +24,8 @@ class CfgFunctions
             class readEvents {};
             class evaluateOperationPhase {};
             class selectObjectiveOpportunity {};
+            class getJammingAtPosition {};
+            class getAirWindow {};
             class getTheaterNode {};
             class createRouteMarkers {};
             class createDroneTeam {};
@@ -48,6 +50,7 @@ class CfgFunctions
             file = "dro2026\functions\directors";
             class startDirectors {};
             class operationDirector {};
+            class airDefenceDirector {};
             class performanceGovernor {};
             class addContact {};
             class sensorDirector {};
