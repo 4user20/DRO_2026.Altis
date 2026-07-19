@@ -17,11 +17,10 @@ def read_text(path: Path) -> str:
 
 def resolve_include(owner: Path, raw_path: str) -> Path | None:
     normalized = Path(raw_path.replace("\\", "/"))
-    candidates = [owner.parent / normalized, ROOT / normalized]
-    for candidate in candidates:
-        candidate = candidate.resolve()
-        if candidate.is_file() and (candidate == ROOT or ROOT in candidate.parents):
-            return candidate
+    for candidate in (owner.parent / normalized, ROOT / normalized):
+        resolved = candidate.resolve()
+        if resolved.is_file() and (resolved == ROOT or ROOT in resolved.parents):
+            return resolved
     return None
 
 
@@ -30,7 +29,6 @@ def expand_includes(path: Path, stack: tuple[Path, ...] = ()) -> tuple[str, list
     if resolved in stack:
         cycle = " -> ".join(str(item.relative_to(ROOT)) for item in (*stack, resolved))
         return "", [f"include cycle: {cycle}"]
-
     source = read_text(resolved)
     errors: list[str] = []
 
@@ -101,7 +99,6 @@ def strip_comments_and_strings(source: str) -> tuple[str, str]:
             else:
                 output.append("\n" if source[index] == "\n" else " ")
                 index += 1
-
     if state == "line_comment":
         state = "code"
     return "".join(output), state
@@ -116,9 +113,9 @@ def delimiter_errors(label: str, source: str) -> list[str]:
     for char in clean:
         if char == "\n":
             line += 1
-        elif char in "([{":
+        elif char in "([{":[
             stack.append((char, line))
-        elif char in ")]}":
+        elif char in ")]}" :
             if not stack or stack[-1][0] != pairs[char]:
                 errors.append(f"{label}:{line}: mismatched {char}; stack={stack[-3:]}")
                 break
@@ -139,8 +136,24 @@ def locations(path: Path, source: str, pattern: re.Pattern[str]) -> list[str]:
     return result
 
 
+def require_tokens(
+    bucket: list[str], raw_path: str, tokens: tuple[str, ...], *, forbidden: tuple[str, ...] = ()
+) -> None:
+    path = ROOT / raw_path
+    if not path.is_file():
+        bucket.append(f"{raw_path}: missing file")
+        return
+    source = read_text(path)
+    missing = [token for token in tokens if token not in source]
+    if missing:
+        bucket.append(f"{raw_path}: missing {', '.join(missing)}")
+    present_forbidden = [token for token in forbidden if token in source]
+    if present_forbidden:
+        bucket.append(f"{raw_path}: forbidden {', '.join(present_forbidden)}")
+
+
 def parse_args() -> object:
-    parser = ArgumentParser(description="Static and semantic validation for DRO 2026")
+    parser = ArgumentParser(description="Static and semantic validation for DRO 2026 RC6")
     parser.add_argument(
         "--rpt",
         action="append",
@@ -157,6 +170,7 @@ files = sorted(
     if path.is_file()
     and path.suffix.lower() in TEXT_EXTENSIONS
     and "graphify-out" not in path.parts
+    and ".git" not in path.parts
 )
 
 errors: list[str] = []
@@ -169,7 +183,8 @@ for path in files:
     clean_sources[path] = strip_comments_and_strings(expanded)[0]
     errors.extend(delimiter_errors(f"{path.relative_to(ROOT)} [expanded]", expanded))
 
-cfg = read_text(ROOT / "dro2026/CfgFunctions.hpp")
+cfg_path = ROOT / "dro2026/CfgFunctions.hpp"
+cfg = read_text(cfg_path)
 registered = set(
     re.findall(
         r"\bclass\s+(\w+)\s*\{(?:\s*(?:preInit|postInit)\s*=\s*1\s*;)?\s*\};",
@@ -183,7 +198,6 @@ function_files = {
 calls: set[str] = set()
 for source in expanded_sources.values():
     calls.update(re.findall(r"DRO2026_fnc_(\w+)", source))
-
 function_errors = {
     "unregistered_files": sorted(function_files - registered),
     "missing_files": sorted(registered - function_files),
@@ -197,6 +211,8 @@ critical_patterns = {
     "old tokenList findIf bug": re.compile(r"_tokenList\s+findIf", re.I),
     "object-form checkVisibility": re.compile(r"\b_[A-Za-z0-9_]+\s+checkVisibility\s*\[", re.I),
     "single-argument fireAtTarget": re.compile(r"fireAtTarget\s*\[\s*[^,\]\n]+\s*\]", re.I),
+    "unsupported orderBy command": re.compile(r"\borderBy\b", re.I),
+    "chained HashMap get expression": re.compile(r"DRO2026_networkNodes\s+get\s+_[A-Za-z0-9_]+\s+getOrDefault", re.I),
 }
 findings: dict[str, list[str]] = {name: [] for name in critical_patterns}
 for path, clean in clean_sources.items():
@@ -216,11 +232,20 @@ semantic_errors: dict[str, list[str]] = {
     "support authority contract": [],
     "client delivery contract": [],
     "respawn disabled sentinel": [],
+    "world-state foundation": [],
+    "persistent site history": [],
+    "contact v2 and BDA": [],
+    "state-driven objectives": [],
+    "contact-driven artillery": [],
+    "node logistics": [],
+    "EW and AA network": [],
+    "support ROE and air window": [],
 }
 semantic_warnings: dict[str, list[str]] = {
     "unused constants": [],
     "server-only global player usage": [],
     "large orchestrators": [],
+    "legacy global resource mutations": [],
 }
 
 unarmed_alias_pattern = re.compile(
@@ -241,57 +266,177 @@ for path, source in expanded_sources.items():
         locations(path, source, broad_pook_pattern)
     )
 
-support_contracts = {
-    "dro2026/functions/support/fn_requestFPV.sqf": ("if (!isServer)", "serverRequestSupport"),
-    "dro2026/functions/support/fn_requestISR.sqf": ("if (!isServer)", "serverRequestSupport"),
-    "dro2026/functions/support/fn_requestLongRangeSupport.sqf": ("if (!isServer)", "serverRequestSupport"),
-    "dro2026/functions/support/fn_requestArtillery.sqf": ("if (!isServer)", "serverRequestSupport"),
-    "dro2026/functions/support/fn_requestAirSupport.sqf": ("if (!isServer)", "serverRequestSupport"),
-}
-for raw_path, required_tokens in support_contracts.items():
-    path = ROOT / raw_path
-    source = read_text(path) if path.is_file() else ""
-    missing = [token for token in required_tokens if token not in source]
-    if missing:
-        semantic_errors["support authority contract"].append(
-            f"{raw_path}: missing {', '.join(missing)}"
-        )
+for raw_path in (
+    "dro2026/functions/support/fn_requestFPV.sqf",
+    "dro2026/functions/support/fn_requestISR.sqf",
+    "dro2026/functions/support/fn_requestLongRangeSupport.sqf",
+    "dro2026/functions/support/fn_requestArtillery.sqf",
+    "dro2026/functions/support/fn_requestAirSupport.sqf",
+):
+    require_tokens(
+        semantic_errors["support authority contract"],
+        raw_path,
+        ("if (!isServer)", "serverRequestSupport"),
+    )
 
-client_delivery_contracts = {
+for raw_path, token in {
     "dro2026/functions/core/fn_hqVoice.sqf": "remoteExecCall",
     "dro2026/functions/support/fn_trackIncomingDrone.sqf": "remoteExec",
     "dro2026/functions/support/fn_offerFPVControl.sqf": "hasInterface",
-}
-for raw_path, token in client_delivery_contracts.items():
-    path = ROOT / raw_path
-    source = read_text(path) if path.is_file() else ""
-    if token not in source:
-        semantic_errors["client delivery contract"].append(f"{raw_path}: missing {token}")
+    "dro2026/functions/support/fn_showStatus.sqf": "remoteExecCall",
+}.items():
+    require_tokens(semantic_errors["client delivery contract"], raw_path, (token,))
 
 start_source = read_text(ROOT / "start.sqf")
 init_server_source = read_text(ROOT / "initServer.sqf")
 legacy_nil_respawn = bool(re.search(r"case\s+3\s*:\s*\{\s*nil\s*\}", start_source))
-sentinel_ready = (
-    "DRO2026_respawnDisabled" in init_server_source
-    and "respawnTime = -1" in init_server_source
-)
+sentinel_ready = "DRO2026_respawnDisabled" in init_server_source and "respawnTime = -1" in init_server_source
 if legacy_nil_respawn and not sentinel_ready:
     semantic_errors["respawn disabled sentinel"].append(
         "start.sqf still returns nil for mode 3 without initServer sentinel normalization"
     )
 
+foundation_contracts = {
+    "dro2026/functions/core/fn_initState.sqf": (
+        "DRO2026_theaterLayout",
+        "DRO2026_networkNodes",
+        "DRO2026_networkEdges",
+        "DRO2026_eventLog",
+        "DRO2026_operationState",
+    ),
+    "dro2026/functions/core/fn_buildCapabilityNetwork.sqf": (
+        "NODE_LOGISTICS_01",
+        "NODE_ARTILLERY_01",
+        "NODE_FPV_FORWARD_01",
+        "NODE_EW_01",
+        "EDGE_LOGISTICS_ARTILLERY",
+    ),
+    "dro2026/functions/core/fn_emitEvent.sqf": ("DRO2026_eventLog", "DRO2026_MAX_EVENT_LOG"),
+    "dro2026/functions/directors/fn_operationDirector.sqf": (
+        "DRO2026_currentIntent",
+        "INTENT_PROPOSED",
+        "doctrine",
+    ),
+}
+for raw_path, tokens in foundation_contracts.items():
+    require_tokens(semantic_errors["world-state foundation"], raw_path, tokens)
+
+require_tokens(
+    semantic_errors["persistent site history"],
+    "dro2026/functions/directors/fn_performanceGovernor.sqf",
+    ("syncNetworkState", "lastCompactedAt"),
+    forbidden=("DRO2026_sites = DRO2026_sites select", "DRO2026_sites deleteAt"),
+)
+require_tokens(
+    semantic_errors["persistent site history"],
+    "dro2026/functions/core/fn_syncNetworkState.sqf",
+    ("SITE_DESTROYED", "NETWORK_NODE_DESTROYED", "destroyedAt"),
+)
+
+require_tokens(
+    semantic_errors["contact v2 and BDA"],
+    "dro2026/functions/core/fn_createContactRecord.sqf",
+    (
+        "positionMean",
+        "uncertaintyRadius",
+        "sources",
+        "velocityEstimate",
+        "bdaState",
+        "falseContactProbability",
+    ),
+)
+require_tokens(
+    semantic_errors["contact v2 and BDA"],
+    "dro2026/functions/directors/fn_sensorDirector.sqf",
+    ("PROBABLY_DESTROYED", "CONFIRMED_DESTROYED", "uncertaintyGrowth", "BDA_UPDATED"),
+)
+require_tokens(
+    semantic_errors["contact v2 and BDA"],
+    "dro2026/functions/core/fn_syncContactMarker.sqf",
+    ("ELLIPSE", "uncertaintyRadius", "bdaState"),
+)
+
+require_tokens(
+    semantic_errors["state-driven objectives"],
+    "dro2026/functions/objectives/fn_selectObjective.sqf",
+    ("selectObjectiveOpportunity", "OBJECTIVE_EXPOSED", "evaluateOperationPhase"),
+    forbidden=("selectRandom DRO2026_OPERATION_PACKAGES",),
+)
+require_tokens(
+    semantic_errors["state-driven objectives"],
+    "dro2026/functions/core/fn_selectObjectiveOpportunity.sqf",
+    ("activeOpportunities", "networkNode", "phase"),
+)
+
+require_tokens(
+    semantic_errors["contact-driven artillery"],
+    "dro2026/functions/objectives/fn_artilleryLoop.sqf",
+    ("ARTILLERY_FIRE", "observerContact", "COUNTERBATTERY", "NODE_ARTILLERY_01"),
+    forbidden=("getPosATL player", "getPos player"),
+)
+require_tokens(
+    semantic_errors["contact-driven artillery"],
+    "dro2026/functions/support/fn_requestArtillery.sqf",
+    ("uncertaintyRadius", "friendlyRisk", "civilianRisk", "FIRE_MISSION_EXECUTED"),
+)
+
+require_tokens(
+    semantic_errors["node logistics"],
+    "dro2026/functions/directors/fn_logisticsDirector.sqf",
+    (
+        "DELIVERY_STARTED",
+        "DELIVERY_MATERIALIZED",
+        "DELIVERY_COMPLETED",
+        "DELIVERY_INTERDICTED",
+        "cargoType",
+        "virtualPosition",
+        "changeNetworkNodeStock",
+    ),
+)
+require_tokens(
+    semantic_errors["node logistics"],
+    "dro2026/functions/objectives/fn_objectiveConvoy.sqf",
+    ("edgeId", "cargoType", "toNode", "DELIVERY_INTERDICTED"),
+    forbidden=("enemySupply\", -28", "enemyDroneStock\", -7"),
+)
+
+require_tokens(
+    semantic_errors["EW and AA network"],
+    "dro2026/functions/core/fn_getJammingAtPosition.sqf",
+    ("emissionState", "terrainIntersectASL", "jammingRadius"),
+)
+require_tokens(
+    semantic_errors["EW and AA network"],
+    "dro2026/functions/directors/fn_airDefenceDirector.sqf",
+    ("trackingChannels", "AA_MISSILE_LAUNCHED", "AA_EMISSION_CHANGED", "activeTracks"),
+)
+require_tokens(
+    semantic_errors["EW and AA network"],
+    "dro2026/functions/support/fn_launchISR.sqf",
+    ("EMISSION_DETECTED", "BURST", "falseContactProbability", "getJammingAtPosition"),
+)
+
+require_tokens(
+    semantic_errors["support ROE and air window"],
+    "dro2026/functions/core/fn_getAirWindow.sqf",
+    ("PERMISSIVE", "CONTESTED", "CLOSED", "civiliansClose", "friendliesClose"),
+)
+require_tokens(
+    semantic_errors["support ROE and air window"],
+    "dro2026/functions/support/fn_requestAirSupport.sqf",
+    ("getAirWindow", "AA_ACTIVE", "TARGET_LOST", "CIVILIAN_RISK", "FRIENDLIES_CLOSE"),
+)
+
 preinit_path = ROOT / "dro2026/functions/core/fn_preInit.sqf"
 preinit_source = read_text(preinit_path)
-constant_names = set(
-    re.findall(r"^\s*(DRO2026_[A-Z0-9_]+)\s*=", preinit_source, re.MULTILINE)
-)
+constant_names = set(re.findall(r"^\s*(DRO2026_[A-Z0-9_]+)\s*=", preinit_source, re.MULTILINE))
 all_clean = "\n".join(clean_sources.values())
 for constant in sorted(constant_names):
     if len(re.findall(rf"\b{re.escape(constant)}\b", all_clean)) <= 1:
         semantic_warnings["unused constants"].append(constant)
 
 for path, clean in clean_sources.items():
-    head = clean[:500]
+    head = clean[:700]
     if re.search(r"if\s*\(\s*!isServer\s*\)\s*exitWith", head) and re.search(r"\bplayer\b", clean):
         semantic_warnings["server-only global player usage"].append(str(path.relative_to(ROOT)))
 
@@ -299,9 +444,19 @@ for path in files:
     if path.suffix.lower() == ".sqf":
         line_count = read_text(path).count("\n") + 1
         if line_count > 1000:
-            semantic_warnings["large orchestrators"].append(
-                f"{path.relative_to(ROOT)}:{line_count} lines"
-            )
+            semantic_warnings["large orchestrators"].append(f"{path.relative_to(ROOT)}:{line_count} lines")
+
+for path, clean in clean_sources.items():
+    if "dro2026" in path.parts and re.search(r'DRO2026_resources\s+set\s*\[\s*["\']enemy', clean):
+        if path.name not in {
+            "fn_logisticsDirector.sqf",
+            "fn_changeNetworkNodeStock.sqf",
+            "fn_completeObjective.sqf",
+            "fn_enemyFPVDirector.sqf",
+            "fn_longRangeDroneDirector.sqf",
+            "fn_reactionDirector.sqf",
+        }:
+            semantic_warnings["legacy global resource mutations"].append(str(path.relative_to(ROOT)))
 
 rpt_patterns = {
     "undefined variable": re.compile(r"Undefined variable(?: in expression)?:?\s*([^\r\n]*)", re.I),
@@ -312,12 +467,17 @@ rpt_patterns = {
         r"eInfClassesUnarmedForWeights|eInfClassUnarmedWeights|pook_SAMSite_class)",
         re.I,
     ),
+    "network regression": re.compile(
+        r"(?:DRO2026_networkNodes|DRO2026_networkEdges|DRO2026_operationState|"
+        r"DRO2026_currentIntent|DRO2026_eventLog|DRO2026_supplyLanes)",
+        re.I,
+    ),
 }
 rpt_regressions: dict[str, list[str]] = {name: [] for name in rpt_patterns}
 for raw_rpt in args.rpt:
     rpt_path = Path(raw_rpt).expanduser().resolve()
     if not rpt_path.is_file():
-        rpt_regressions["missing RPT file"] = [str(rpt_path)]
+        rpt_regressions.setdefault("missing RPT file", []).append(str(rpt_path))
         continue
     rpt_source = read_text(rpt_path)
     for name, pattern in rpt_patterns.items():
@@ -326,6 +486,7 @@ for raw_rpt in args.rpt:
             rpt_regressions[name].append(f"{rpt_path}:{line}")
 
 report = {
+    "version": "rc6-capability-network",
     "expanded_entry_files": len(files),
     "registered_count": len(registered),
     "function_file_count": len(function_files),
