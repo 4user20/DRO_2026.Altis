@@ -10,6 +10,7 @@ class CfgFunctions
             class initState {};
             class registerAssets {};
             class refreshFactionAssets {};
+            class publishSupportCatalog {};
             class getRoleClass {};
             class isSafeInfantryClass {};
             class sanitizeLegacyPools {};
