@@ -19,6 +19,7 @@ class CfgFunctions
             class createRouteMarkers {};
             class createDroneTeam {};
             class hqVoice {};
+            class syncContactMarker {};
             class registerManagedGroup {};
             class findObjectivePos {};
             class createObjectiveRecord {};
