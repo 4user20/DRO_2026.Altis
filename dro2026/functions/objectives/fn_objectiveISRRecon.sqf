@@ -37,11 +37,13 @@ _marker setMarkerText format [" %1", _title];
 private _antenna = createVehicle ["Land_TTowerSmall_1_F", _relayPosition, [], 0, "CAN_COLLIDE"];
 private _generator = createVehicle ["Land_PortableGenerator_01_F", _relayPosition getPos [8, 120], [], 0, "CAN_COLLIDE"];
 private _table = createVehicle ["Land_CampingTable_small_F", _relayPosition getPos [5, 210], [], 0, "CAN_COLLIDE"];
-private _vehicleFallback = if (enemySide == west) then {"B_Truck_01_box_F"} else {"O_Truck_03_device_F"};
-private _vehicleRole = if (enemySide == west) then {"EW_WEST"} else {"EW_EAST"};
+private _vehicleFallback = if (enemySide == west) then {"B_Truck_01_box_F"} else {if (enemySide == resistance) then {"I_Truck_02_box_F"} else {"O_Truck_03_transport_F"}};
+private _vehicleRole = if (enemySide == west) then {"LOGISTICS_WEST"} else {"LOGISTICS_EAST"};
 private _vehicleClass = [_vehicleRole, _vehicleFallback] call DRO2026_fnc_getRoleClass;
 private _controlVehicle = createVehicle [_vehicleClass, _relayPosition getPos [20, random 360], [], 0, "NONE"];
-private _operatorClass = if (enemySide == west) then {["OFFICER_WEST", "B_soldier_UAV_F"] call DRO2026_fnc_getRoleClass} else {["OFFICER_EAST", "O_soldier_UAV_F"] call DRO2026_fnc_getRoleClass};
+private _operatorFallback = switch (enemySide) do {case west: {"B_soldier_UAV_F"}; case resistance: {"I_soldier_UAV_F"}; default {"O_soldier_UAV_F"}};
+private _officerRole = if (enemySide == west) then {"OFFICER_WEST"} else {"OFFICER_EAST"};
+private _operatorClass = [_officerRole, _operatorFallback] call DRO2026_fnc_getRoleClass;
 private _group = createGroup [enemySide, true];
 private _operator = _group createUnit [_operatorClass, _relayPosition getPos [3, random 360], [], 0, "NONE"];
 for "_index" from 1 to 2 do {
@@ -49,27 +51,31 @@ for "_index" from 1 to 2 do {
     if (!isNull _guard) then {_guard setSkill 0.48 + random 0.12};
 };
 if (!isNull _operator) then {_operator setSkill 0.65};
-[_group, false] call DRO2026_fnc_registerManagedGroup;
-_group setVariable ["DRO2026_static", true];
-_group setBehaviourStrong "AWARE";
-[_group, _relayPosition, 65] call BIS_fnc_taskDefend;
+if (count units _group > 0) then {
+    [_group, false] call DRO2026_fnc_registerManagedGroup;
+    _group setVariable ["DRO2026_static", true];
+    _group setBehaviourStrong "AWARE";
+    [_group, _relayPosition, 65] call BIS_fnc_taskDefend;
+};
 
 private _objects = [_antenna, _generator, _table, _controlVehicle] select {!isNull _x};
-private _extra = createHashMapFromArray [
-    ["operator", _operator], ["group", _group], ["relatedNodeId", _nodeId], ["background", false]
-];
+private _extra = createHashMapFromArray [["operator", _operator], ["group", _group], ["relatedNodeId", _nodeId], ["background", false]];
 private _site = ["ISR_RELAY", _relayPosition, _antenna, _objects, _extra] call DRO2026_fnc_createSiteRecord;
-DRO2026_sites pushBack _site;
+if ([_site, false] call DRO2026_fnc_validateSiteRecord) then {DRO2026_sites pushBack _site};
 
 private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _relayPosition], ["nodeId", _nodeId], ["targetPosition", _targetPosition]];
 [_taskName, _desc, _title, _marker, "scout", _estimate, 0, [], _meta] call DRO2026_fnc_createObjectiveRecord;
 
-[_taskName, _relayPosition, _targetPosition, _nodeId, _nodeType, _marker, _antenna, _operator, _objects] spawn {
-    params ["_task", "_relayPosition", "_targetPosition", "_nodeId", "_nodeType", "_marker", "_antenna", "_operator", "_objects"];
-    waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1};
+[_taskName, _relayPosition, _targetPosition, _nodeId, _nodeType, _marker, _antenna, _operator, _objects, _group] spawn {
+    params ["_task", "_relayPosition", "_targetPosition", "_nodeId", "_nodeType", "_marker", "_antenna", "_operator", "_objects", "_group"];
+    waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
     private _observed = 0;
     private _finished = false;
-    while {!_finished && {(missionNamespace getVariable [format ["%1Completed", _task], 0]) == 0}} do {
+    while {
+        !_finished &&
+        {(missionNamespace getVariable [format ["%1Completed", _task], 0]) == 0} &&
+        {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}
+    } do {
         private _qualified = false;
         {
             private _observer = _x;
@@ -103,6 +109,16 @@ private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _rel
     };
     sleep 5;
     {if (!isNull _x) then {deleteVehicle _x}} forEach _objects;
+    if (!isNull _group) then {
+        {if (!isNull _x) then {deleteVehicle _x}} forEach units _group;
+        deleteGroup _group;
+    };
 };
-[] spawn {waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1}; sleep 7; ["NEW_TASK", "Штаб: Найдите физический разведывательный relay. Он выведет нас на конкретный стратегический объект."] call DRO2026_fnc_hqVoice};
+[] spawn {
+    waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
+    if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {
+        sleep 7;
+        ["NEW_TASK", "Штаб: Найдите физический разведывательный relay. Он выведет нас на конкретный стратегический объект."] call DRO2026_fnc_hqVoice;
+    };
+};
 _taskName
