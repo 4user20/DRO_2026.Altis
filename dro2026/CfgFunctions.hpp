@@ -36,6 +36,7 @@ class CfgFunctions
             class registerManagedGroup {};
             class findObjectivePos {};
             class createObjectiveRecord {};
+            class createContactRecord {};
             class createSiteRecord {};
             class validateSiteRecord {};
             class spawnGuard {};
