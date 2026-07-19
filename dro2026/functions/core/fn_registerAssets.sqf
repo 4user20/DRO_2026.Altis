@@ -1,3 +1,15 @@
+private _dangerousVehicleTokens = [
+    "spawner", "module", "logic", "dummy", "placeholder", "_root", "site_",
+    "samsite", "sam_site", "azncontrol", "unit_scanner", "pook_sam", "pook_azncontrol"
+];
+private _assetExclusionStats = createHashMap;
+private _exclusionReason = {
+    params ["_class"];
+    private _name = toLowerANSI _class;
+    private _index = _dangerousVehicleTokens findIf {(_name find _x) >= 0};
+    if (_index < 0) exitWith {""};
+    _dangerousVehicleTokens select _index
+};
 private _registerVehicle = {
     params ["_role", "_class", ["_mustFly", false]];
     private _cfg = configFile >> "CfgVehicles" >> _class;
@@ -5,8 +17,11 @@ private _registerVehicle = {
     if (_mustFly && {!(_class isKindOf "Air")}) exitWith {
         [format ["Класс %1 исключён из %2: это не Air/UAV", _class, _role]] call DRO2026_fnc_log;
     };
-    private _name = toLowerANSI _class;
-    if ((_name find "pook_") == 0 || {(_name find "spawner") >= 0} || {(_name find "_root") >= 0}) exitWith {};
+    private _reason = [_class] call _exclusionReason;
+    if (_reason != "") exitWith {
+        _assetExclusionStats set [_reason, (_assetExclusionStats getOrDefault [_reason, 0]) + 1];
+        if (DRO2026_DEBUG) then {[format ["Класс %1 исключён из %2 по причине %3", _class, _role, _reason]] call DRO2026_fnc_log};
+    };
     private _pool = DRO2026_assetRegistry getOrDefault [_role, []];
     _pool pushBackUnique _class;
     DRO2026_assetRegistry set [_role, _pool];
@@ -65,7 +80,7 @@ private _registerAmmo = {
 {["ISR_MICRO_GUER", _x, true] call _registerVehicle} forEach ["I_UAV_01_F"];
 {["ISR_TACTICAL_GUER", _x, true] call _registerVehicle} forEach ["I_UAV_02_dynamicLoadout_F"];
 
-// Air defence. Explicit classes only; never Pook site/spawner/root classes.
+// Air defence. Explicit classes only; never editor site/spawner/root classes.
 {["SHORAD_EAST", _x] call _registerVehicle} forEach ["O_T_APC_Tracked_02_AA_ghex_F", "O_APC_Tracked_02_AA_F", "RUS_vdv_kamaz5350zu232"];
 {["SHORAD_WEST", _x] call _registerVehicle} forEach ["B_APC_Tracked_01_AA_F"];
 {["LONG_RANGE_AA_EAST", _x] call _registerVehicle} forEach ["S300_F_UCG"];
@@ -100,3 +115,7 @@ private _registerAmmo = {
 
 // Civilian traffic.
 {["CIV_TRAFFIC", _x] call _registerVehicle} forEach ["av_Lada_civ", "av_Octavia", "av_Octavia_blek", "av_UAZ451_3", "av_lada_2110d", "av_niva_01", "av_zil_130f", "AV_2_Golf_Civ", "C_Offroad_01_F"];
+
+if (count _assetExclusionStats > 0) then {
+    [format ["Реестр активов: исключения по причинам %1", _assetExclusionStats]] call DRO2026_fnc_log;
+};
