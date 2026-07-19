@@ -52,10 +52,14 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 };
             } forEach DRO2026_activeDrones;
             {
-                if (_x isKindOf "Air" && {alive _x} && {_x distance2D _nodePos <= _coverage}) then {
-                    private _side = side _x;
-                    if (count crew _x > 0) then {_side = side (group ((crew _x) select 0))};
-                    if (_side == playersSide && {(_tracks findIf {(_x select 0) == _this}) < 0}) then {_tracks pushBack [_x, 0.9, _x distance2D _nodePos]};
+                private _air = _x;
+                if (_air isKindOf "Air" && {alive _air} && {_air distance2D _nodePos <= _coverage}) then {
+                    private _airSide = side _air;
+                    if (count crew _air > 0) then {_airSide = side (group ((crew _air) select 0))};
+                    private _alreadyTracked = (_tracks findIf {(_x select 0) == _air}) >= 0;
+                    if (_airSide == playersSide && {!_alreadyTracked}) then {
+                        _tracks pushBack [_air, 0.9, _air distance2D _nodePos];
+                    };
                 };
             } forEach vehicles;
             _tracks = [_tracks, [], {-((_x select 1) - ((_x select 2) / (_coverage * 2)))}, "ASCEND"] call BIS_fnc_sortBy;
@@ -92,5 +96,5 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             };
         };
     } forEach ["NODE_AA_LONG_01", "NODE_AA_SHORAD_01"];
-    sleep 3;
+    sleep 5;
 };
