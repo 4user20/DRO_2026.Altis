@@ -27,6 +27,7 @@ missionNamespace setVariable ["DRO2026_directorsStarted", true];
 [] spawn DRO2026_fnc_friendlyStrikeDirector;
 [] spawn DRO2026_fnc_logisticsDirector;
 [] spawn DRO2026_fnc_civilTrafficDirector;
+[] spawn DRO2026_fnc_civilianIntelDirector;
 [] spawn DRO2026_fnc_enemyAirDirector;
 [] spawn DRO2026_fnc_reactionDirector;
 ["RADIO_CHECK"] call DRO2026_fnc_hqVoice;
