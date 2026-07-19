@@ -25,12 +25,9 @@ missionNamespace setVariable ["DRO2026_supportCategories", _enabled, true];
 [] call DRO2026_fnc_refreshFactionAssets;
 [] call DRO2026_fnc_publishSupportCatalog;
 
-// The unified panel is always the entry point for UAV, artillery and aviation.
-{
-    if (!isNull _x) then {
-        [_x, "DRO2026_OpenSupportConsole"] remoteExecCall ["BIS_fnc_addCommMenuItem", _x, true];
-    };
-} forEach units (grpNetId call BIS_fnc_groupFromNetId);
+// The unified panel action and communication item are installed exactly once by
+// clientInit after playersReady/catalogReady. Do not remoteExec the menu item here:
+// that previously produced duplicate JIP entries and persisted stale catalog state.
 
 // Supply drop remains a legacy category for now, but no artillery, CAS or UAV is
 // spawned here. This keeps startup light and avoids hidden random class choices.
