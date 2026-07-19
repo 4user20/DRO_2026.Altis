@@ -35,7 +35,9 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     } forEach DRO2026_sites;
     {
         private _position = _x getOrDefault ["position", []];
-        if (count _position > 1) then {_searchTargets pushBack [_position, _x getOrDefault ["type", "FRIENDLY_POSITION"], _x getOrDefault ["object", objNull], _x getOrDefault ["id", ""], 5]};
+        if (count _position > 1) then {
+            _searchTargets pushBack [_position, _x getOrDefault ["type", "FRIENDLY_POSITION"], _x getOrDefault ["object", objNull], _x getOrDefault ["id", ""], 5];
+        };
     } forEach DRO2026_friendlyPositions;
     {
         if (!isNull _x && {alive _x}) then {
@@ -61,7 +63,11 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _class = "";
     if (enemySide == east && {"RUS_VKS_forpostru" in _pool} && {random 1 < 0.62}) then {_class = "RUS_VKS_forpostru"};
     if (_class == "" && {count _pool > 0}) then {_class = selectRandom _pool};
-    if (_class == "") then {_class = if (enemySide == west) then {"B_UAV_02_dynamicLoadout_F"} else {if (enemySide == resistance) then {"I_UAV_02_dynamicLoadout_F"} else {"O_UAV_02_dynamicLoadout_F"}}};
+    if (_class == "") then {
+        _class = if (enemySide == west) then {"B_UAV_02_dynamicLoadout_F"} else {
+            if (enemySide == resistance) then {"I_UAV_02_dynamicLoadout_F"} else {"O_UAV_02_dynamicLoadout_F"}
+        };
+    };
     if (!isClass (configFile >> "CfgVehicles" >> _class)) then {continue};
 
     private _lower = toLowerANSI _class;
@@ -78,7 +84,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _uav = createVehicle [_class, _spawn, [], 0, "FLY"];
     if (isNull _uav) then {continue};
     private _group = enemySide createVehicleCrew _uav;
-    if (isNull _group || {isNull driver _uav}) then {
+    if (isNull _group || {isNull (driver _uav)}) then {
         deleteVehicleCrew _uav;
         deleteVehicle _uav;
         continue;
@@ -115,7 +121,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _radius = if (_isMicro) then {260 + random 170} else {650 + random 500};
             private _orbit = _sectorPos getPos [_radius, _angle];
             _orbit set [2, _height + (-20 + random 40)];
-            if (!isNull driver _uav) then {(driver _uav) doMove _orbit};
+            if (!isNull (driver _uav)) then {(driver _uav) doMove _orbit};
 
             if (!_announced && {(allPlayers findIf {alive _x && {((vehicle _x) knowsAbout _uav) > 1.1 || {(vehicle _x) distance2D _uav < 900}}}) >= 0}) then {
                 _announced = true;
@@ -159,7 +165,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             sleep 5;
         };
         if (alive _uav) then {
-            if (!isNull driver _uav) then {(driver _uav) doMove _origin};
+            if (!isNull (driver _uav)) then {(driver _uav) doMove _origin};
             sleep 20;
             if (alive _uav) then {deleteVehicleCrew _uav; deleteVehicle _uav};
         };
