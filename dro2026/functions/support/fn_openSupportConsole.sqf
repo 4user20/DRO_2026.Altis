@@ -79,12 +79,20 @@ private _populate = {
             private _index = _list lbAdd _label;
             _list lbSetData [_index, _mode];
             _list lbSetValue [_index, _maxQuantity];
-            if (_tooltip != "") then {_list lbSetTooltip [_index, format ["%1\nКласс: %2", _tooltip, if (_class == "") then {"профиль пусковой"} else {_class}]]};
+            if (_tooltip != "") then {
+                private _classText = if (_class == "") then {"профиль пусковой"} else {_class};
+                _list lbSetTooltip [_index, format ["%1\nКласс: %2", _tooltip, _classText]];
+            };
             _shown = _shown + 1;
         };
     } forEach _catalog;
     if (_shown == 0) then {
-        private _index = _list lbAdd (if (missionNamespace getVariable ["DRO2026_supportCatalogReady", false]) then {"Для этой категории нет совместимых классов выбранной фракции"} else {"Каталог поддержки ещё не получен от сервера"});
+        private _emptyLabel = if (missionNamespace getVariable ["DRO2026_supportCatalogReady", false]) then {
+            "Для этой категории нет совместимых классов выбранной фракции"
+        } else {
+            "Каталог поддержки ещё не получен от сервера"
+        };
+        private _index = _list lbAdd _emptyLabel;
         _list lbSetData [_index, ""];
         _list lbSetValue [_index, 1];
     };
