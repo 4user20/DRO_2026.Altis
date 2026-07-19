@@ -90,7 +90,7 @@ DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
             ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "ABORTED"], ["reason", "SPAWN_FAILED"]], _missionId] call DRO2026_fnc_emitEvent;
         } else {
             private _group = playersSide createVehicleCrew _aircraft;
-            if (isNull _group || {isNull driver _aircraft}) then {
+            if (isNull _group || {isNull (driver _aircraft)}) then {
                 deleteVehicleCrew _aircraft;
                 deleteVehicle _aircraft;
                 DRO2026_resources set ["friendlyAirSorties", (DRO2026_resources getOrDefault ["friendlyAirSorties", 0]) + 1];
@@ -125,7 +125,7 @@ DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
                             };
                         };
                         _aircraft reveal [_target, 4];
-                        if (!isNull driver _aircraft) then {
+                        if (!isNull (driver _aircraft)) then {
                             (driver _aircraft) doTarget _target;
                             if (_aircraft distance2D _target < 2600 && {(time - _lastFireOrder) > 6}) then {
                                 _lastFireOrder = time;
@@ -140,7 +140,7 @@ DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
                     ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", _state], ["reason", _abortReason]], _missionId] call DRO2026_fnc_emitEvent;
                     private _egress = _position getPos [9500, (_axis + 180) mod 360];
                     _egress set [2, if (_aircraft isKindOf "Helicopter") then {260} else {700}];
-                    if (!isNull driver _aircraft) then {(driver _aircraft) doMove _egress};
+                    if (!isNull (driver _aircraft)) then {(driver _aircraft) doMove _egress};
                     private _exitDeadline = time + 150;
                     waitUntil {sleep 2; !alive _aircraft || {_aircraft distance2D _position > 8000} || {time > _exitDeadline} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
                     if (alive _aircraft) then {deleteVehicleCrew _aircraft; deleteVehicle _aircraft};
