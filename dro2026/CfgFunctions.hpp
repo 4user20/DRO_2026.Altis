@@ -108,6 +108,8 @@ class CfgFunctions
         {
             file = "dro2026\functions\support";
             class launchFPVStrike {};
+            class isFPVExternallyControlled {};
+            class calculateFPVLeadPoint {};
             class launchLongRangeStrike {};
             class trackIncomingDrone {};
             class offerFPVControl {};

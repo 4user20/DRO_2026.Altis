@@ -53,7 +53,15 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 private _site = _sites select 0;
                 private _operator = _site getOrDefault ["operator", objNull];
                 private _origin = _site getOrDefault ["position", getPosATL _operator];
-                private _count = (if (DRO2026_alertLevel > 0.72 && {random 1 < 0.45}) then {2} else {1}) min _stock min _slots;
+                private _defaultCount = if (DRO2026_alertLevel > 0.72 && {random 1 < 0.45}) then {2} else {1};
+                private _aiModifiers = _intent getOrDefault ["aiModifiers", createHashMap];
+                private _selectionSource = _intent getOrDefault ["selectionSource", "DETERMINISTIC"];
+                private _requestedSalvo = if (_selectionSource == "LLM") then {
+                    round (((_aiModifiers getOrDefault ["salvoCount", 1]) max 1) min 3)
+                } else {
+                    _defaultCount
+                };
+                private _count = _requestedSalvo min _stock min _slots min DRO2026_MAX_DRONES_PER_SALVO;
                 ["NODE_FPV_FORWARD_01", "FPV_KITS", -_count, "FPV_ATTACK"] call DRO2026_fnc_changeNetworkNodeStock;
                 ["NODE_FPV_FORWARD_01", "BATTERIES", -_count, "FPV_ATTACK"] call DRO2026_fnc_changeNetworkNodeStock;
                 DRO2026_resources set ["enemyDroneStock", ((_kits - _count) max 0)];
@@ -73,7 +81,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 _node set ["launchesSinceRelocation", _launches];
                 _node set ["relocationThreshold", _threshold];
                 DRO2026_networkNodes set ["NODE_FPV_FORWARD_01", _node];
-                if (_launches >= _threshold) then {
+                private _forceRelocate = _selectionSource == "LLM" && {_aiModifiers getOrDefault ["relocateAfter", false]};
+                if (_forceRelocate || {_launches >= _threshold}) then {
                     _node set ["launchesSinceRelocation", 0];
                     _node set ["relocationThreshold", 1 + floor random 3];
                     DRO2026_networkNodes set ["NODE_FPV_FORWARD_01", _node];

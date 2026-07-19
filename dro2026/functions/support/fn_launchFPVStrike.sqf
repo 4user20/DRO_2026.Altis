@@ -10,7 +10,7 @@ private _refundFriendly = {
 if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundFriendly; objNull};
 if (!isNull _operator && {!alive _operator}) exitWith {call _refundFriendly; objNull};
 private _target = _contact getOrDefault ["target", objNull];
-private _targetPosition = _contact getOrDefault ["position", []];
+private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
 if (count _targetPosition < 2) exitWith {call _refundFriendly; objNull};
 if (!isNull _target && {!alive _target}) exitWith {call _refundFriendly; objNull};
 
@@ -91,8 +91,8 @@ while {
     {time < _timeout} &&
     {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}
 } do {
-    private _manual = _drone getVariable ["DRO2026_manualControl", false];
-    if (!_manual) then {
+    private _externalControl = [_drone] call DRO2026_fnc_isFPVExternallyControlled;
+    if (!_externalControl) then {
         if (!isNull _target && {alive _target}) then {
             _targetPosition = getPosATL _target;
         } else {
@@ -132,8 +132,10 @@ while {
         if (time > _guidanceLostUntil) then {
             private _lateralNoise = if (_distance > 400) then {7} else {2.5};
             _lateralNoise = _lateralNoise + ((1 - _channelQuality) * 8);
+            private _desiredSpeed = if (_distance > 450) then {40} else {33};
+            private _leadPosition = [_drone, _target, _contact, _targetPosition, _desiredSpeed, _channelQuality] call DRO2026_fnc_calculateFPVLeadPoint;
             private _aimASL = [
-                _drone, _targetPosition, 20,
+                _drone, _leadPosition, 20,
                 [70, 140, 240], 260, _lateralNoise
             ] call DRO2026_fnc_calculateTerrainAwareAim;
             private _currentAGL = ASLToAGL getPosASL _drone;
@@ -166,7 +168,6 @@ while {
                 private _blendedLength = vectorMagnitude _blended;
                 if (_blendedLength > 0.01) then {
                     private _newDirection = _blended vectorMultiply (1 / _blendedLength);
-                    private _desiredSpeed = if (_distance > 450) then {40} else {33};
                     _desiredSpeed = _desiredSpeed * (0.88 + 0.12 * _channelQuality);
                     private _speedBlend = 0.16 + 0.18 * _channelQuality;
                     private _newSpeed = _currentSpeed + ((_desiredSpeed - _currentSpeed) * _speedBlend);
