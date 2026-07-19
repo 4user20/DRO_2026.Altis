@@ -2,21 +2,15 @@ params ["_AOIndex", ["_allowRepeat", false]];
 [] call DRO2026_fnc_initState;
 [] call DRO2026_fnc_refreshFactionAssets;
 [] call DRO2026_fnc_buildTheaterGraph;
+[] call DRO2026_fnc_buildCapabilityNetwork;
+[] call DRO2026_fnc_syncNetworkState;
 
-if (count DRO2026_objectiveQueue == 0) then {
-    private _packages = +DRO2026_OPERATION_PACKAGES;
-    private _chosen = selectRandom _packages;
-    DRO2026_operationPackageName = _chosen select 0;
-    DRO2026_objectiveQueue = +(_chosen select 1);
-    [format ["Пакет операции: %1 / %2", DRO2026_operationPackageName, DRO2026_objectiveQueue]] call DRO2026_fnc_log;
-};
-
-private _type = DRO2026_objectiveQueue deleteAt 0;
-if (!_allowRepeat && {_type in DRO2026_usedObjectiveTypes}) then {
-    private _available = DRO2026_OPERATION_TYPES - DRO2026_usedObjectiveTypes;
-    if (count _available > 0) then {_type = selectRandom _available};
-};
+private _phase = [] call DRO2026_fnc_evaluateOperationPhase;
+private _type = [_allowRepeat] call DRO2026_fnc_selectObjectiveOpportunity;
+DRO2026_operationPackageName = format ["%1 · %2", _phase, DRO2026_operationState getOrDefault ["doctrine", "UNKNOWN"]];
+DRO2026_objectiveQueue = (DRO2026_operationState getOrDefault ["activeOpportunities", []]) apply {_x getOrDefault ["type", ""]};
 DRO2026_usedObjectiveTypes pushBackUnique _type;
+[format ["State-driven objective: %1; phase=%2; opportunities=%3", _type, _phase, DRO2026_objectiveQueue]] call DRO2026_fnc_log;
 
 private _task = switch (_type) do {
     case "LOGISTICS_HUB": {[_AOIndex] call DRO2026_fnc_objectiveLogisticsHub};
@@ -29,6 +23,7 @@ private _task = switch (_type) do {
     case "AIR_DEFENCE": {[_AOIndex] call DRO2026_fnc_objectiveAirDefence};
     case "ISR_RECON": {[_AOIndex] call DRO2026_fnc_objectiveISRRecon};
     case "CUT_REAR": {[_AOIndex] call DRO2026_fnc_objectiveCutRear};
-    default {[_AOIndex] call DRO2026_fnc_objectiveLogisticsHub};
+    default {[_AOIndex] call DRO2026_fnc_objectiveISRRecon};
 };
+["OBJECTIVE_EXPOSED", createHashMapFromArray [["type", _type], ["task", _task], ["phase", _phase]], "OPERATION"] call DRO2026_fnc_emitEvent;
 _task

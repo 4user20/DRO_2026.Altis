@@ -10,13 +10,39 @@ DRO2026_sites = [];
 DRO2026_friendlyPositions = [];
 DRO2026_activeDrones = [];
 DRO2026_activeConvoys = [];
+DRO2026_supplyLanes = [];
+DRO2026_supplyEvents = [];
 DRO2026_usedObjectiveTypes = [];
 DRO2026_objectiveQueue = [];
 DRO2026_operationPackageName = "";
 DRO2026_objectiveMeta = createHashMap;
 DRO2026_reservedObjectivePositions = [];
+
+// Geographic layout is intentionally separate from the logical capability network.
 DRO2026_theaterNodes = createHashMap;
+DRO2026_theaterLayout = createHashMap;
 DRO2026_theaterBuilt = false;
+DRO2026_networkNodes = createHashMap;
+DRO2026_networkEdges = createHashMap;
+DRO2026_networkBuilt = false;
+DRO2026_eventLog = [];
+DRO2026_eventSequence = 0;
+DRO2026_actionIntents = [];
+DRO2026_siteHistory = [];
+DRO2026_operationState = createHashMapFromArray [
+    ["schema", 1],
+    ["phase", "RECON"],
+    ["doctrine", selectRandom ["DRONE_HEAVY", "ARTILLERY_HEAVY", "DEFENSIVE_NETWORK", "MOBILE_RESERVES"]],
+    ["alertState", "GREEN"],
+    ["playerNoise", 0],
+    ["civilianTrust", 55],
+    ["operationScore", 0],
+    ["activeOpportunities", []],
+    ["completedEffects", []],
+    ["startedAt", time],
+    ["lastPhaseChange", time]
+];
+
 DRO2026_voiceQueue = [];
 DRO2026_voiceWorkerActive = false;
 DRO2026_fpsAverage = 45;
@@ -40,13 +66,15 @@ if (isServer) then {
     addMissionEventHandler ["MPEnded", {missionNamespace setVariable ["DRO2026_missionEnding", true]}];
 };
 DRO2026_civilTraffic = [];
-DRO2026_supportPreset = createHashMapFromArray [["isrDefault", "AUTO"], ["strikeDefault", "AUTO"]];
+DRO2026_supportPreset = createHashMapFromArray [["isrDefault", "AUTO"], ["strikeDefault", "AUTO"], ["automation", "RECOMMEND_ONLY"]];
 
+// Compatibility aggregate. New systems read/write node stocks first and mirror strategic totals here.
 DRO2026_resources = createHashMapFromArray [
     ["enemySupply", 100], ["enemyArtilleryAmmo", 80], ["enemyDroneStock", 48],
     ["enemyLongRangeStock", 12], ["enemyReinforcement", 78], ["enemyEW", 65],
     ["enemyAirDefence", 70], ["friendlySupply", 80], ["friendlyFPVStock", 18],
-    ["friendlyISRStock", 8], ["friendlyLongRangeStock", 20], ["friendlyFP5Stock", 2], ["friendlyDecoyStock", 6], ["friendlyArtilleryStock", 18], ["friendlyAirSorties", 4]
+    ["friendlyISRStock", 8], ["friendlyLongRangeStock", 20], ["friendlyFP5Stock", 2],
+    ["friendlyDecoyStock", 6], ["friendlyArtilleryStock", 18], ["friendlyAirSorties", 4]
 ];
 
 DRO2026_voiceMap = createHashMapFromArray [

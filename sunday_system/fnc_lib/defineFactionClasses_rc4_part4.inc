@@ -1,8 +1,8 @@
-		diag_log format ["_subcatWeights = %1", _subcatWeights];	
+		if (_debugFactionScan) then {diag_log format ["_subcatWeights = %1", _subcatWeights]};	
 		
 		// Choose a subcategory out of those remaining	
 		_chosenSubcat = if (count _availableSubcats > 0) then {[_availableSubcats, _subcatWeights] call BIS_fnc_selectRandomWeighted} else {""};
-		diag_log format ["_chosenSubcat = %1", _chosenSubcat];
+		if (_debugFactionScan) then {diag_log format ["_chosenSubcat = %1", _chosenSubcat]};
 		
 		// Add units with that subcategory to the chosen units
 		_chosenClasses = [];
@@ -19,7 +19,7 @@
 	};
 } forEach _enemyFactions;
 
-diag_log "DRO: Beginning DLC checks";
+if (_debugFactionScan) then {diag_log "DRO: Beginning DLC checks"};
 
 civCarClasses = civCarClasses - ["C_Kart_01_F", "C_Kart_01_Blu_F", "C_Kart_01_Fuel_F", "C_Kart_01_Red_F", "C_Kart_01_Vrana_F"];
 
@@ -29,8 +29,8 @@ if (civFaction == "CIV_F") then {
 	civClasses = getArray (configfile >> "CfgVehicles" >> "ModuleCivilianPresence_F" >> "UnitTypes" >> _worldName);
 };
 
-// RC4: do not instantiate every vehicle class to detect DLC ownership.
-// With large mod presets this created hundreds of heavy Pook vehicles and caused a major startup freeze.
+// RC4+: do not instantiate every vehicle class to detect DLC ownership.
+// With large mod presets this created hundreds of heavy vehicles and caused a major startup freeze.
 _unavailableDLCS = getDLCS 2;
 _unavailableVehicles = [];
-diag_log "DRO: DLC vehicle instantiation check skipped; runtime class validation is used instead";
+diag_log format ["DRO: faction extraction complete; DLC instantiation skipped, unavailable DLC count=%1", count _unavailableDLCS];

@@ -1,8 +1,11 @@
 private _blockedTokens = [
     "spawner", "module", "logic", "dummy", "placeholder", "virtual", "_base", "curator", "site_", "_root",
-    "pook_", "samsite", "sam_site", "azncontrol", "unit_scanner"
+    "samsite", "sam_site", "azncontrol", "unit_scanner", "pook_sam", "pook_azncontrol"
 ];
-private _blockedSubcatTokens = ["pook_", "samsite", "sam_site", "azncontrol", "module", "logic", "spawner", "control"];
+private _blockedSubcatTokens = [
+    "samsite", "sam_site", "azncontrol", "module", "logic", "spawner", "control", "unit_scanner", "pook_sam"
+];
+private _exclusionStats = createHashMap;
 private _safeConfigClass = {
     params ["_class", ["_mustBeMan", false]];
     if !(_class isEqualType "") exitWith {false};
@@ -11,10 +14,20 @@ private _safeConfigClass = {
     if (getNumber (_cfg >> "scope") < 2) exitWith {false};
     if (_mustBeMan && {!(_class isKindOf "Man")}) exitWith {false};
     private _name = toLowerANSI _class;
-    if ((_blockedTokens findIf {(_name find _x) >= 0}) >= 0) exitWith {false};
+    private _reasonIndex = _blockedTokens findIf {(_name find _x) >= 0};
+    if (_reasonIndex >= 0) exitWith {
+        private _reason = _blockedTokens select _reasonIndex;
+        _exclusionStats set [_reason, (_exclusionStats getOrDefault [_reason, 0]) + 1];
+        false
+    };
     private _subcat = getText (_cfg >> "editorSubcategory");
     private _subName = toLowerANSI _subcat;
-    if ((_blockedSubcatTokens findIf {(_subName find _x) >= 0}) >= 0) exitWith {false};
+    private _subReasonIndex = _blockedSubcatTokens findIf {(_subName find _x) >= 0};
+    if (_subReasonIndex >= 0) exitWith {
+        private _reason = format ["subcat:%1", _blockedSubcatTokens select _subReasonIndex];
+        _exclusionStats set [_reason, (_exclusionStats getOrDefault [_reason, 0]) + 1];
+        false
+    };
     true
 };
 
@@ -75,4 +88,7 @@ private _filterFlatPool = {
     missionNamespace setVariable [_name, _sets];
 } forEach ["_pInfEditorSubcats", "_eInfEditorSubcats"];
 
+if (count _exclusionStats > 0) then {
+    [format ["Legacy pools: исключения по причинам %1", _exclusionStats]] call DRO2026_fnc_log;
+};
 true

@@ -1,10 +1,20 @@
-params ["_position", ["_requestedType", "AUTO"], ["_decoy", false], ["_quantity", 1]];
+params ["_position", ["_requestedType", "AUTO"], ["_decoy", false], ["_quantity", 1], ["_requester", objNull]];
+
+if (!isServer) exitWith {
+    [player, "LONG_RANGE", [_position, _requestedType, _decoy, _quantity]] remoteExecCall ["DRO2026_fnc_serverRequestSupport", 2, false];
+};
+
 [] call DRO2026_fnc_initState;
+if (isNull _requester && {hasInterface}) then {_requester = player};
+if (!isNull _requester && {side (group _requester) != playersSide}) exitWith {
+    ["Штаб: дальняя поддержка недоступна для этой стороны.", _requester] call DRO2026_fnc_supportMessage;
+};
+private _requestSide = if (!isNull _requester) then {side (group _requester)} else {playersSide};
 _requestedType = toUpperANSI _requestedType;
 _quantity = ((round _quantity) max 1) min DRO2026_MAX_DRONES_PER_SALVO;
 if (_requestedType == "FP5") then {_quantity = 1};
 
-private _sideSuffix = switch (playersSide) do {
+private _sideSuffix = switch (_requestSide) do {
     case west: {"WEST"};
     case resistance: {"GUER"};
     default {"EAST"};
@@ -32,30 +42,30 @@ private _launcherHasAmmo = {
 };
 
 private _available = switch _requestedType do {
-    case "FP1": {[["FP1"] call _launcherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};
-    case "FP2": {[_longRole, ["fp2"]] call _roleHasToken || {[(["FP2"] call _launcherRole), "STRIKE_AMMO_FP2"] call _launcherHasAmmo}};
-    case "BM35": {[_longRole, ["bm35"]] call _roleHasToken || {[(["BM35"] call _launcherRole), "STRIKE_AMMO_BM35"] call _launcherHasAmmo}};
-    case "BULAVA": {[(["BULAVA"] call _launcherRole), ""] call _launcherHasAmmo};
-    case "FP5": {playersSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _launcherHasAmmo}};
+    case "FP1": {[['FP1'] call _launcherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};
+    case "FP2": {[_longRole, ["fp2"]] call _roleHasToken || {[(['FP2'] call _launcherRole), "STRIKE_AMMO_FP2"] call _launcherHasAmmo}};
+    case "BM35": {[_longRole, ["bm35"]] call _roleHasToken || {[(['BM35'] call _launcherRole), "STRIKE_AMMO_BM35"] call _launcherHasAmmo}};
+    case "BULAVA": {[(['BULAVA'] call _launcherRole), ""] call _launcherHasAmmo};
+    case "FP5": {_requestSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _launcherHasAmmo}};
     case "SHAHED": {[_longRole, ["shahed", "geran"]] call _roleHasToken || {count (DRO2026_ammoRegistry getOrDefault ["STRIKE_AMMO_SHAHED", []]) > 0}};
     default {count (DRO2026_assetRegistry getOrDefault [_longRole, []]) > 0};
 };
 if (!_available) exitWith {
-    systemChat format ["Штаб: профиль %1 недоступен выбранной стороне или его летающий класс/боеприпас не найден. Ресурс не списан.", _requestedType];
+    [format ["Штаб: профиль %1 недоступен выбранной стороне или его летающий класс/боеприпас не найден. Ресурс не списан.", _requestedType], _requester] call DRO2026_fnc_supportMessage;
 };
 
 if ((time - DRO2026_lastLongSupportRequest) < DRO2026_LONG_SUPPORT_COOLDOWN) exitWith {
-    systemChat format ["Штаб: Канал дальнего удара занят. Ожидайте %1 сек.", ceil (DRO2026_LONG_SUPPORT_COOLDOWN - (time - DRO2026_lastLongSupportRequest))];
+    [format ["Штаб: Канал дальнего удара занят. Ожидайте %1 сек.", ceil (DRO2026_LONG_SUPPORT_COOLDOWN - (time - DRO2026_lastLongSupportRequest))], _requester] call DRO2026_fnc_supportMessage;
 };
 private _costPool = if (_decoy) then {"friendlyDecoyStock"} else {"friendlyLongRangeStock"};
 if (_requestedType == "FP5" && {(DRO2026_resources getOrDefault ["friendlyFP5Stock", 0]) <= 0}) exitWith {
-    systemChat "Штаб: FP-5 для этой миссии больше недоступен.";
+    ["Штаб: FP-5 для этой миссии больше недоступен.", _requester] call DRO2026_fnc_supportMessage;
 };
 private _stock = DRO2026_resources getOrDefault [_costPool, 0];
 private _physicalSlots = (DRO2026_PHYSICAL_DRONE_LIMIT - count DRO2026_activeDrones) max 0;
 private _launchCount = (_quantity min _stock) min _physicalSlots;
 if (_launchCount <= 0) exitWith {
-    systemChat "Штаб: Нет свободных аппаратов или достигнут лимит активных БПЛА.";
+    ["Штаб: Нет свободных аппаратов или достигнут лимит активных БПЛА.", _requester] call DRO2026_fnc_supportMessage;
 };
 
 private _sites = DRO2026_sites select {
@@ -64,15 +74,14 @@ private _sites = DRO2026_sites select {
         !isNull _operator && {alive _operator}
     }
 };
-if (count _sites == 0) exitWith {systemChat "Штаб: Дальний расчёт БПЛА не отвечает."};
+if (count _sites == 0) exitWith {
+    ["Штаб: Дальний расчёт БПЛА не отвечает.", _requester] call DRO2026_fnc_supportMessage;
+};
 private _site = _sites select 0;
 private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
 
-private _baseContact = createHashMapFromArray [
-    ["owner", "PLAYER"], ["target", objNull], ["position", _position],
-    ["confidence", 0.76], ["kind", "НАЗНАЧЕННАЯ_ТОЧКА"], ["lastSeen", time]
-];
+private _baseContact = ["PLAYER", objNull, _position, 0.76, "НАЗНАЧЕННАЯ_ТОЧКА"] call DRO2026_fnc_createContactRecord;
 private _contacts = DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence", 0]) >= 0.45} &&
@@ -91,14 +100,13 @@ private _siteContacts = DRO2026_sites select {
 };
 if (count _siteContacts > 0) then {
     private _record = _siteContacts select 0;
-    _baseContact = createHashMapFromArray [
-        ["owner", "PLAYER"],
-        ["target", _record getOrDefault ["object", objNull]],
-        ["position", _record getOrDefault ["position", _position]],
-        ["confidence", 0.92],
-        ["kind", _record getOrDefault ["type", "ЦЕЛЬ"]],
-        ["lastSeen", time]
-    ];
+    _baseContact = [
+        "PLAYER",
+        _record getOrDefault ["object", objNull],
+        _record getOrDefault ["position", _position],
+        0.92,
+        _record getOrDefault ["type", "ЦЕЛЬ"]
+    ] call DRO2026_fnc_createContactRecord;
 };
 
 DRO2026_lastLongSupportRequest = time;
@@ -108,8 +116,8 @@ if (_requestedType == "FP5") then {
     DRO2026_friendlyFP5Used = DRO2026_friendlyFP5Used + 1;
 };
 
-[_origin, _baseContact, _operator, _requestedType, _decoy, _launchCount] spawn {
-    params ["_origin", "_baseContact", "_operator", "_type", "_decoy", "_count"];
+[_origin, _baseContact, _operator, _requestedType, _decoy, _launchCount, _requestSide] spawn {
+    params ["_origin", "_baseContact", "_operator", "_type", "_decoy", "_count", "_requestSide"];
     for "_index" from 0 to (_count - 1) do {
         private _contact = createHashMap;
         {
@@ -119,12 +127,12 @@ if (_requestedType == "FP5") then {
         if (_count > 1 && {isNull (_baseContact getOrDefault ["target", objNull])}) then {
             _contact set ["position", _basePosition getPos [40 + random 260, random 360]];
         };
-        [_origin, _contact, playersSide, _type == "FP5", _operator, _type, _decoy, _index, _count, true] spawn DRO2026_fnc_launchLongRangeStrike;
+        [_origin, _contact, _requestSide, _type == "FP5", _operator, _type, _decoy, _index, _count, true] spawn DRO2026_fnc_launchLongRangeStrike;
         sleep (2.5 + random 3.5);
     };
 };
-["ACK", format [
-    "Штаб: Подтверждаю запуск: %1, количество %2.",
-    if (_decoy) then {"БПЛА-обманка"} else {_requestedType},
-    _launchCount
-]] call DRO2026_fnc_hqVoice;
+[
+    "ACK",
+    format ["Штаб: Подтверждаю запуск: %1, количество %2.", if (_decoy) then {"БПЛА-обманка"} else {_requestedType}, _launchCount],
+    if (!isNull _requester) then {_requester} else {-2}
+] call DRO2026_fnc_hqVoice;

@@ -16,20 +16,21 @@ if (count eMortarClasses == 0) then {
 	eMortarClasses = ["O_Mortar_01_F"];
 };
 
-// Check to see if there are a lot of unarmed units, in which case, allow them to be valid
+// Check to see if there are a lot of unarmed units, in which case, allow them to be valid.
+// Keep the local include-chain arrays paired with their corresponding weight arrays.
 if (count _pInfClassesUnarmed > count pInfClasses) then {
 	pInfClasses = pInfClasses + _pInfClassesUnarmed;
 	{	
-		(pInfClassesForWeights set [_forEachIndex, ((pInfClassesForWeights select _forEachIndex) + (pInfClassesUnarmedForWeights select _forEachIndex))]);	
-		(pInfClassWeights set [_forEachIndex, ((pInfClassWeights select _forEachIndex) + (pInfClassUnarmedWeights select _forEachIndex))]);			
+		pInfClassesForWeights set [_forEachIndex, (pInfClassesForWeights select _forEachIndex) + (_pInfClassesUnarmedForWeights select _forEachIndex)];
+		pInfClassWeights set [_forEachIndex, (pInfClassWeights select _forEachIndex) + (_pInfClassUnarmedWeights select _forEachIndex)];
 	} forEach _playerFactions;
 };
 
 if (count _eInfClassesUnarmed > count eInfClasses) then {
 	eInfClasses = eInfClasses + _eInfClassesUnarmed;
 	{	
-		(eInfClassesForWeights set [_forEachIndex, ((eInfClassesForWeights select _forEachIndex) + (eInfClassesUnarmedForWeights select _forEachIndex))]);	
-		(eInfClassWeights set [_forEachIndex, ((eInfClassWeights select _forEachIndex) + (eInfClassUnarmedWeights select _forEachIndex))]);			
+		eInfClassesForWeights set [_forEachIndex, (eInfClassesForWeights select _forEachIndex) + (_eInfClassesUnarmedForWeights select _forEachIndex)];
+		eInfClassWeights set [_forEachIndex, (eInfClassWeights select _forEachIndex) + (_eInfClassUnarmedWeights select _forEachIndex)];
 	} forEach _enemyFactions;
 };
 
@@ -37,13 +38,22 @@ if (count _eInfClassesUnarmed > count eInfClasses) then {
 // can inherit from Man and otherwise become an entire SAM site when spawned as infantry.
 _pInfEditorSubcats = _pInfEditorSubcats apply {_x select {!([_x] call _isBlockedSubcat)}};
 _eInfEditorSubcats = _eInfEditorSubcats apply {_x select {!([_x] call _isBlockedSubcat)}};
-_pInfEditorSubcats = _pInfEditorSubcats apply {_x select {!([_x] call _isBlockedSubcat)}};
-_eInfEditorSubcats = _eInfEditorSubcats apply {_x select {!([_x] call _isBlockedSubcat)}};
 
-diag_log format ["DRO: _pInfEditorSubcats = %1", _pInfEditorSubcats];
-diag_log format ["DRO: pInfClassWeights = %1", pInfClassWeights];
-diag_log format ["DRO: _eInfEditorSubcats = %1", _eInfEditorSubcats];
-diag_log format ["DRO: eInfClassWeights = %1", eInfClassWeights];
+if (_debugFactionScan) then {
+	diag_log format ["DRO: _pInfEditorSubcats = %1", _pInfEditorSubcats];
+	diag_log format ["DRO: pInfClassWeights = %1", pInfClassWeights];
+	diag_log format ["DRO: _eInfEditorSubcats = %1", _eInfEditorSubcats];
+	diag_log format ["DRO: eInfClassWeights = %1", eInfClassWeights];
+	diag_log format ["DRO: blocked class reasons = %1", _blockedClassStats];
+	diag_log format ["DRO: blocked subcategory reasons = %1", _blockedSubcatStats];
+} else {
+	diag_log format [
+		"DRO: faction pools ready: pInf=%1 eInf=%2 pSubcats=%3 eSubcats=%4 blockedClasses=%5 blockedSubcats=%6",
+		count pInfClasses, count eInfClasses,
+		({_x} count _pInfEditorSubcats), ({_x} count _eInfEditorSubcats),
+		_blockedClassCount, _blockedSubcatCount
+	];
+};
 
 // If there are more than one subcategory of infantry units then select one
 {
@@ -69,7 +79,7 @@ diag_log format ["DRO: eInfClassWeights = %1", eInfClassWeights];
 				};
 			};
 			
-			diag_log format ["Subcat %2 _chosenWeights = %1", _chosenWeights, _thisSubcat];
+			if (_debugFactionScan) then {diag_log format ["Subcat %2 _chosenWeights = %1", _chosenWeights, _thisSubcat]};
 			
 			// Look at weights in this subcategory, if there are none above sniper level then disallow the subcategory
 			_allowThisSubcat = false;
@@ -87,13 +97,15 @@ diag_log format ["DRO: eInfClassWeights = %1", eInfClassWeights];
 			};
 		} forEach (_pInfEditorSubcats select _thisFactionIndex);
 		
-		diag_log format ["_availableSubcats = %1", _availableSubcats];
-		diag_log format ["_unavailableSubcats = %1", _unavailableSubcats];
-		diag_log format ["_subcatWeights = %1", _subcatWeights];	
+		if (_debugFactionScan) then {
+			diag_log format ["_availableSubcats = %1", _availableSubcats];
+			diag_log format ["_unavailableSubcats = %1", _unavailableSubcats];
+			diag_log format ["_subcatWeights = %1", _subcatWeights];
+		};
 		
 		// Choose a subcategory out of those remaining	
 		_chosenSubcat = if (count _availableSubcats > 0) then {[_availableSubcats, _subcatWeights] call BIS_fnc_selectRandomWeighted} else {""};
-		diag_log format ["_chosenSubcat = %1", _chosenSubcat];
+		if (_debugFactionScan) then {diag_log format ["_chosenSubcat = %1", _chosenSubcat]};
 		
 		// Add units with that subcategory to the chosen units
 		_chosenClasses = [];
@@ -134,7 +146,7 @@ diag_log format ["DRO: eInfClassWeights = %1", eInfClassWeights];
 				};
 			};
 			
-			diag_log format ["Subcat %2 _chosenWeights = %1", _chosenWeights, _x];
+			if (_debugFactionScan) then {diag_log format ["Subcat %2 _chosenWeights = %1", _chosenWeights, _thisSubcat]};
 			
 			// Look at weights in this subcategory, if there are none above sniper level then disallow the subcategory
 			_allowThisSubcat = false;
@@ -145,12 +157,14 @@ diag_log format ["DRO: eInfClassWeights = %1", eInfClassWeights];
 			} forEach _chosenWeights;
 			
 			if (!_allowThisSubcat) then {
-				_unavailableSubcats pushBack _x;
+				_unavailableSubcats pushBack _thisSubcat;
 			} else {
-				_availableSubcats pushBack _x;
+				_availableSubcats pushBack _thisSubcat;
 				_subcatWeights pushBack ((count _chosenClasses)/100);
 			};
 		} forEach (_eInfEditorSubcats select _thisFactionIndex);
 		
-		diag_log format ["_availableSubcats = %1", _availableSubcats];
-		diag_log format ["_unavailableSubcats = %1", _unavailableSubcats];
+		if (_debugFactionScan) then {
+			diag_log format ["_availableSubcats = %1", _availableSubcats];
+			diag_log format ["_unavailableSubcats = %1", _unavailableSubcats];
+		};

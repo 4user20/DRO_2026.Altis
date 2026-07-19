@@ -16,25 +16,38 @@ while {!DRO2026_missionEnding} do {
     DRO2026_activeDrones = DRO2026_activeDrones select {!isNull _x && {alive _x}};
     DRO2026_activeConvoys = DRO2026_activeConvoys select {
         private _vehicles = _x getOrDefault ["vehicles", []];
-        ({alive _x} count _vehicles) > 0
+        private _state = _x getOrDefault ["status", "ACTIVE"];
+        _state in ["ACTIVE", "IN_TRANSIT"] && {({!isNull _x && {alive _x}} count _vehicles) > 0}
     };
     DRO2026_civilTraffic = DRO2026_civilTraffic select {
         private _vehicle = _x getOrDefault ["vehicle", objNull];
         !isNull _vehicle && {alive _vehicle}
     };
-    DRO2026_sites = DRO2026_sites select {
-        private _object = _x getOrDefault ["object", objNull];
-        private _objects = _x getOrDefault ["objects", []];
-        private _operator = _x getOrDefault ["operator", objNull];
-        private _hasLivingObject = (!isNull _object && {alive _object}) || {({!isNull _x && {alive _x}} count _objects) > 0} || {!isNull _operator && {alive _operator}};
-        _hasLivingObject
-    };
 
-    if (count DRO2026_contacts > 120) then {
-        DRO2026_contacts = [DRO2026_contacts, [], {_x getOrDefault ["lastSeen", 0]}, "DESCEND"] call BIS_fnc_sortBy;
-        private _dropped = DRO2026_contacts select [120];
-        {private _marker = _x getOrDefault ["marker", ""]; if (_marker != "" && {hasInterface}) then {deleteMarkerLocal _marker}} forEach _dropped;
-        DRO2026_contacts resize 120;
+    // Keep logical site records and their history. Only remove invalid object references.
+    {
+        private _site = _x;
+        private _objects = (_site getOrDefault ["objects", []]) select {!isNull _x};
+        _site set ["objects", _objects];
+        private _object = _site getOrDefault ["object", objNull];
+        if (isNull _object && {count _objects > 0}) then {_site set ["object", _objects select 0]};
+        _site set ["lastCompactedAt", time];
+    } forEach DRO2026_sites;
+    [] call DRO2026_fnc_syncNetworkState;
+
+    if (count DRO2026_contacts > 160) then {
+        DRO2026_contacts = [DRO2026_contacts, [], {
+            private _bda = _x getOrDefault ["bdaState", "DETECTED"];
+            private _historyPenalty = if (_bda in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"]) then {400} else {0};
+            -((_x getOrDefault ["lastSeen", 0]) - _historyPenalty + ((_x getOrDefault ["confidence", 0]) * 120))
+        }, "ASCEND"] call BIS_fnc_sortBy;
+        private _dropped = DRO2026_contacts select [160];
+        {
+            if ((_x getOrDefault ["owner", ""]) == "PLAYER") then {
+                [_x getOrDefault ["id", ""], [], 0, "", true, 0, ""] remoteExecCall ["DRO2026_fnc_syncContactMarker", -2, false];
+            };
+        } forEach _dropped;
+        DRO2026_contacts resize 160;
     };
 
     if (DRO2026_fpsAverage < 20) then {

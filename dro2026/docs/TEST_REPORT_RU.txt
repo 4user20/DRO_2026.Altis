@@ -1,26 +1,71 @@
-ОТЧЁТ О ПРОВЕРКЕ
+ОТЧЁТ О ПРОВЕРКЕ RC6
 
-Версия: 1.0.0-rc1
+Версия: 1.5.0-rc6-capability-network
+Ветка: fix/rc4-audit-stabilization
 
-Выполнено:
-- восстановление и чтение исходного DRO PBO;
-- статическая проверка структуры (), [] и {} во всех 155 читаемых SQF/HPP/EXT/SQM-файлах миссии;
-- закрытие двух незавершённых legacy-комментариев и устранение неоднозначных выражений старого кода;
-- проверка регистрации 38 функций CfgFunctions;
-- проверка отсутствующих вызовов DRO2026_fnc_*;
-- проверка 23 используемых голосовых событий;
-- проверка декодирования всех 182 OGG через ffprobe;
-- проверка существования всех файлов нового слоя, include и аудиоссылок;
-- упаковка PBO;
-- обратная распаковка PBO;
-- сравнение SHA-256 всех 348 файлов исходника и распакованного PBO: совпадают полностью.
+РЕАЛИЗОВАНО И ПРОВЕРЕНО ЧЕРЕЗ GITHUB API / РУЧНОЕ РЕВЬЮ
 
-Информационное замечание статического анализатора:
-- requestFPV, requestISR и showStatus вызываются через CfgCommunicationMenu, а не прямым SQF-вызовом; поэтому простой поиск вызовов не считает их используемыми.
+- разделение theater layout и capability network;
+- постоянные network node/edge records;
+- bounded event log и operation state;
+- doctrine-aware operation intents;
+- state-driven выбор задач;
+- Contacts v2: uncertainty, source profiles, fusion, velocity estimate и BDA;
+- сохранение уничтоженных site/node records вместо удаления истории;
+- конкретные node stocks и cargo types;
+- виртуальные поставки с физической материализацией;
+- route risk, interdiction pressure, задержка и усиление эскорта;
+- локальный EW bubble и ELINT/BURST;
+- AA emission state, tracking channels, active tracks и логический missile stock;
+- air-window PERMISSIVE / CONTESTED / CLOSED;
+- ROE для CAS и союзной артиллерии;
+- intent-driven FPV, артиллерия, дальние БПЛА и подкрепления;
+- relocation передовой FPV-команды;
+- режимы союзной автоматизации MANUAL / RECOMMEND_ONLY / AUTO_DEFENSIVE / AUTO_FULL;
+- civilianTrust, civilianFear, localHostility, civilian harm и вероятностные доклады;
+- оперативная сводка и AAR из сохранённого event log;
+- русская документация и JSON-схемы RC6.
 
-Не выполнено:
-- реальный запуск Arma 3/Eden Editor;
-- проверка поведения каждого внешнего модового класса внутри движка;
-- длительный игровой прогон всех сочетаний фракций, районов и восьми типов задач.
+СТАТИЧЕСКИЕ ИНСТРУМЕНТЫ
 
-Причина: в среде сборки отсутствует исполняемый движок Arma 3. Поэтому сборка обозначена как release candidate, а не как окончательно подтверждённый runtime-релиз.
+Добавлен tools/validate_rc6.py. Старый tools/validate_rc4.py является совместимым entrypoint и делегирует RC6-валидатору.
+
+Валидатор проверяет:
+
+- include-цепочки и баланс (), [] и {};
+- CfgFunctions против fn_*.sqf и DRO2026_fnc_* вызовов;
+- запрещённые боеприпасы/прямые Pook createVehicle;
+- broad Pook denylist и unarmed alias regression;
+- server-authoritative поддержку и клиентскую доставку UI;
+- respawn sentinel;
+- обязательные world-state/network/event контракты;
+- persistent site history;
+- Contacts v2/BDA;
+- state-driven objective selector;
+- отсутствие точной позиции player в enemy artillery loop;
+- node logistics и delivery lifecycle;
+- spatial EW, AA channels/emissions;
+- air-window и support ROE;
+- необязательный разбор RPT.
+
+ВЫПОЛНЕНО ФАКТИЧЕСКИ В ТЕКУЩЕЙ СРЕДЕ
+
+- Python-синтаксис tools/validate_rc6.py проверен через py_compile до загрузки в репозиторий;
+- изменённые файлы и критические контракты просматривались через GitHub Contents/Data API;
+- сравнение ветки с main выполнялось через GitHub compare API;
+- GitHub Actions намеренно не запускались: минуты/биллинг недоступны.
+
+НЕ ВЫПОЛНЕНО
+
+- полный запуск tools/validate_rc6.py на checkout актуального head ветки;
+- компиляция/препроцессинг SQF движком Arma 3;
+- запуск в Eden Editor;
+- dedicated/hosted runtime-тест locality и remoteExec;
+- длительный игровой прогон всех doctrine/phase/capability сочетаний;
+- проверка реальных модовых AA/FPV/ISR classname и Fired events;
+- проверка virtual-to-physical delivery lifecycle в движке;
+- новый PBO round-trip после RC6-изменений.
+
+ПРИЧИНА ОГРАНИЧЕНИЙ
+
+Текущая среда имеет доступ к репозиторию только через GitHub connector и не может скачать branch archive или запустить Arma 3. Поэтому RC6 остаётся release candidate. Перед merge необходим локальный checkout, запуск validator и минимум один полный прогон с -showScriptErrors и сохранением RPT.
