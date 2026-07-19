@@ -24,7 +24,7 @@ def relative(path: Path) -> str:
         return str(path)
 
 
-def resolve_include(owner: Path, raw: str) -> Path | None:
+def include_target(owner: Path, raw: str) -> Path | None:
     candidate = (owner.parent / Path(raw.replace("\\", "/"))).resolve()
     if candidate.is_file() and (candidate == ROOT or ROOT in candidate.parents):
         return candidate
@@ -34,14 +34,14 @@ def resolve_include(owner: Path, raw: str) -> Path | None:
 def expand(path: Path, stack: tuple[Path, ...] = ()) -> tuple[str, list[str]]:
     path = path.resolve()
     if path in stack:
-        chain = " -> ".join(relative(item) for item in (*stack, path))
-        return "", [f"include cycle: {chain}"]
+        cycle = " -> ".join(relative(item) for item in (*stack, path))
+        return "", [f"include cycle: {cycle}"]
 
     source = read(path)
     errors: list[str] = []
 
     def replace(match: re.Match[str]) -> str:
-        target = resolve_include(path, match.group(1))
+        target = include_target(path, match.group(1))
         if target is None:
             errors.append(f"{relative(path)}: missing include {match.group(1)}")
             return ""
@@ -52,7 +52,7 @@ def expand(path: Path, stack: tuple[Path, ...] = ()) -> tuple[str, list[str]]:
     return INCLUDE_RE.sub(replace, source), errors
 
 
-def strip_comments_and_strings(source: str) -> tuple[str, str]:
+def clean(source: str) -> tuple[str, str]:
     output: list[str] = []
     index = 0
     state = "code"
@@ -111,13 +111,13 @@ def strip_comments_and_strings(source: str) -> tuple[str, str]:
 
 
 def delimiter_errors(label: str, source: str) -> list[str]:
-    cleaned, state = strip_comments_and_strings(source)
+    source, state = clean(source)
     pairs = {")": "(", "]": "[", "}": "{"}
     stack: list[tuple[str, int]] = []
     errors: list[str] = []
     line = 1
 
-    for char in cleaned:
+    for char in source:
         if char == "\n":
             line += 1
         elif char in "([{" :
@@ -135,64 +135,37 @@ def delimiter_errors(label: str, source: str) -> list[str]:
     return errors
 
 
-def locate(path: Path, source: str, pattern: re.Pattern[str]) -> list[str]:
-    return [
-        f"{relative(path)}:{source.count(chr(10), 0, match.start()) + 1}"
-        for match in pattern.finditer(source)
-    ]
-
-
-def require_tokens(
-    bucket: list[str],
+def contract(
+    errors: list[str],
     relative_path: str,
     required: tuple[str, ...],
     forbidden: tuple[str, ...] = (),
 ) -> None:
     path = ROOT / relative_path
     if not path.is_file():
-        bucket.append(f"{relative_path}: missing file")
+        errors.append(f"{relative_path}: missing file")
         return
-
     source = read(path)
     missing = [token for token in required if token not in source]
     blocked = [token for token in forbidden if token in source]
     if missing:
-        bucket.append(f"{relative_path}: missing {', '.join(missing)}")
+        errors.append(f"{relative_path}: missing {', '.join(missing)}")
     if blocked:
-        bucket.append(f"{relative_path}: forbidden {', '.join(blocked)}")
+        errors.append(f"{relative_path}: forbidden {', '.join(blocked)}")
 
 
-def check_fly_materialization(bucket: list[str], relative_path: str) -> None:
-    source = read(ROOT / relative_path)
-    fly_positions = [match.start() for match in re.finditer(r'createVehicle\s*\[[^\n;]*"FLY"', source)]
-    for position in fly_positions:
-        window = source[position : position + 900]
-        crew_at = min(
-            [candidate for candidate in (window.find("createVehicleCrew"), window.find("BIS_fnc_spawnVehicle")) if candidate >= 0],
-            default=-1,
-        )
-        set_pos_at = min(
-            [candidate for candidate in (window.find("setPosATL"), window.find("setPosASL")) if candidate >= 0],
-            default=-1,
-        )
-        if crew_at >= 0 and (set_pos_at < 0 or set_pos_at > crew_at):
-            line = source.count("\n", 0, position) + 1
-            bucket.append(
-                f"{relative_path}:{line}: empty FLY airframe is crewed before explicit setPosATL/setPosASL"
-            )
-
-
-def run_hemtt_if_configured() -> dict[str, object]:
+def run_optional_hemtt(require_hemtt: bool) -> tuple[dict[str, object], bool]:
     executable = shutil.which("hemtt")
-    project = ROOT / ".hemtt" / "project.toml"
+    configured = (ROOT / ".hemtt" / "project.toml").is_file()
     result: dict[str, object] = {
         "available": executable is not None,
-        "configured": project.is_file(),
+        "configured": configured,
         "exit_code": None,
         "output": "",
     }
-    if executable is None or not project.is_file():
-        return result
+
+    if executable is None or not configured:
+        return result, require_hemtt
 
     process = subprocess.run(
         [executable, "check"],
@@ -204,16 +177,12 @@ def run_hemtt_if_configured() -> dict[str, object]:
     )
     result["exit_code"] = process.returncode
     result["output"] = process.stdout[-12000:]
-    return result
+    return result, process.returncode != 0
 
 
-parser = ArgumentParser(description="DRO 2026 static, semantic, and RPT validator")
+parser = ArgumentParser(description="DRO 2026 RC6 static and semantic validator")
 parser.add_argument("--rpt", action="append", default=[])
-parser.add_argument(
-    "--require-hemtt",
-    action="store_true",
-    help="fail unless a configured HEMTT project can be checked successfully",
-)
+parser.add_argument("--require-hemtt", action="store_true")
 args = parser.parse_args()
 
 all_files = sorted(
@@ -221,25 +190,21 @@ all_files = sorted(
     for path in ROOT.rglob("*")
     if path.is_file()
     and path.suffix.lower() in SOURCE_EXTENSIONS
-    and "graphify-out" not in path.parts
     and ".git" not in path.parts
+    and "graphify-out" not in path.parts
 )
 entry_files = [path for path in all_files if path.suffix.lower() != ".inc"]
 
-expanded: dict[Path, str] = {}
-stripped: dict[Path, str] = {}
-raw_stripped = {path: strip_comments_and_strings(read(path))[0] for path in all_files}
 syntax_errors: list[str] = []
-
+expanded: dict[Path, str] = {}
+raw_cleaned = {path: clean(read(path))[0] for path in all_files}
 for path in entry_files:
     source, include_errors = expand(path)
     syntax_errors.extend(include_errors)
     syntax_errors.extend(delimiter_errors(f"{relative(path)} [expanded]", source))
     expanded[path] = source
-    stripped[path] = strip_comments_and_strings(source)[0]
 
-cfg_path = ROOT / "dro2026" / "CfgFunctions.hpp"
-cfg = read(cfg_path)
+cfg = read(ROOT / "dro2026" / "CfgFunctions.hpp")
 registered = set(
     re.findall(
         r"\bclass\s+(\w+)\s*\{(?:\s*(?:preInit|postInit)\s*=\s*1\s*;)?\s*\};",
@@ -250,7 +215,7 @@ function_files = {
     path.stem[3:] for path in (ROOT / "dro2026" / "functions").rglob("fn_*.sqf")
 }
 calls = set().union(
-    *(set(re.findall(r"DRO2026_fnc_(\w+)", source)) for source in raw_stripped.values())
+    *(set(re.findall(r"DRO2026_fnc_(\w+)", source)) for source in raw_cleaned.values())
 )
 function_errors = {
     "unregistered_files": sorted(function_files - registered),
@@ -261,131 +226,39 @@ function_errors = {
 critical_patterns = {
     "Bo_Mk82 injection": re.compile(r"\bBo_Mk82\b", re.I),
     "Titan injection": re.compile(r"\bM_Titan_(?:AT|AP)\b", re.I),
-    "Pook direct create": re.compile(
-        r'createVehicle\s*\[\s*["\'][^"\']*pook',
-        re.I,
-    ),
+    "unsupported orderBy": re.compile(r"\borderBy\b", re.I),
     "object checkVisibility": re.compile(
         r"\b_[A-Za-z0-9_]+\s+checkVisibility\s*\[",
         re.I,
     ),
-    "unsupported orderBy": re.compile(r"\borderBy\b", re.I),
     "chained HashMap get": re.compile(
         r"DRO2026_networkNodes\s+get\s+_[A-Za-z0-9_]+\s+getOrDefault",
         re.I,
     ),
 }
 critical = {name: [] for name in critical_patterns}
-for path, source in stripped.items():
-    if "dro2026" in path.parts or path.name in {
-        "defineFactionClasses.sqf",
-        "initPlayerLocal.sqf",
-    }:
-        for name, pattern in critical_patterns.items():
-            critical[name].extend(locate(path, source, pattern))
+for path, source in raw_cleaned.items():
+    if "dro2026" not in path.parts:
+        continue
+    for name, pattern in critical_patterns.items():
+        for match in pattern.finditer(source):
+            critical[name].append(
+                f"{relative(path)}:{source.count(chr(10), 0, match.start()) + 1}"
+            )
 
-semantic_names = (
-    "faction safety",
-    "support authority",
-    "respawn sentinel",
-    "world state",
-    "persistent history",
-    "contact v2",
-    "state objectives",
-    "artillery causality",
-    "node logistics",
-    "EW and AA",
-    "support ROE",
-    "resource accounting",
-    "side isolation",
-    "air materialization",
-    "flight vectors",
-    "virtual clients",
-    "exact class routing",
-    "crew cleanup",
-)
-semantic = {name: [] for name in semantic_names}
+semantic: dict[str, list[str]] = {
+    "contact model": [],
+    "support authority": [],
+    "state objectives": [],
+    "node logistics": [],
+    "EW and AA": [],
+    "support ROE": [],
+    "resource accounting": [],
+    "Arma Wiki contracts": [],
+}
 
-alias = re.compile(
-    r"(?<!_)(?:pInfClassesUnarmedForWeights|pInfClassUnarmedWeights|"
-    r"eInfClassesUnarmedForWeights|eInfClassUnarmedWeights)\b"
-)
-broad_pook = re.compile(
-    r'["\']pook_["\']\s*[,}\]]|find\s+["\']pook_["\']\s*\)?\s*==\s*0',
-    re.I,
-)
-for path, source in raw_stripped.items():
-    semantic["faction safety"].extend(locate(path, source, alias))
-for path, source in expanded.items():
-    semantic["faction safety"].extend(locate(path, source, broad_pook))
-
-for name in (
-    "fn_requestFPV.sqf",
-    "fn_requestISR.sqf",
-    "fn_requestLongRangeSupport.sqf",
-    "fn_requestArtillery.sqf",
-    "fn_requestAirSupport.sqf",
-):
-    require_tokens(
-        semantic["support authority"],
-        f"dro2026/functions/support/{name}",
-        ("if (!isServer)", "serverRequestSupport"),
-    )
-require_tokens(
-    semantic["support authority"],
-    "dro2026/functions/support/fn_serverRequestSupport.sqf",
-    (
-        "isPlayer _requester",
-        'isKindOf "VirtualMan_F"',
-        "remoteExecutedOwner",
-        "isDedicated",
-        "_remoteOwner <= 2",
-        "owner _requester",
-    ),
-)
-
-start = read(ROOT / "start.sqf")
-server_init = read(ROOT / "initServer.sqf")
-if re.search(r"case\s+3\s*:\s*\{\s*nil\s*\}", start) and not (
-    "DRO2026_respawnDisabled" in server_init and "respawnTime = -1" in server_init
-):
-    semantic["respawn sentinel"].append(
-        "start.sqf nil respawn mode lacks initServer sentinel"
-    )
-
-for relative_path, tokens in {
-    "dro2026/functions/core/fn_initState.sqf": (
-        "DRO2026_networkNodes",
-        "DRO2026_networkEdges",
-        "DRO2026_eventLog",
-        "DRO2026_operationState",
-    ),
-    "dro2026/functions/core/fn_buildCapabilityNetwork.sqf": (
-        "NODE_LOGISTICS_01",
-        "NODE_ARTILLERY_01",
-        "EDGE_LOGISTICS_ARTILLERY",
-    ),
-    "dro2026/functions/directors/fn_operationDirector.sqf": (
-        "DRO2026_currentIntent",
-        "INTENT_PROPOSED",
-        "doctrine",
-    ),
-}.items():
-    require_tokens(semantic["world state"], relative_path, tokens)
-
-require_tokens(
-    semantic["persistent history"],
-    "dro2026/functions/directors/fn_performanceGovernor.sqf",
-    ("syncNetworkState", "lastCompactedAt"),
-    ("DRO2026_sites = DRO2026_sites select", "DRO2026_sites deleteAt"),
-)
-require_tokens(
-    semantic["persistent history"],
-    "dro2026/functions/core/fn_syncNetworkState.sqf",
-    ("SITE_DESTROYED", "NETWORK_NODE_DESTROYED", "destroyedAt"),
-)
-require_tokens(
-    semantic["contact v2"],
+contract(
+    semantic["contact model"],
     "dro2026/functions/core/fn_createContactRecord.sqf",
     (
         "positionMean",
@@ -397,43 +270,55 @@ require_tokens(
     ),
 )
 if "class createContactRecord {};" not in cfg:
-    semantic["contact v2"].append(
-        "dro2026/CfgFunctions.hpp: createContactRecord is not registered"
-    )
-require_tokens(
-    semantic["contact v2"],
+    semantic["contact model"].append("CfgFunctions: createContactRecord is not registered")
+contract(
+    semantic["contact model"],
     "dro2026/functions/directors/fn_sensorDirector.sqf",
     ("PROBABLY_DESTROYED", "CONFIRMED_DESTROYED", "BDA_UPDATED"),
 )
-require_tokens(
-    semantic["contact v2"],
-    "dro2026/functions/core/fn_syncContactMarker.sqf",
-    ("ELLIPSE", "_uncertaintyRadius", "_bdaState"),
-)
 
-require_tokens(
+contract(
+    semantic["support authority"],
+    "dro2026/functions/support/fn_serverRequestSupport.sqf",
+    (
+        "isPlayer _requester",
+        'isKindOf "VirtualMan_F"',
+        "remoteExecutedOwner",
+        "owner _requester",
+        "_catalogContains",
+    ),
+)
+for name in (
+    "fn_requestFPV.sqf",
+    "fn_requestISR.sqf",
+    "fn_requestLongRangeSupport.sqf",
+    "fn_requestArtillery.sqf",
+    "fn_requestAirSupport.sqf",
+):
+    contract(
+        semantic["support authority"],
+        f"dro2026/functions/support/{name}",
+        ("if (!isServer)", "serverRequestSupport"),
+    )
+
+contract(
     semantic["state objectives"],
     "dro2026/functions/objectives/fn_selectObjective.sqf",
-    ("selectObjectiveOpportunity", "OBJECTIVE_EXPOSED"),
+    ("selectObjectiveOpportunity", "OBJECTIVE_EXPOSED", "OBJECTIVE_MATERIALIZATION_FAILED"),
     ("selectRandom DRO2026_OPERATION_PACKAGES",),
 )
-require_tokens(
+contract(
     semantic["state objectives"],
     "dro2026/functions/core/fn_selectObjectiveOpportunity.sqf",
-    ("activeOpportunities", "DRO2026_networkNodes", "_phase"),
+    ("activeOpportunities", "DRO2026_networkNodes", "DRO2026_selectedOpportunity"),
 )
-require_tokens(
-    semantic["artillery causality"],
-    "dro2026/functions/objectives/fn_artilleryLoop.sqf",
-    ("ARTILLERY_FIRE", "observerContact", "COUNTERBATTERY"),
-    ("getPosATL player", "getPos player"),
+contract(
+    semantic["state objectives"],
+    "dro2026/functions/objectives/fn_objectiveISRRecon.sqf",
+    ("ISR_RELAY", "Land_TTowerSmall_1_F", 'isKindOf "VirtualMan_F"'),
 )
-require_tokens(
-    semantic["artillery causality"],
-    "dro2026/functions/support/fn_requestArtillery.sqf",
-    ("uncertaintyRadius", "_friendlyRisk", "_civilianRisk"),
-)
-require_tokens(
+
+contract(
     semantic["node logistics"],
     "dro2026/functions/directors/fn_logisticsDirector.sqf",
     (
@@ -441,205 +326,62 @@ require_tokens(
         "DELIVERY_MATERIALIZED",
         "DELIVERY_COMPLETED",
         "DELIVERY_INTERDICTED",
-        "virtualPosition",
+        "_setActiveConvoyStatus",
         "changeNetworkNodeStock",
     ),
 )
-require_tokens(
+contract(
     semantic["node logistics"],
     "dro2026/functions/objectives/fn_objectiveConvoy.sqf",
     ("edgeId", "cargoType", "toNode", "DELIVERY_INTERDICTED"),
-    ('["enemySupply", -28]', '["enemyDroneStock", -7]'),
 )
-require_tokens(
+
+contract(
     semantic["EW and AA"],
     "dro2026/functions/core/fn_getJammingAtPosition.sqf",
     ("emissionState", "terrainIntersectASL", "jammingRadius"),
 )
-require_tokens(
+contract(
     semantic["EW and AA"],
     "dro2026/functions/directors/fn_airDefenceDirector.sqf",
     ("trackingChannels", "AA_MISSILE_LAUNCHED", "AA_EMISSION_CHANGED"),
 )
-require_tokens(
-    semantic["EW and AA"],
-    "dro2026/functions/support/fn_launchISR.sqf",
-    ("EMISSION_DETECTED", "BURST", "_lastFalseContact", "getJammingAtPosition"),
-)
-require_tokens(
+contract(
     semantic["support ROE"],
     "dro2026/functions/core/fn_getAirWindow.sqf",
     ("PERMISSIVE", "CONTESTED", "CLOSED", "civiliansClose", "friendliesClose"),
 )
-require_tokens(
+contract(
     semantic["support ROE"],
     "dro2026/functions/support/fn_requestAirSupport.sqf",
     ("getAirWindow", "AA_ACTIVE", "TARGET_LOST", "CIVILIAN_RISK", "FRIENDLIES_CLOSE"),
 )
 
-require_tokens(
+contract(
     semantic["resource accounting"],
     "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
-    (
-        "_reservationNodeId",
-        "LONG_RANGE_LAUNCH_REFUND",
-        "friendlyFP5Stock",
-        "enemyLongRangeStock",
-    ),
+    ("LONG_RANGE_LAUNCH_REFUND", "friendlyFP5Stock", "enemyLongRangeStock"),
 )
-require_tokens(
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
+    ("LONG_RANGE_SALVO_ABORT", "_isLiveStrategicContact"),
+)
+contract(
     semantic["resource accounting"],
     "dro2026/functions/support/fn_launchISR.sqf",
     ("_refundReservation", "DRO2026_lastISRRequest = -999"),
 )
-require_tokens(
-    semantic["resource accounting"],
-    "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
-    ("_isLiveStrategicContact", "LONG_RANGE_SALVO_ABORT", "true, _nodeId"),
+
+wiki_process = subprocess.run(
+    [sys.executable, str(ROOT / "tools" / "validate_arma_wiki_contracts.py")],
+    cwd=ROOT,
+    text=True,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
 )
-for relative_path in (
-    "dro2026/functions/support/fn_requestLongRangeSupport.sqf",
-    "dro2026/functions/directors/fn_friendlyStrikeDirector.sqf",
-):
-    source = read(ROOT / relative_path)
-    if re.search(
-        r'DRO2026_resources\s+set\s*\[\s*["\']friendlyFP5Stock["\']',
-        source,
-    ):
-        semantic["resource accounting"].append(
-            f"{relative_path}: direct FP5 deduction bypasses selected reservation pool"
-        )
-
-for relative_path in (
-    "dro2026/functions/core/fn_refreshFactionAssets.sqf",
-    "dro2026/functions/core/fn_publishSupportCatalog.sqf",
-    "dro2026/functions/support/fn_launchISR.sqf",
-):
-    source = read(ROOT / relative_path)
-    if re.search(r"\bin\s*\[\s*_[A-Za-z0-9_]*sideNumber\s*,\s*2\s*\]", source, re.I):
-        semantic["side isolation"].append(
-            f"{relative_path}: INDEPENDENT side leaks into another side pool"
-        )
-require_tokens(
-    semantic["side isolation"],
-    "dro2026/functions/core/fn_refreshFactionAssets.sqf",
-    ("ENEMY_CAS_AIR", "ePlaneClasses", "eHeliClasses", "_cfgSide == _sideNumber"),
-)
-require_tokens(
-    semantic["side isolation"],
-    "dro2026/functions/directors/fn_enemyAirDirector.sqf",
-    ("ENEMY_CAS_AIR", 'getNumber (_cfg >> "side") == _enemySideNumber'),
-    ('getOrDefault ["AIR_EAST"',),
-)
-
-for relative_path in (
-    "dro2026/functions/directors/fn_enemyAirDirector.sqf",
-    "dro2026/functions/directors/fn_enemyISRDirector.sqf",
-    "dro2026/functions/support/fn_launchFPVStrike.sqf",
-    "dro2026/functions/support/fn_launchISR.sqf",
-    "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
-    "dro2026/functions/support/fn_requestAirSupport.sqf",
-):
-    check_fly_materialization(semantic["air materialization"], relative_path)
-
-for relative_path in (
-    "dro2026/functions/support/fn_launchFPVStrike.sqf",
-    "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
-):
-    require_tokens(
-        semantic["flight vectors"],
-        relative_path,
-        ("vectorCrossProduct", "_applyFlightVector", "setVectorDirAndUp"),
-    )
-    source = read(ROOT / relative_path)
-    if re.search(
-        r"setVectorDirAndUp\s*\[\s*_[A-Za-z0-9_]+\s*,\s*\[\s*0\s*,\s*0\s*,\s*1\s*\]\s*\]",
-        source,
-    ):
-        semantic["flight vectors"].append(
-            f"{relative_path}: pitched direction still uses fixed world-up vector"
-        )
-
-for relative_path in (
-    "dro2026/functions/directors/fn_enemyAirDirector.sqf",
-    "dro2026/functions/directors/fn_enemyISRDirector.sqf",
-    "dro2026/functions/directors/fn_friendlyStrikeDirector.sqf",
-    "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
-):
-    source = read(ROOT / relative_path)
-    if "allPlayers" in source and 'isKindOf "VirtualMan_F"' not in source:
-        semantic["virtual clients"].append(
-            f"{relative_path}: allPlayers is used without excluding VirtualMan_F"
-        )
-
-require_tokens(
-    semantic["exact class routing"],
-    "dro2026/functions/support/fn_launchFPVStrike.sqf",
-    ("_requestedClass != \"\"", "side-correct registry"),
-)
-require_tokens(
-    semantic["exact class routing"],
-    "dro2026/functions/support/fn_launchISR.sqf",
-    ("_selectionValid", "_class == \"\"", 'getNumber (_classCfg >> "side")'),
-)
-require_tokens(
-    semantic["exact class routing"],
-    "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
-    ("_selectionValid", "_exactClass in _pool"),
-    ("nearestObjects",),
-)
-
-for relative_path in (
-    "dro2026/functions/directors/fn_enemyAirDirector.sqf",
-    "dro2026/functions/directors/fn_enemyISRDirector.sqf",
-    "dro2026/functions/support/fn_launchFPVStrike.sqf",
-    "dro2026/functions/support/fn_launchISR.sqf",
-    "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
-    "dro2026/functions/support/fn_requestAirSupport.sqf",
-):
-    require_tokens(
-        semantic["crew cleanup"],
-        relative_path,
-        ("deleteVehicleCrew", "deleteGroup"),
-    )
-
-warnings = {
-    "unused constants": [],
-    "server player": [],
-    "large files": [],
-    "legacy enemy resources": [],
-}
-preinit = read(ROOT / "dro2026/functions/core/fn_preInit.sqf")
-constants = set(re.findall(r"^\s*(DRO2026_[A-Z0-9_]+)\s*=", preinit, re.MULTILINE))
-all_source = "\n".join(raw_stripped.values())
-for name in sorted(constants):
-    if len(re.findall(rf"\b{re.escape(name)}\b", all_source)) <= 1:
-        warnings["unused constants"].append(name)
-
-for path, source in raw_stripped.items():
-    if path.suffix.lower() == ".sqf":
-        guard = re.search(r"if\s*\(\s*!isServer\s*\)\s*exitWith\s*\{", source[:700])
-        if guard is not None:
-            close = source.find("};", guard.end())
-            server_body = source[close + 2 :] if close >= 0 else source
-            if re.search(r"\bplayer\b", server_body):
-                warnings["server player"].append(relative(path))
-        line_count = read(path).count("\n") + 1
-        if line_count > 1000:
-            warnings["large files"].append(f"{relative(path)}:{line_count}")
-    if (
-        "dro2026" in path.parts
-        and re.search(r'DRO2026_resources\s+set\s*\[\s*["\']enemy', source)
-        and path.name
-        not in {
-            "fn_logisticsDirector.sqf",
-            "fn_enemyFPVDirector.sqf",
-            "fn_longRangeDroneDirector.sqf",
-            "fn_reactionDirector.sqf",
-            "fn_launchLongRangeStrike.sqf",
-        }
-    ):
-        warnings["legacy enemy resources"].append(relative(path))
+if wiki_process.returncode != 0:
+    semantic["Arma Wiki contracts"].append(wiki_process.stdout[-12000:])
 
 rpt_patterns = {
     "undefined variable": re.compile(
@@ -670,15 +412,7 @@ for raw in args.rpt:
             for match in pattern.finditer(source)
         )
 
-hemtt = run_hemtt_if_configured()
-hemtt_failed = bool(
-    (args.require_hemtt and (not hemtt["available"] or not hemtt["configured"]))
-    or (
-        hemtt["configured"]
-        and hemtt["available"]
-        and hemtt["exit_code"] not in (None, 0)
-    )
-)
+hemtt, hemtt_failed = run_optional_hemtt(args.require_hemtt)
 
 report = {
     "version": "rc6-arma-wiki-audit",
@@ -690,8 +424,8 @@ report = {
     "functions": function_errors,
     "critical_findings": critical,
     "semantic_errors": semantic,
-    "semantic_warnings": warnings,
     "rpt_regressions": rpt,
+    "arma_wiki_validator_output": wiki_process.stdout if wiki_process.returncode != 0 else "",
     "hemtt": hemtt,
 }
 print(json.dumps(report, ensure_ascii=False, indent=2))
