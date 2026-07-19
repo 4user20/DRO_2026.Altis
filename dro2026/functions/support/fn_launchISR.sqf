@@ -23,7 +23,7 @@ private _filterForSide = {
     _classes select {
         isClass (configFile >> "CfgVehicles" >> _x) &&
         {_x isKindOf "Air"} &&
-        {_sideNumber < 0 || {getNumber (configFile >> "CfgVehicles" >> _x >> "side") == _sideNumber}}
+        {_sideNumber < 0 || {getNumber (configFile >> "CfgVehicles" >> _x >> "side") in [_sideNumber, 2]}}
     }
 };
 
@@ -31,6 +31,7 @@ private _pool = [DRO2026_assetRegistry getOrDefault ["PLAYER_ISR_UAV", []]] call
 private _microPool = [DRO2026_assetRegistry getOrDefault [format ["ISR_MICRO_%1", _sideSuffix], []]] call _filterForSide;
 private _tacticalPool = [DRO2026_assetRegistry getOrDefault [format ["ISR_TACTICAL_%1", _sideSuffix], []]] call _filterForSide;
 private _halePool = [DRO2026_assetRegistry getOrDefault [format ["ISR_HALE_%1", _sideSuffix], []]] call _filterForSide;
+private _allAllowed = (_pool + _microPool + _tacticalPool + _halePool) arrayIntersect (_pool + _microPool + _tacticalPool + _halePool);
 private _findByTokens = {
     params ["_classes", "_tokens"];
     private _matches = _classes select {
@@ -42,24 +43,34 @@ private _findByTokens = {
 
 private _class = _fallback;
 private _offMap = false;
-switch (toUpperANSI _requestedType) do {
-    case "MICRO": {if (count _microPool > 0) then {_class = selectRandom _microPool}};
-    case "RQ7": {
-        private _selected = [_tacticalPool + _pool, ["rq7", "shadow"]] call _findByTokens;
-        if (_selected != "") then {_class = _selected; _offMap = true};
+private _requestUpper = toUpperANSI _requestedType;
+if ((_requestUpper find "CLASS:") == 0) then {
+    private _exact = _requestedType select [6];
+    if (_exact in _allAllowed) then {
+        _class = _exact;
+        private _lowerExact = toLowerANSI _exact;
+        _offMap = !(_exact isKindOf "UAV_01_base_F") && {(_lowerExact find "mavic") < 0} && {(_lowerExact find "quad") < 0};
     };
-    case "MQ4A": {
-        private _selected = [_halePool + _pool, ["mq4"]] call _findByTokens;
-        if (_selected != "") then {_class = _selected; _offMap = true};
-    };
-    case "TACTICAL": {if (count _tacticalPool > 0) then {_class = selectRandom _tacticalPool; _offMap = true}};
-    case "HALE": {if (count _halePool > 0) then {_class = selectRandom _halePool; _offMap = true}};
-    default {
-        if (count _pool > 0) then {
-            _class = if (count _microPool > 0 && {random 1 > 0.72}) then {selectRandom _microPool} else {
-                if (count _tacticalPool > 0 && {random 1 > 0.45}) then {_offMap = true; selectRandom _tacticalPool} else {
-                    if (count _halePool > 0 && {random 1 > 0.82}) then {_offMap = true; selectRandom _halePool} else {selectRandom _pool}
-                }
+} else {
+    switch _requestUpper do {
+        case "MICRO": {if (count _microPool > 0) then {_class = selectRandom _microPool}};
+        case "RQ7": {
+            private _selected = [_tacticalPool + _pool, ["rq7", "shadow"]] call _findByTokens;
+            if (_selected != "") then {_class = _selected; _offMap = true};
+        };
+        case "MQ4A": {
+            private _selected = [_halePool + _pool, ["mq4"]] call _findByTokens;
+            if (_selected != "") then {_class = _selected; _offMap = true};
+        };
+        case "TACTICAL": {if (count _tacticalPool > 0) then {_class = selectRandom _tacticalPool; _offMap = true}};
+        case "HALE": {if (count _halePool > 0) then {_class = selectRandom _halePool; _offMap = true}};
+        default {
+            if (count _pool > 0) then {
+                _class = if (count _microPool > 0 && {random 1 > 0.72}) then {selectRandom _microPool} else {
+                    if (count _tacticalPool > 0 && {random 1 > 0.45}) then {_offMap = true; selectRandom _tacticalPool} else {
+                        if (count _halePool > 0 && {random 1 > 0.82}) then {_offMap = true; selectRandom _halePool} else {selectRandom _pool}
+                    }
+                };
             };
         };
     };
@@ -91,17 +102,21 @@ if (isNull _uav) exitWith {
     objNull
 };
 private _group = playersSide createVehicleCrew _uav;
+if (isNull _group || {isNull driver _uav}) exitWith {
+    deleteVehicleCrew _uav;
+    deleteVehicle _uav;
+    DRO2026_resources set ["friendlyISRStock", (DRO2026_resources getOrDefault ["friendlyISRStock", 0]) + 1];
+    objNull
+};
 private _height = if (_isMicro) then {115} else {if (_isHALE) then {900} else {320}};
 _uav flyInHeight _height;
 _uav setVariable ["DRO2026_operator", _operator];
 if (!isNull _operator) then {_operator setVariable ["DRO2026_activeUAV", _uav]};
 DRO2026_activeDrones pushBack _uav;
 DRO2026_managedVehicles pushBackUnique _uav;
-if (!isNull _group) then {
-    _group setBehaviourStrong "CARELESS";
-    _group setCombatMode "BLUE";
-    _group setSpeedMode "NORMAL";
-};
+_group setBehaviourStrong "CARELESS";
+_group setCombatMode "BLUE";
+_group setSpeedMode "NORMAL";
 ["DRONE_LAUNCHED", createHashMapFromArray [["class", _class], ["role", "ISR"], ["source", _source]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
 
 private _end = time + (if (_isMicro) then {360} else {if (_isHALE) then {720} else {520}});
@@ -187,5 +202,7 @@ if (alive _uav) then {
     sleep 25;
     if (alive _uav) then {deleteVehicleCrew _uav; deleteVehicle _uav};
 };
+private _activeIndex = DRO2026_activeDrones find _uav;
+if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
 ["DRONE_LOST", createHashMapFromArray [["class", _class], ["role", "ISR"], ["returned", alive _uav]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
 _uav
