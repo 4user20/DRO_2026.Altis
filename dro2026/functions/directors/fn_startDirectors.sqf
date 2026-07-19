@@ -16,8 +16,9 @@ missionNamespace setVariable ["DRO2026_directorsStarted", true];
 } forEach allGroups;
 {private _object = _x getOrDefault ["object", objNull]; if (!isNull _object) then {DRO2026_managedVehicles pushBackUnique _object}} forEach DRO2026_sites;
 
-// OODA/state layer proposes actions; the remaining directors execute the selected intent.
+// OODA/state layer proposes actions; capability directors execute and report actual effects.
 [] spawn DRO2026_fnc_operationDirector;
+[] spawn DRO2026_fnc_airDefenceDirector;
 [] spawn DRO2026_fnc_performanceGovernor;
 [] spawn DRO2026_fnc_sensorDirector;
 [] spawn DRO2026_fnc_enemyFPVDirector;
