@@ -87,9 +87,13 @@ if (!_available) exitWith {
 if ((time - DRO2026_lastLongSupportRequest) < DRO2026_LONG_SUPPORT_COOLDOWN) exitWith {
     [format ["Штаб: Канал дальнего удара занят. Ожидайте %1 сек.", ceil (DRO2026_LONG_SUPPORT_COOLDOWN - (time - DRO2026_lastLongSupportRequest))], _requester] call DRO2026_fnc_supportMessage;
 };
-private _costPool = if (_decoy) then {"friendlyDecoyStock"} else {"friendlyLongRangeStock"};
-if (_requestUpper == "FP5" && {(DRO2026_resources getOrDefault ["friendlyFP5Stock", 0]) <= 0}) exitWith {
-    ["Штаб: FP-5 для этой миссии больше недоступен.", _requester] call DRO2026_fnc_supportMessage;
+if (_requestUpper == "FP5" && {DRO2026_friendlyFP5Used >= 2}) exitWith {
+    ["Штаб: лимит успешных запусков FP-5 для этой миссии исчерпан.", _requester] call DRO2026_fnc_supportMessage;
+};
+private _costPool = if (_decoy) then {
+    "friendlyDecoyStock"
+} else {
+    if (_requestUpper == "FP5") then {"friendlyFP5Stock"} else {"friendlyLongRangeStock"}
 };
 private _stock = DRO2026_resources getOrDefault [_costPool, 0];
 private _physicalSlots = (DRO2026_PHYSICAL_DRONE_LIMIT - count DRO2026_activeDrones) max 0;
@@ -112,6 +116,9 @@ private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
 
 private _baseContact = ["PLAYER", objNull, _position, 0.76, "НАЗНАЧЕННАЯ_ТОЧКА"] call DRO2026_fnc_createContactRecord;
+if (count _baseContact == 0) exitWith {
+    ["Штаб: не удалось сформировать запись назначенной цели. Ресурс не списан.", _requester] call DRO2026_fnc_supportMessage;
+};
 private _contacts = DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence", 0]) >= 0.45} &&
@@ -136,13 +143,12 @@ if (count _siteContacts > 0) then {
         _record getOrDefault ["networkNodeId", ""]
     ] call DRO2026_fnc_createContactRecord;
 };
+if (count _baseContact == 0) exitWith {
+    ["Штаб: цель не прошла проверку контактной модели. Ресурс не списан.", _requester] call DRO2026_fnc_supportMessage;
+};
 
 DRO2026_lastLongSupportRequest = time;
 DRO2026_resources set [_costPool, (_stock - _launchCount) max 0];
-if (_requestUpper == "FP5") then {
-    DRO2026_resources set ["friendlyFP5Stock", ((DRO2026_resources getOrDefault ["friendlyFP5Stock", 0]) - 1) max 0];
-    DRO2026_friendlyFP5Used = DRO2026_friendlyFP5Used + 1;
-};
 
 [_origin, _baseContact, _operator, _requestedType, _decoy, _launchCount, _requestSide] spawn {
     params ["_origin", "_baseContact", "_operator", "_type", "_decoy", "_count", "_requestSide"];
