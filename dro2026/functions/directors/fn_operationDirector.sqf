@@ -25,9 +25,10 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             {(_x getOrDefault ["bdaState", "DETECTED"]) != "CONFIRMED_DESTROYED"} &&
             {(time - (_x getOrDefault ["lastSeen", 0])) < 320}
         };
-        private _bestContact = if (count _contacts > 0) then {
-            (_contacts orderBy [[], {-( (_x getOrDefault ["confidence", 0]) - ((_x getOrDefault ["uncertaintyRadius", 0]) / 3000) )}]) select 0
-        } else {createHashMap};
+        if (count _contacts > 0) then {
+            _contacts = [_contacts, [], {-((_x getOrDefault ["confidence", 0]) - ((_x getOrDefault ["uncertaintyRadius", 0]) / 3000))}, "ASCEND"] call BIS_fnc_sortBy;
+        };
+        private _bestContact = if (count _contacts > 0) then {_contacts select 0} else {createHashMap};
         private _confidence = _bestContact getOrDefault ["confidence", 0];
         private _contactId = _bestContact getOrDefault ["id", ""];
         private _candidates = [];
