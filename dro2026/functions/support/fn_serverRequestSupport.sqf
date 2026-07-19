@@ -1,15 +1,22 @@
 if (!isServer) exitWith {};
 params ["_requester", "_kind", ["_payload", []]];
 
-if (isNull _requester || {!isPlayer _requester}) exitWith {};
+if (isNull _requester || {!isPlayer _requester} || {_requester isKindOf "VirtualMan_F"}) exitWith {};
 if !(_kind isEqualType "") exitWith {};
 if !(_payload isEqualType []) exitWith {
     ["Штаб: отклонён некорректный запрос поддержки.", _requester] call DRO2026_fnc_supportMessage;
 };
 
 private _requestOwner = owner _requester;
-if (remoteExecutedOwner > 0 && {remoteExecutedOwner != _requestOwner}) exitWith {
-    [format ["Отклонён spoofed support request: remote=%1 owner=%2 uid=%3", remoteExecutedOwner, _requestOwner, getPlayerUID _requester]] call DRO2026_fnc_log;
+private _remoteOwner = remoteExecutedOwner;
+private _trustedLocalHost = _remoteOwner == 0 && {!isDedicated} && {_requestOwner == 2};
+if (!_trustedLocalHost && {_remoteOwner != _requestOwner}) exitWith {
+    [format ["Отклонён spoofed support request: remote=%1 owner=%2 uid=%3", _remoteOwner, _requestOwner, getPlayerUID _requester]] call DRO2026_fnc_log;
+};
+// BI returns remoteExecutedOwner=0 for a Headless Client. Dedicated requests must
+// therefore originate from a normal client owner (>2), never from server/HC zero.
+if (isDedicated && {_remoteOwner <= 2}) exitWith {
+    [format ["Отклонён support request без доверенного client owner: remote=%1 uid=%2", _remoteOwner, getPlayerUID _requester]] call DRO2026_fnc_log;
 };
 
 private _rateKey = format ["DRO2026_supportRequest_%1", getPlayerUID _requester];
