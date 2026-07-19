@@ -1,7 +1,18 @@
-_playerFactions = [playersFaction] + (playersFactionAdv select {count _x > 0});
-_enemyFactions = [enemyFaction] + (enemyFactionAdv select {count _x > 0});
-_playerFactions = _playerFactions apply {toUpper _x};
-_enemyFactions = _enemyFactions apply {toUpper _x};
+private _normalizeFactionList = {
+	params ["_values"];
+	if !(_values isEqualType []) exitWith {[]};
+	_values select {_x isEqualType "" && {_x != ""}}
+};
+if (isNil "playersFactionAdv") then {playersFactionAdv = []};
+if (isNil "enemyFactionAdv") then {enemyFactionAdv = []};
+playersFactionAdv = [playersFactionAdv] call _normalizeFactionList;
+enemyFactionAdv = [enemyFactionAdv] call _normalizeFactionList;
+
+_playerFactions = ([playersFaction] + playersFactionAdv) select {_x isEqualType "" && {_x != ""}};
+_enemyFactions = ([enemyFaction] + enemyFactionAdv) select {_x isEqualType "" && {_x != ""}};
+_playerFactions = _playerFactions apply {toUpperANSI _x};
+_enemyFactions = _enemyFactions apply {toUpperANSI _x};
+private _debugFactionScan = missionNamespace getVariable ["DRO2026_DEBUG", false];
 
 pInfClasses = [];
 pOfficerClasses = [];
@@ -74,14 +85,49 @@ _eInfEditorSubcats = [];
 	_eInfEditorSubcats pushBack [];
 } forEach _enemyFactions;
 
-diag_log _playerFactions;
-diag_log _enemyFactions;
+if (_debugFactionScan) then {
+	diag_log format ["DRO: player factions = %1", _playerFactions];
+	diag_log format ["DRO: enemy factions = %1", _enemyFactions];
+};
 
 _cfgVeh = configFile >> "CfgVehicles";
-private _blockedClassTokens = ["spawner", "module", "logic", "dummy", "placeholder", "_root", "site_", "pook_sam", "pook_", "azncontrol"];
-private _blockedSubcatTokens = ["pook_", "samsite", "sam_site", "azncontrol", "module", "logic", "spawner", "control"];
-private _isBlockedClass = {params ["_class"]; private _n = toLowerANSI _class; (_blockedClassTokens findIf {(_n find _x) >= 0}) >= 0};
-private _isBlockedSubcat = {params ["_subcat"]; if !(_subcat isEqualType "") exitWith {true}; private _n = toLowerANSI _subcat; (_blockedSubcatTokens findIf {(_n find _x) >= 0}) >= 0};
+// Block only classes with known editor/spawner/SAM side effects. A broad `pook_` token
+// would incorrectly remove otherwise valid Pook aircraft, vehicles and infantry.
+private _blockedClassTokens = [
+	"spawner", "module", "logic", "dummy", "placeholder", "_root", "site_",
+	"samsite", "sam_site", "azncontrol", "unit_scanner", "pook_sam", "pook_azncontrol"
+];
+private _blockedSubcatTokens = [
+	"samsite", "sam_site", "azncontrol", "module", "logic", "spawner", "control", "unit_scanner", "pook_sam"
+];
+private _blockedClassStats = createHashMap;
+private _blockedSubcatStats = createHashMap;
+private _blockedClassCount = 0;
+private _blockedSubcatCount = 0;
+private _blockReason = {
+	params ["_value", "_tokens"];
+	if !(_value isEqualType "") exitWith {"non_string"};
+	private _name = toLowerANSI _value;
+	private _index = _tokens findIf {(_name find _x) >= 0};
+	if (_index < 0) exitWith {""};
+	_tokens select _index
+};
+private _isBlockedClass = {
+	params ["_class"];
+	private _reason = [_class, _blockedClassTokens] call _blockReason;
+	if (_reason == "") exitWith {false};
+	_blockedClassCount = _blockedClassCount + 1;
+	_blockedClassStats set [_reason, (_blockedClassStats getOrDefault [_reason, 0]) + 1];
+	true
+};
+private _isBlockedSubcat = {
+	params ["_subcat"];
+	private _reason = [_subcat, _blockedSubcatTokens] call _blockReason;
+	if (_reason == "") exitWith {false};
+	_blockedSubcatCount = _blockedSubcatCount + 1;
+	_blockedSubcatStats set [_reason, (_blockedSubcatStats getOrDefault [_reason, 0]) + 1];
+	true
+};
 {
 	_cfgName = (configName _x);
 	_cfgVehName = configFile >> "CfgVehicles" >> _cfgName;
@@ -128,24 +174,23 @@ private _isBlockedSubcat = {params ["_subcat"]; if !(_subcat isEqualType "") exi
 				
 				} else {
 					if (_isCivFaction) exitWith {
-						//diag_log (count ((_cfgVehName >> "weapons") call BIS_fnc_GetCfgData));
 						if ((count ((_cfgVehName >> "weapons") call BIS_fnc_GetCfgData)) <= 2) then {							
 							civClasses pushBack _cfgName;
 						};
 					};
 					_pFactionIndex = if (_isPlayerFaction) then {							
-						(_playerFactions find (toUpper ((_cfgVehName >> "faction") call BIS_fnc_GetCfgData)))
+						(_playerFactions find (toUpperANSI ((_cfgVehName >> "faction") call BIS_fnc_GetCfgData)))
 					};
 					_eFactionIndex = if (_isEnemyFaction) then {
-						(_enemyFactions find (toUpper ((_cfgVehName >> "faction") call BIS_fnc_GetCfgData)))
+						(_enemyFactions find (toUpperANSI ((_cfgVehName >> "faction") call BIS_fnc_GetCfgData)))
 					};					
 					if ((count ((_cfgVehName >> "weapons") call BIS_fnc_GetCfgData) <= 2)) then {
-						if (_isPlayerFaction) then {
+						if (_isPlayerFaction && {_pFactionIndex >= 0}) then {
 							_pInfClassesUnarmed pushBack _cfgName;
 							(_pInfClassesUnarmedForWeights select _pFactionIndex) pushBack _cfgName;
 							(_pInfClassUnarmedWeights select _pFactionIndex) pushBack 0.5;
 						};
-						if (_isEnemyFaction) then {
+						if (_isEnemyFaction && {_eFactionIndex >= 0}) then {
 							_eInfClassesUnarmed pushBack _cfgName;
 							(_eInfClassesUnarmedForWeights select _eFactionIndex) pushBack _cfgName;
 							(_eInfClassUnarmedWeights select _eFactionIndex) pushBack 0.5;
@@ -158,7 +203,6 @@ private _isBlockedSubcat = {params ["_subcat"]; if !(_subcat isEqualType "") exi
 							eInfClasses pushBack _cfgName;
 						};							
 						_thisWeight = 0;							
-						// Check config 'role' value
 						_thisRole = ((_cfgVehName >> "role") call BIS_fnc_GetCfgData);
 						switch (_thisRole) do {
 							case "Crewman": {_thisWeight = 0};
