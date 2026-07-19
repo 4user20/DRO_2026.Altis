@@ -65,11 +65,16 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             if (count _node == 0 || {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"]}) exitWith {};
             private _confidence = _contact getOrDefault ["confidence", 0];
             if (_minConfidence > 0 && {_confidence < _minConfidence}) exitWith {};
+            private _validTarget = true;
             if (_action == "FPV_ATTACK") then {
                 private _target = _contact getOrDefault ["target", objNull];
                 private _targetPos = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
-                if (isNull _target || {count _targetPos < 2} || {(_node getOrDefault ["position", [0,0,0]]) distance2D _targetPos > 4800}) exitWith {};
+                _validTarget = !isNull _target &&
+                    {alive _target} &&
+                    {count _targetPos >= 2} &&
+                    {(_node getOrDefault ["position", [0,0,0]]) distance2D _targetPos <= 4800};
             };
+            if (!_validTarget) exitWith {};
             if (_action == "LONG_RANGE_ATTACK" && {(_contact getOrDefault ["subjectId", ""]) == ""}) exitWith {};
             if (_action == "ARTILLERY_FIRE" && {(_contact getOrDefault ["uncertaintyRadius", 9999]) > 520}) exitWith {};
             private _exposure = if ((_node getOrDefault ["knownByPlayer", "UNKNOWN"]) in ["CONFIRMED", "TRACKED"]) then {0.22} else {0.05};
