@@ -21,7 +21,7 @@ if (isNil "_keys") exitWith {false};
             };
             case "ack-out": {
                 private _out = ["new", "DROAI_out"] call OO_INIDBI;
-                {{["deleteKey", ["DROAI_out", _x]] call _out} forEach _data};
+                {["deleteKey", ["DROAI_out", _x]] call _out} forEach _data;
             };
             case "decision": {
                 missionNamespace setVariable ["DRO2026_aiLatestDecision", +_data];

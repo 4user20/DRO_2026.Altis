@@ -38,7 +38,7 @@ def main():
 
     check(errors,'transport','dro2026/functions/ai/fn_initAITransport.sqf',('isNil "OO_INIDBI"','deterministic fallback','DRO2026_aiTransportReady'))
     check(errors,'transport','dro2026/functions/ai/fn_writeAIRequest.sqf',('"DROAI_out"','OO_INIDBI'),('http://','https://','Authorization','apiKey'))
-    check(errors,'transport','dro2026/functions/ai/fn_readAIResponses.sqf',('"DROAI_in"','"ack-out"','"decision"','"strategic-policy"'))
+    check(errors,'transport','dro2026/functions/ai/fn_readAIResponses.sqf',('"DROAI_in"','"ack-out"','"decision"','"strategic-policy"','} forEach _data;'),('{{["deleteKey"',))
 
     check(errors,'strategy','dro2026/functions/ai/fn_applyStrategicPolicy.sqf',('DRO2026_aiPendingStrategicSequence','"OBSERVE"','"HYBRID"','desiredTempo','reserveCommitment','expiresAt'),('createVehicle','addWaypoint','setPos'))
     check(errors,'strategy','dro2026/functions/ai/fn_strategicAIDirector.sqf',('PHASE_CHANGED','NETWORK_NODE_DESTROYED','DELIVERY_INTERDICTED','DRO2026_AI_STRATEGIC_INTERVAL'))
