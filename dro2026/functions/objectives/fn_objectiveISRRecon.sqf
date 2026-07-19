@@ -87,15 +87,16 @@ private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _rel
         {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}
     } do {
         private _qualified = false;
+        private _humanPlayers = allPlayers select {alive _x && {!(_x isKindOf "VirtualMan_F")}};
         {
             private _observer = _x;
-            if (alive _observer && {_observer distance2D _relayPosition < 850}) then {
+            if (_observer distance2D _relayPosition < 850) then {
                 private _visibility = ([_observer, "VIEW"] checkVisibility [eyePos _observer, AGLToASL (_relayPosition vectorAdd [0,0,4])]);
                 if (_visibility > 0.16) then {_qualified = true};
                 private _uav = getConnectedUAV _observer;
                 if (!isNull _uav && {_uav distance2D _relayPosition < 1200}) then {_qualified = true};
             };
-        } forEach allPlayers;
+        } forEach _humanPlayers;
         if (_qualified) then {_observed = _observed + 2} else {_observed = (_observed - 1) max 0};
         private _relayDestroyed = (isNull _antenna || {!alive _antenna}) && {(isNull _operator || {!alive _operator})};
         if (_observed >= 60 || {_relayDestroyed}) then {
