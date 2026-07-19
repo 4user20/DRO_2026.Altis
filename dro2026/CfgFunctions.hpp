@@ -73,6 +73,7 @@ class CfgFunctions
             class launchFPVStrike {};
             class launchLongRangeStrike {};
             class trackIncomingDrone {};
+            class offerFPVControl {};
             class requestFPV {};
             class requestISR {};
             class requestLongRangeSupport {};
