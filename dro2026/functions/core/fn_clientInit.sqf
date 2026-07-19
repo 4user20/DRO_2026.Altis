@@ -17,6 +17,39 @@ if (!hasInterface) exitWith {};
         Сервер публикует клиенту только проверенный каталог выбранной стороны. Наземные пусковые не используются как летающие аппараты; неподдерживаемые или опасные editor/spawner-классы скрываются.
     "]];
 
+    // Legacy populateLobby disabled UAV support unless pUAVClasses contained a
+    // Plane-derived class. That rejected quadcopters and several utility-faction
+    // RQ-7/MQ-4/Forpost implementations before the RC6 catalog was built. Keep the
+    // button selectable whenever any compatible airborne UAV class is available;
+    // this does not auto-enable the category, it only restores the player's choice.
+    [] spawn {
+        while {
+            (missionNamespace getVariable ["playersReady", 0]) == 0 &&
+            {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}
+        } do {
+            private _display = findDisplay 626262;
+            if (!isNull _display) then {
+                private _candidateClasses = [];
+                if (!isNil "pUAVClasses") then {_candidateClasses append pUAVClasses};
+                _candidateClasses append [
+                    "rksla3_uav_rq7shadow_01_blufor", "HE_MQ4A_Blufor", "RUS_VKS_forpostru",
+                    "B_UAV_02_dynamicLoadout_F", "O_UAV_02_dynamicLoadout_F", "I_UAV_02_dynamicLoadout_F",
+                    "B_UAV_01_F", "O_UAV_01_F", "I_UAV_01_F"
+                ];
+                private _hasUAV = (_candidateClasses findIf {
+                    isClass (configFile >> "CfgVehicles" >> _x) &&
+                    {_x isKindOf "Air"} &&
+                    {getNumber (configFile >> "CfgVehicles" >> _x >> "scope") >= 1}
+                }) >= 0;
+                if (_hasUAV) then {
+                    private _uavControl = _display displayCtrl 6014;
+                    if (!isNull _uavControl) then {_uavControl ctrlEnable true};
+                };
+            };
+            sleep 0.5;
+        };
+    };
+
     // Lobby/loadout configuration is user-driven and may legitimately take longer
     // than four minutes. The old deadline caused clientInit to exit permanently
     // before playersReady (confirmed by the 2026-07-19 RPT), so the support menu
