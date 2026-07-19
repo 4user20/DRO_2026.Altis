@@ -9,7 +9,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     if (!_authorized && {missionNamespace getVariable ["DRO2026_networkBuilt", false]}) then {continue};
 
     private _node = DRO2026_networkNodes getOrDefault ["NODE_FPV_FORWARD_01", createHashMap];
-    if (count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"]}) then {continue};
+    if (count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "RELOCATING"]}) then {continue};
     private _stocks = _node getOrDefault ["stocks", createHashMap];
     private _kits = _stocks getOrDefault ["FPV_KITS", DRO2026_resources getOrDefault ["enemyDroneStock", 0]];
     private _batteries = _stocks getOrDefault ["BATTERIES", _kits];
@@ -62,13 +62,26 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     };
                 };
                 ["DRONE_LAUNCHED", createHashMapFromArray [["role", "FPV"], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]]], "NODE_FPV_FORWARD_01"] call DRO2026_fnc_emitEvent;
+
+                private _launches = (_node getOrDefault ["launchesSinceRelocation", 0]) + _count;
+                private _threshold = _node getOrDefault ["relocationThreshold", 1 + floor random 3];
+                _node set ["launchesSinceRelocation", _launches];
+                _node set ["relocationThreshold", _threshold];
+                DRO2026_networkNodes set ["NODE_FPV_FORWARD_01", _node];
+                if (_launches >= _threshold) then {
+                    _node set ["launchesSinceRelocation", 0];
+                    _node set ["relocationThreshold", 1 + floor random 3];
+                    DRO2026_networkNodes set ["NODE_FPV_FORWARD_01", _node];
+                    ["NODE_FPV_FORWARD_01"] spawn DRO2026_fnc_relocateDroneTeam;
+                };
+
                 if (_intentAction == "FPV_ATTACK") then {
                     _intent set ["status", "EXECUTED"];
                     _intent set ["executedAt", time];
                     missionNamespace setVariable ["DRO2026_currentIntent", _intent];
                     ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "FPV_ATTACK"]], "NODE_FPV_FORWARD_01"] call DRO2026_fnc_emitEvent;
                 };
-                [format ["FPV-node запустил %1 аппарат(а), остаток комплектов %2", _count, (_kits - _count) max 0]] call DRO2026_fnc_log;
+                [format ["FPV-node запустил %1 аппарат(а), остаток комплектов %2; relocation %3/%4", _count, (_kits - _count) max 0, _launches, _threshold]] call DRO2026_fnc_log;
             };
         };
     };
