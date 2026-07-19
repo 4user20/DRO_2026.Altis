@@ -9,17 +9,30 @@ if (isNull _requester && {hasInterface}) then {_requester = player};
 if (!isNull _requester && {side (group _requester) != playersSide}) exitWith {
     ["Штаб: разведывательная поддержка недоступна для этой стороны.", _requester] call DRO2026_fnc_supportMessage;
 };
+if !(_requestedType isEqualType "") exitWith {
+    ["Штаб: некорректный профиль разведывательной поддержки.", _requester] call DRO2026_fnc_supportMessage;
+};
 
 private _upperType = toUpperANSI _requestedType;
+private _exactClass = if ((_upperType find "CLASS:") == 0) then {_requestedType select [6]} else {""};
+private _knownTypes = ["AUTO", "MICRO", "RQ7", "MQ4A", "TACTICAL", "HALE"];
+if (_exactClass == "" && {!(_upperType in _knownTypes)}) exitWith {
+    [format ["Штаб: неизвестный профиль разведки %1.", _requestedType], _requester] call DRO2026_fnc_supportMessage;
+};
+
+private _classAllowed = true;
 if ((_upperType find "CLASS:") == 0) then {
-    private _class = _requestedType select [6];
-    private _catalogMode = format ["ISR_CLASS:%1", _class];
-    private _allowed = (missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {
-        (_x param [1, ""]) == _catalogMode && {(_x param [2, ""]) == _class}
+    private _catalogMode = format ["ISR_CLASS:%1", _exactClass];
+    _classAllowed = _exactClass != "" && {
+        ((missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {
+            (_x isEqualType []) &&
+            {(_x param [1, ""]) == _catalogMode} &&
+            {(_x param [2, ""]) == _exactClass}
+        }) >= 0
     };
-    if (_allowed < 0) exitWith {
-        [format ["Штаб: разведывательный БПЛА %1 отсутствует в каталоге выбранной фракции.", _class], _requester] call DRO2026_fnc_supportMessage;
-    };
+};
+if (!_classAllowed) exitWith {
+    [format ["Штаб: разведывательный БПЛА %1 отсутствует в каталоге выбранной фракции.", _exactClass], _requester] call DRO2026_fnc_supportMessage;
 };
 
 if ((time - DRO2026_lastISRRequest) < DRO2026_ISR_COOLDOWN) exitWith {
@@ -43,8 +56,9 @@ private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call D
 DRO2026_resources set ["friendlyISRStock", ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) - 1) max 0];
 DRO2026_lastISRRequest = time;
 [_position, _origin, _operator, _requestedType] spawn DRO2026_fnc_launchISR;
+private _profileLabel = if (_exactClass != "") then {_exactClass} else {_requestedType};
 [
     "ACK",
-    format ["Штаб: Разведывательный БПЛА (%1) направлен в сектор.", if ((_upperType find "CLASS:") == 0) then {_requestedType select [6]} else {_requestedType}],
+    format ["Штаб: Разведывательный БПЛА (%1) направлен в сектор.", _profileLabel],
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;
