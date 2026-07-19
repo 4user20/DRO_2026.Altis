@@ -33,14 +33,20 @@ private _launcherClass = "";
 private _label = "ударный БПЛА";
 private _exactClass = if ((_req find "CLASS:") == 0) then {_requestedType select [6]} else {""};
 private _sideSuffix = if (_side == west) then {"WEST"} else {if (_side == resistance) then {"GUER"} else {"EAST"}};
+private _sideNumber = switch (_side) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
 private _role = format ["LONG_RANGE_%1", _sideSuffix];
-private _pool = DRO2026_assetRegistry getOrDefault [_role, []];
+private _pool = (DRO2026_assetRegistry getOrDefault [_role, []]) select {
+    private _cfg = configFile >> "CfgVehicles" >> _x;
+    isClass _cfg &&
+    {_x isKindOf "Air"} &&
+    {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}
+};
 
 private _pickVehicle = {
     private _tokens = _this;
     private _matches = _pool select {
         private _n = toLowerANSI _x;
-        (_tokens findIf {(_n find _x) >= 0}) >= 0 && {_x isKindOf "Air"}
+        (_tokens findIf {(_n find _x) >= 0}) >= 0
     };
     if (count _matches > 0) then {selectRandom _matches} else {""}
 };
@@ -55,10 +61,16 @@ private _pickAmmoFallback = {
     if (count _ammoPool > 0) then {_ammoPool select 0} else {""}
 };
 
-if (_exactClass != "" && {_exactClass in _pool} && {_exactClass isKindOf "Air"}) then {
-    _vehicleClass = _exactClass;
-    _label = getText (configFile >> "CfgVehicles" >> _exactClass >> "displayName");
-    if (_label == "") then {_label = _exactClass};
+private _selectionValid = true;
+if (_exactClass != "") then {
+    if !(_exactClass in _pool) then {
+        _selectionValid = false;
+        [format ["Отменён exact launch: %1 отсутствует в side-correct registry", _exactClass]] call DRO2026_fnc_log;
+    } else {
+        _vehicleClass = _exactClass;
+        _label = getText (configFile >> "CfgVehicles" >> _exactClass >> "displayName");
+        if (_label == "") then {_label = _exactClass};
+    };
 } else {
     switch _req do {
         case "FP1": {
@@ -101,7 +113,7 @@ if (_exactClass != "" && {_exactClass in _pool} && {_exactClass isKindOf "Air"})
             _vehicleClass = ["shahed", "geran"] call _pickVehicle;
             if (_vehicleClass == "") then {_ammoClass = ["STRIKE_AMMO_SHAHED"] call _pickAmmoFallback};
         };
-        default {
+        case "AUTO": {
             private _preferred = [];
             if (_side == east && {random 1 < 0.72}) then {
                 _preferred = _pool select {private _n = toLowerANSI _x; (_n find "shahed") >= 0 || {(_n find "geran") >= 0}};
@@ -117,8 +129,10 @@ if (_exactClass != "" && {_exactClass in _pool} && {_exactClass isKindOf "Air"})
                 if ((_n find "fp2") >= 0) then {_label = "FP-2"};
             };
         };
+        default {_selectionValid = false};
     };
 };
+if (!_selectionValid) exitWith {call _refundReserved; objNull};
 
 if (_ammoClass != "" && {!isClass (configFile >> "CfgAmmo" >> _ammoClass)}) then {
     [format ["Отменён запуск %1: боеприпас %2 отсутствует в CfgAmmo", _req, _ammoClass]] call DRO2026_fnc_log;
@@ -129,11 +143,15 @@ if (_vehicleClass == "" && {_ammoClass == ""}) exitWith {
     call _refundReserved;
     objNull
 };
-if (_vehicleClass != "" && {(!isClass (configFile >> "CfgVehicles" >> _vehicleClass)) || {!(_vehicleClass isKindOf "Air")}}) exitWith {
-    [format ["Отменён запуск %1: %2 не является доступным Air-классом", _req, _vehicleClass]] call DRO2026_fnc_log;
-    call _refundReserved;
-    objNull
+if (_vehicleClass != "") then {
+    private _vehicleCfg = configFile >> "CfgVehicles" >> _vehicleClass;
+    if (!isClass _vehicleCfg || {!(_vehicleClass isKindOf "Air")} || {_sideNumber >= 0 && {getNumber (_vehicleCfg >> "side") != _sideNumber}}) exitWith {
+        [format ["Отменён запуск %1: %2 не является доступным Air-классом выбранной стороны", _req, _vehicleClass]] call DRO2026_fnc_log;
+        call _refundReserved;
+        _vehicleClass = "";
+    };
 };
+if (_vehicleClass == "" && {_ammoClass == ""}) exitWith {objNull};
 
 private _spawnDistance = if (_ammoClass != "") then {12000 + random 6000} else {8000 + random 5000};
 private _baseBearing = _targetPos getDir _origin;
@@ -148,6 +166,7 @@ if (count _spawn2D < 2) then {_spawn2D = _origin};
 
 private _spawnASL = AGLToASL _spawn2D;
 _spawnASL set [2, (getTerrainHeightASL _spawn2D) + 130 + random 70];
+private _initialBearing = _spawn2D getDir _targetPos;
 private _drone = objNull;
 private _crewGroup = grpNull;
 private _isProjectile = _ammoClass != "";
@@ -161,6 +180,7 @@ if (_isProjectile) then {
 } else {
     _drone = createVehicle [_vehicleClass, ASLToAGL _spawnASL, [], 0, "FLY"];
     if (!isNull _drone) then {
+        _drone setDir _initialBearing;
         _drone setPosASL _spawnASL;
         _crewGroup = _side createVehicleCrew _drone;
         if (isNull _crewGroup || {isNull (driver _drone)}) then {
@@ -191,6 +211,7 @@ if (_side == playersSide && {_req == "FP5"}) then {
 };
 _drone setVariable ["DRO2026_operator", _operator];
 _drone setVariable ["DRO2026_decoy", _decoy];
+_drone setVariable ["DRO2026_launchSide", _side];
 DRO2026_activeDrones pushBack _drone;
 DRO2026_managedVehicles pushBackUnique _drone;
 [_drone, _label, _side] spawn DRO2026_fnc_trackIncomingDrone;
@@ -199,42 +220,42 @@ if (_decoy) then {
     _drone addEventHandler ["Killed", {
         params ["_decoyVehicle", "_killer"];
         if (!isNull _killer) then {
-            ["PLAYER", vehicle _killer, getPosATL (vehicle _killer), 0.88, "РАСКРЫТОЕ_ПВО"] call DRO2026_fnc_addContact;
-            DRO2026_resources set ["enemyAirDefence", ((DRO2026_resources getOrDefault ["enemyAirDefence", 0]) - 4) max 0];
+            private _launchSide = _decoyVehicle getVariable ["DRO2026_launchSide", playersSide];
+            private _hostileSide = if (_launchSide == playersSide) then {enemySide} else {playersSide};
+            private _killerVehicle = vehicle _killer;
+            private _killerSide = side _killerVehicle;
+            if (_killerVehicle isKindOf "Man") then {_killerSide = side (group _killerVehicle)};
+            if (count crew _killerVehicle > 0) then {_killerSide = side (group ((crew _killerVehicle) select 0))};
+            if (_killerSide == _hostileSide) then {
+                ["PLAYER", _killerVehicle, getPosATL _killerVehicle, 0.88, "РАСКРЫТОЕ_ПВО"] call DRO2026_fnc_addContact;
+                DRO2026_resources set ["enemyAirDefence", ((DRO2026_resources getOrDefault ["enemyAirDefence", 0]) - 4) max 0];
+            };
         };
     }];
 };
 
+private _applyFlightVector = {
+    params ["_object", "_rawDirection", "_speed"];
+    private _dirLength = vectorMagnitude _rawDirection;
+    if (_dirLength <= 0.001) exitWith {};
+    private _flightDirection = _rawDirection vectorMultiply (1 / _dirLength);
+    private _right = _flightDirection vectorCrossProduct [0,0,1];
+    private _rightLength = vectorMagnitude _right;
+    if (_rightLength <= 0.001) then {_right = [1,0,0]; _rightLength = 1};
+    _right = _right vectorMultiply (1 / _rightLength);
+    private _up = _right vectorCrossProduct _flightDirection;
+    private _upLength = vectorMagnitude _up;
+    if (_upLength <= 0.001) then {_up = [0,0,1]} else {_up = _up vectorMultiply (1 / _upLength)};
+    _object setVectorDirAndUp [_flightDirection, _up];
+    _object setVelocity (_flightDirection vectorMultiply _speed);
+};
+private _initialDelta = (AGLToASL _targetPos) vectorDiff _spawnASL;
+[_drone, _initialDelta, _speed] call _applyFlightVector;
+
 private _timeout = time + 760;
-private _lastSearch = -10;
 while {alive _drone && {time < _timeout} && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}} do {
     if (!isNull _target && {alive _target}) then {_targetPos = getPosATL _target};
     private _distance = _drone distance2D _targetPos;
-
-    if (_distance < 1100 && {(isNull _target || {!alive _target})} && {(time - _lastSearch) > 2.5}) then {
-        _lastSearch = time;
-        private _hostileSide = if (_side == playersSide) then {enemySide} else {playersSide};
-        private _candidates = nearestObjects [_targetPos, ["LandVehicle", "Air", "Man"], 650, true] select {
-            alive _x && {
-                private _objSide = side _x;
-                if (!isNull (driver _x)) then {_objSide = side (group (driver _x))};
-                _objSide == _hostileSide
-            }
-        };
-        if (count _candidates > 0) then {
-            _candidates = [_candidates, [], {
-                private _score = 0;
-                if (_x isKindOf "Tank") then {_score = _score + 7};
-                if (_x isKindOf "Air") then {_score = _score + 6};
-                if (_x isKindOf "Car") then {_score = _score + 4};
-                if (_x isKindOf "Man") then {_score = _score + 1};
-                _score - ((_x distance2D _targetPos) / 1000)
-            }, "DESCEND"] call BIS_fnc_sortBy;
-            _target = _candidates select 0;
-            _targetPos = getPosATL _target;
-        };
-    };
-
     private _clearance = if (_distance > 1200) then {95} else {if (_distance > 350) then {45} else {8}};
     private _aimASL = [_drone, _targetPos, _clearance, [350, 750, 1300], 700, 18] call DRO2026_fnc_calculateTerrainAwareAim;
     private _delta = _aimASL vectorDiff getPosASL _drone;
@@ -242,11 +263,10 @@ while {alive _drone && {time < _timeout} && {!(missionNamespace getVariable ["DR
     if (_length > 0.1) then {
         private _vector = _delta vectorMultiply (1 / _length);
         private _pulse = 1 + ((sin ((diag_tickTime + _salvoIndex) * 38)) * 0.035);
-        _drone setVectorDirAndUp [_vector, [0,0,1]];
-        _drone setVelocity (_vector vectorMultiply (_speed * _pulse));
+        [_drone, _vector, _speed * _pulse] call _applyFlightVector;
     };
 
-    if (_distance < 7) exitWith {
+    if (_distance < 7) then {
         if (_decoy) then {
             if (_isProjectile) then {deleteVehicle _drone} else {_drone setDamage 1};
         } else {
@@ -261,9 +281,9 @@ while {alive _drone && {time < _timeout} && {!(missionNamespace getVariable ["DR
 };
 private _activeIndex = DRO2026_activeDrones find _drone;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
-if (alive _drone) then {
+if (!isNull _drone) then {
     if (!_isProjectile) then {deleteVehicleCrew _drone};
-    deleteVehicle _drone;
+    if (alive _drone) then {deleteVehicle _drone};
 };
 if (!isNull _crewGroup) then {deleteGroup _crewGroup};
 _drone
