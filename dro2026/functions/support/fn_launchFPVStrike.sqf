@@ -57,9 +57,10 @@ _spawnPosition set [2, 18 + random 8];
 private _drone = createVehicle [_droneClass, _spawnPosition, [], 0, "FLY"];
 if (isNull _drone) exitWith {call _refundFriendly; objNull};
 private _crewGroup = _side createVehicleCrew _drone;
-if (isNull _crewGroup || {isNull driver _drone}) exitWith {
+if (isNull _crewGroup || {isNull (driver _drone)}) exitWith {
     deleteVehicleCrew _drone;
     deleteVehicle _drone;
+    if (!isNull _crewGroup) then {deleteGroup _crewGroup};
     call _refundFriendly;
     objNull
 };
@@ -80,11 +81,12 @@ if (_allowPlayerControl && {!isNull _supportOwner} && {_side == playersSide}) th
 };
 
 private _timeout = time + 210;
-private _lastTargetSearch = -10;
 private _lastWobbleUpdate = -10;
 private _wobbleBearing = 0;
 private _guidanceLostUntil = -1;
 private _operatorQuality = if (!isNull _operator) then {0.65 + ((skill _operator) * 0.35)} else {0.72};
+private _hadPhysicalTarget = !isNull _target;
+private _targetLostAt = -1;
 
 while {
     alive _drone &&
@@ -95,21 +97,11 @@ while {
     if (!_manual) then {
         if (!isNull _target && {alive _target}) then {
             _targetPosition = getPosATL _target;
+            _targetLostAt = -1;
         } else {
-            if ((time - _lastTargetSearch) > 2.5) then {
-                _lastTargetSearch = time;
-                private _candidates = nearestObjects [_targetPosition, ["LandVehicle", "Man"], 180, true] select {
-                    alive _x && {
-                        private _objectSide = side _x;
-                        if (!isNull driver _x) then {_objectSide = side group driver _x};
-                        _objectSide != _side && {_objectSide != civilian}
-                    }
-                };
-                if (count _candidates > 0) then {
-                    _candidates = [_candidates, [], {_x distance2D _targetPosition}, "ASCEND"] call BIS_fnc_sortBy;
-                    _target = _candidates select 0;
-                    _targetPosition = getPosATL _target;
-                };
+            if (_hadPhysicalTarget && {_targetLostAt < 0}) then {
+                _targetLostAt = time;
+                [format ["FPV сохраняет последнюю подтверждённую точку после потери цели %1", _contact getOrDefault ["id", ""]]] call DRO2026_fnc_log;
             };
         };
 
@@ -201,4 +193,5 @@ if (alive _drone) then {
     deleteVehicleCrew _drone;
     deleteVehicle _drone;
 };
+if (!isNull _crewGroup) then {deleteGroup _crewGroup};
 _drone
