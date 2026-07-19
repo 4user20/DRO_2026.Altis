@@ -62,6 +62,7 @@ class CfgFunctions
             class friendlyStrikeDirector {};
             class logisticsDirector {};
             class civilTrafficDirector {};
+            class civilianIntelDirector {};
             class enemyAirDirector {};
             class reactionDirector {};
             class orderEncirclement {};
