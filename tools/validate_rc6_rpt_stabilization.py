@@ -48,6 +48,11 @@ try:
     cfg = read("dro2026/CfgFunctions.hpp")
     console = read("dro2026/functions/support/fn_openSupportConsole.sqf")
     targeting = read("dro2026/functions/support/fn_beginSupportTargeting.sqf")
+    server_support = read("dro2026/functions/support/fn_serverRequestSupport.sqf")
+    request_isr = read("dro2026/functions/support/fn_requestISR.sqf")
+    request_long = read("dro2026/functions/support/fn_requestLongRangeSupport.sqf")
+    launch_isr = read("dro2026/functions/support/fn_launchISR.sqf")
+    launch_long = read("dro2026/functions/support/fn_launchLongRangeStrike.sqf")
     selector = read("dro2026/functions/core/fn_selectObjectiveOpportunity.sqf")
     materializer = read("dro2026/functions/objectives/fn_selectObjective.sqf")
     recon = read("dro2026/functions/objectives/fn_objectiveISRRecon.sqf")
@@ -79,6 +84,25 @@ else:
     require(errors, 'DRO2026_supportCatalog' in console and 'RscCombo' in console and 'Класс:' in console, "support UI does not consume concrete server catalog")
     require(errors, 'FPV_CLASS_AUTO:' in targeting and 'STRIKE_CLASS:' in targeting and 'ARTY:' in targeting and 'AIR:' in targeting, "targeting router lacks concrete class modes")
     require(errors, 'onMapSingleClick ""' in targeting, "map targeting cancel does not clear stale handler")
+    click_handler = re.search(r'onMapSingleClick "([^"]+)"', targeting)
+    require(
+        errors,
+        click_handler is not None
+        and click_handler.group(1).find("setVariable ['DRO2026_pendingSupport', []]") < click_handler.group(1).find("openMap false"),
+        "map click must clear pending request before closing the map",
+    )
+
+    require(errors, 'remoteExecutedOwner' in server_support, "support authority does not bind requester to remote owner")
+    require(errors, '_catalogContains' in server_support, "server support dispatcher does not validate published catalog entries")
+    require(errors, all(token in server_support for token in ['FPV_CLASS_MANUAL:', 'ISR_CLASS:', 'STRIKE_CLASS:', 'ARTY:%1', 'AIR:%1']), "server catalog validation is incomplete")
+    require(errors, all(token in server_support for token in ['isEqualType true', 'isEqualType 0', 'isEqualType ""']), "support payload type validation is incomplete")
+    require(errors, '_knownTypes = ["AUTO", "MICRO", "RQ7", "MQ4A", "TACTICAL", "HALE"]' in request_isr, "ISR request accepts unknown named profiles")
+    require(errors, 'private _classAllowed = true;' in request_isr and 'if (!_classAllowed) exitWith' in request_isr, "ISR exact-class rejection can fall through nested scope")
+    require(errors, '_knownTypes = ["AUTO", "FP1", "FP2", "BM35", "BULAVA", "FP5", "SHAHED"]' in request_long, "long-range request accepts unknown named profiles")
+    require(errors, 'case "AUTO"' in request_long and 'default {false}' in request_long, "long-range availability falls back to arbitrary request types")
+    require(errors, '_decoy && {_requestUpper != "AUTO"}' in request_long, "decoy flag can be combined with a concrete strike profile")
+    require(errors, 'isNull driver _uav' not in launch_isr and 'isNull (driver _uav)' in launch_isr, "ISR crew null check still relies on implicit command precedence")
+    require(errors, 'isNull driver _drone' not in launch_long and 'isNull (driver _drone)' in launch_long, "long-range crew null check still relies on implicit command precedence")
 
     require(errors, 'DRO2026_usedObjectiveNodes' in selector and 'DRO2026_usedObjectiveTypes' in selector, "selector does not suppress repeated type/node")
     require(errors, 'selectRandom DRO2026_OPERATION_PACKAGES' not in selector, "random objective packages returned")
