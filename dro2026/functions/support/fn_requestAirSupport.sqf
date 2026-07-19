@@ -83,19 +83,25 @@ DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
         private _spawn = _position getPos [9000 + random 2500, (_axis + 180 + (-18 + random 36)) mod 360];
         private _isHelicopter = _class isKindOf "Helicopter";
         _spawn set [2, if (_isHelicopter) then {240} else {620 + random 180}];
+        private _spawnDirection = _spawn getDir _position;
         private _aircraft = createVehicle [_class, _spawn, [], 0, "FLY"];
         if (isNull _aircraft) then {
             DRO2026_resources set ["friendlyAirSorties", (DRO2026_resources getOrDefault ["friendlyAirSorties", 0]) + 1];
             ["Штаб: борт не смог выйти на задачу; вылет возвращён в резерв.", _requester] call DRO2026_fnc_supportMessage;
             ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "ABORTED"], ["reason", "SPAWN_FAILED"]], _missionId] call DRO2026_fnc_emitEvent;
         } else {
+            _aircraft setDir _spawnDirection;
+            _aircraft setPosATL _spawn;
             private _group = playersSide createVehicleCrew _aircraft;
             if (isNull _group || {isNull (driver _aircraft)}) then {
                 deleteVehicleCrew _aircraft;
                 deleteVehicle _aircraft;
+                if (!isNull _group) then {deleteGroup _group};
                 DRO2026_resources set ["friendlyAirSorties", (DRO2026_resources getOrDefault ["friendlyAirSorties", 0]) + 1];
                 ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "ABORTED"], ["reason", "NO_CREW"]], _missionId] call DRO2026_fnc_emitEvent;
             } else {
+                private _initialSpeed = if (_isHelicopter) then {38} else {145};
+                _aircraft setVelocity [sin _spawnDirection * _initialSpeed, cos _spawnDirection * _initialSpeed, 0];
                 _missionAircraft pushBack _aircraft;
                 _aircraft setVariable ["DRO2026_airMissionId", _missionId, true];
                 [_group, false] call DRO2026_fnc_registerManagedGroup;
@@ -110,8 +116,8 @@ DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
                 (driver _aircraft) doMove (getPosATL _target);
                 _aircraft flyInHeight (if (_isHelicopter) then {120} else {420});
                 ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "INBOUND"], ["contactId", _contactId]], _missionId] call DRO2026_fnc_emitEvent;
-                [_missionId, _aircraft, _target, _contactId, _position, _axis] spawn {
-                    params ["_missionId", "_aircraft", "_target", "_contactId", "_position", "_axis"];
+                [_missionId, _aircraft, _target, _contactId, _position, _axis, _group] spawn {
+                    params ["_missionId", "_aircraft", "_target", "_contactId", "_position", "_axis", "_group"];
                     private _deadline = time + 240;
                     private _engagementIssued = false;
                     private _lastFireOrder = -10;
@@ -131,6 +137,11 @@ DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
                                 _lastFireOrder = time;
                                 _engagementIssued = true;
                                 (driver _aircraft) doFire _target;
+                                private _gunner = gunner _aircraft;
+                                if (!isNull _gunner && {_gunner != driver _aircraft}) then {
+                                    _gunner doTarget _target;
+                                    _gunner doFire _target;
+                                };
                                 ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "ATTACKING"], ["contactId", _contactId]], _missionId] call DRO2026_fnc_emitEvent;
                             };
                         };
@@ -143,7 +154,11 @@ DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
                     if (!isNull (driver _aircraft)) then {(driver _aircraft) doMove _egress};
                     private _exitDeadline = time + 150;
                     waitUntil {sleep 2; !alive _aircraft || {_aircraft distance2D _position > 8000} || {time > _exitDeadline} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
-                    if (alive _aircraft) then {deleteVehicleCrew _aircraft; deleteVehicle _aircraft};
+                    if (!isNull _aircraft) then {
+                        deleteVehicleCrew _aircraft;
+                        if (alive _aircraft) then {deleteVehicle _aircraft};
+                    };
+                    if (!isNull _group) then {deleteGroup _group};
                     ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "COMPLETE"], ["reason", _abortReason]], _missionId] call DRO2026_fnc_emitEvent;
                 };
             };
