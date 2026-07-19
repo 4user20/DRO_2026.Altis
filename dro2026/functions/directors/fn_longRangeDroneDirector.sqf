@@ -32,7 +32,12 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
 
             if ((_subjectId find "PLAYER:") == 0) exitWith {
                 private _uid = _subjectId select [7];
-                (allPlayers findIf {!isNull _x && {alive _x} && {getPlayerUID _x == _uid}}) >= 0
+                (allPlayers findIf {
+                    !(_x isKindOf "VirtualMan_F") &&
+                    {!isNull _x} &&
+                    {alive _x} &&
+                    {getPlayerUID _x == _uid}
+                }) >= 0
             };
             if ((_subjectId find "SUPPORT:") == 0) exitWith {
                 private _netId = _subjectId select [8];
