@@ -42,12 +42,22 @@ private _vehicleRole = if (enemySide == west) then {"LOGISTICS_WEST"} else {"LOG
 private _vehicleClass = [_vehicleRole, _vehicleFallback] call DRO2026_fnc_getRoleClass;
 private _controlVehicle = createVehicle [_vehicleClass, _relayPosition getPos [20, random 360], [], 0, "NONE"];
 private _operatorFallback = switch (enemySide) do {case west: {"B_soldier_UAV_F"}; case resistance: {"I_soldier_UAV_F"}; default {"O_soldier_UAV_F"}};
-private _officerRole = if (enemySide == west) then {"OFFICER_WEST"} else {"OFFICER_EAST"};
-private _operatorClass = [_officerRole, _operatorFallback] call DRO2026_fnc_getRoleClass;
+private _enemySideNumber = switch (enemySide) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
+private _operatorPool = [];
+if (!isNil "eOfficerClasses") then {_operatorPool append eOfficerClasses};
+if (!isNil "eInfClasses") then {_operatorPool append eInfClasses};
+_operatorPool = (_operatorPool arrayIntersect _operatorPool) select {
+    isClass (configFile >> "CfgVehicles" >> _x) &&
+    {_x isKindOf "Man"} &&
+    {getNumber (configFile >> "CfgVehicles" >> _x >> "scope") >= 2} &&
+    {_enemySideNumber < 0 || {getNumber (configFile >> "CfgVehicles" >> _x >> "side") == _enemySideNumber}}
+};
+private _operatorClass = if (count _operatorPool > 0) then {selectRandom _operatorPool} else {_operatorFallback};
 private _group = createGroup [enemySide, true];
 private _operator = _group createUnit [_operatorClass, _relayPosition getPos [3, random 360], [], 0, "NONE"];
 for "_index" from 1 to 2 do {
-    private _guard = _group createUnit [_operatorClass, _relayPosition getPos [8 + random 10, random 360], [], 2, "FORM"];
+    private _guardClass = if (count _operatorPool > 0) then {selectRandom _operatorPool} else {_operatorFallback};
+    private _guard = _group createUnit [_guardClass, _relayPosition getPos [8 + random 10, random 360], [], 2, "FORM"];
     if (!isNull _guard) then {_guard setSkill 0.48 + random 0.12};
 };
 if (!isNull _operator) then {_operator setSkill 0.65};
