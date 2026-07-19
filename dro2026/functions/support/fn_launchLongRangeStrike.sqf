@@ -12,7 +12,7 @@ private _refundReserved = {
 if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundReserved; objNull};
 if (!isNull _operator && {!alive _operator}) exitWith {call _refundReserved; objNull};
 private _target = _contact getOrDefault ["target", objNull];
-private _targetPos = _contact getOrDefault ["position", []];
+private _targetPos = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
 if (count _targetPos < 2) exitWith {call _refundReserved; objNull};
 
 private _vehicleClass = "";
@@ -20,6 +20,7 @@ private _ammoClass = "";
 private _launcherClass = "";
 private _label = "ударный БПЛА";
 private _req = toUpperANSI _requestedType;
+private _exactClass = if ((_req find "CLASS:") == 0) then {_requestedType select [6]} else {""};
 private _sideSuffix = if (_side == west) then {"WEST"} else {if (_side == resistance) then {"GUER"} else {"EAST"}};
 private _role = format ["LONG_RANGE_%1", _sideSuffix];
 private _pool = DRO2026_assetRegistry getOrDefault [_role, []];
@@ -43,61 +44,67 @@ private _pickAmmoFallback = {
     if (count _ammoPool > 0) then {_ammoPool select 0} else {""}
 };
 
-switch _req do {
-    case "FP1": {
-        _label = "FP-1";
-        _launcherClass = [format ["LAUNCHER_FP1_%1", _sideSuffix]] call _pickLauncher;
-        _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
-        if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_FP1"] call _pickAmmoFallback};
-    };
-    case "FP2": {
-        _label = "FP-2";
-        _vehicleClass = ["fp2"] call _pickVehicle;
-        if (_vehicleClass == "") then {
-            _launcherClass = [format ["LAUNCHER_FP2_%1", _sideSuffix]] call _pickLauncher;
+if (_exactClass != "" && {_exactClass in _pool} && {_exactClass isKindOf "Air"}) then {
+    _vehicleClass = _exactClass;
+    _label = getText (configFile >> "CfgVehicles" >> _exactClass >> "displayName");
+    if (_label == "") then {_label = _exactClass};
+} else {
+    switch _req do {
+        case "FP1": {
+            _label = "FP-1";
+            _launcherClass = [format ["LAUNCHER_FP1_%1", _sideSuffix]] call _pickLauncher;
             _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
-            if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_FP2"] call _pickAmmoFallback};
+            if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_FP1"] call _pickAmmoFallback};
         };
-    };
-    case "BM35": {
-        _label = "BM-35";
-        _vehicleClass = ["bm35"] call _pickVehicle;
-        if (_vehicleClass == "") then {
-            _launcherClass = [format ["LAUNCHER_BM35_%1", _sideSuffix]] call _pickLauncher;
+        case "FP2": {
+            _label = "FP-2";
+            _vehicleClass = ["fp2"] call _pickVehicle;
+            if (_vehicleClass == "") then {
+                _launcherClass = [format ["LAUNCHER_FP2_%1", _sideSuffix]] call _pickLauncher;
+                _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
+                if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_FP2"] call _pickAmmoFallback};
+            };
+        };
+        case "BM35": {
+            _label = "BM-35";
+            _vehicleClass = ["bm35"] call _pickVehicle;
+            if (_vehicleClass == "") then {
+                _launcherClass = [format ["LAUNCHER_BM35_%1", _sideSuffix]] call _pickLauncher;
+                _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
+                if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_BM35"] call _pickAmmoFallback};
+            };
+        };
+        case "BULAVA": {
+            _label = "Bulava";
+            _launcherClass = [format ["LAUNCHER_BULAVA_%1", _sideSuffix]] call _pickLauncher;
             _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
-            if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_BM35"] call _pickAmmoFallback};
         };
-    };
-    case "BULAVA": {
-        _label = "Bulava";
-        _launcherClass = [format ["LAUNCHER_BULAVA_%1", _sideSuffix]] call _pickLauncher;
-        _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
-    };
-    case "FP5": {
-        _label = "FP-5 Flamingo";
-        _launcherClass = ["LAUNCHER_FP5_WEST"] call _pickLauncher;
-        _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
-        if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_FP5"] call _pickAmmoFallback};
-    };
-    case "SHAHED": {
-        _label = "Shahed/Geran";
-        _vehicleClass = ["shahed", "geran"] call _pickVehicle;
-        if (_vehicleClass == "") then {_ammoClass = ["STRIKE_AMMO_SHAHED"] call _pickAmmoFallback};
-    };
-    default {
-        private _preferred = [];
-        if (_side == east && {random 1 < 0.72}) then {
-            _preferred = _pool select {private _n = toLowerANSI _x; (_n find "shahed") >= 0 || {(_n find "geran") >= 0}};
+        case "FP5": {
+            _label = "FP-5 Flamingo";
+            _launcherClass = ["LAUNCHER_FP5_WEST"] call _pickLauncher;
+            _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
+            if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_FP5"] call _pickAmmoFallback};
         };
-        if (_side == west && {random 1 < 0.82}) then {
-            _preferred = _pool select {private _n = toLowerANSI _x; (_n find "fp2") >= 0 || {(_n find "bm35") >= 0}};
+        case "SHAHED": {
+            _label = "Shahed/Geran";
+            _vehicleClass = ["shahed", "geran"] call _pickVehicle;
+            if (_vehicleClass == "") then {_ammoClass = ["STRIKE_AMMO_SHAHED"] call _pickAmmoFallback};
         };
-        _vehicleClass = if (count _preferred > 0) then {selectRandom _preferred} else {if (count _pool > 0) then {selectRandom _pool} else {""}};
-        if (_vehicleClass != "") then {
-            private _n = toLowerANSI _vehicleClass;
-            if ((_n find "shahed") >= 0 || {(_n find "geran") >= 0}) then {_label = "Shahed/Geran"};
-            if ((_n find "bm35") >= 0) then {_label = "BM-35"};
-            if ((_n find "fp2") >= 0) then {_label = "FP-2"};
+        default {
+            private _preferred = [];
+            if (_side == east && {random 1 < 0.72}) then {
+                _preferred = _pool select {private _n = toLowerANSI _x; (_n find "shahed") >= 0 || {(_n find "geran") >= 0}};
+            };
+            if (_side == west && {random 1 < 0.82}) then {
+                _preferred = _pool select {private _n = toLowerANSI _x; (_n find "fp2") >= 0 || {(_n find "bm35") >= 0}};
+            };
+            _vehicleClass = if (count _preferred > 0) then {selectRandom _preferred} else {if (count _pool > 0) then {selectRandom _pool} else {""}};
+            if (_vehicleClass != "") then {
+                private _n = toLowerANSI _vehicleClass;
+                if ((_n find "shahed") >= 0 || {(_n find "geran") >= 0}) then {_label = "Shahed/Geran"};
+                if ((_n find "bm35") >= 0) then {_label = "BM-35"};
+                if ((_n find "fp2") >= 0) then {_label = "FP-2"};
+            };
         };
     };
 };
@@ -137,7 +144,14 @@ if (_isProjectile) then {
     _drone = createVehicle [_vehicleClass, ASLToAGL _spawnASL, [], 0, "FLY"];
     _drone setPosASL _spawnASL;
     private _group = _side createVehicleCrew _drone;
-    if (!isNull _group) then {_group setBehaviourStrong "CARELESS"; _group setCombatMode "BLUE"; _group setSpeedMode "FULL"};
+    if (isNull _group || {isNull driver _drone}) exitWith {
+        deleteVehicleCrew _drone;
+        deleteVehicle _drone;
+        _drone = objNull;
+    };
+    _group setBehaviourStrong "CARELESS";
+    _group setCombatMode "BLUE";
+    _group setSpeedMode "FULL";
     private _lower = toLowerANSI _vehicleClass;
     if ((_lower find "shahed") >= 0 || {(_lower find "geran") >= 0}) then {_speed = 52};
     if ((_lower find "bm35") >= 0) then {_speed = 64};
@@ -161,13 +175,11 @@ if (_decoy) then {
 };
 
 private _timeout = time + 760;
-private _searchDone = false;
 private _lastSearch = -10;
-while {alive _drone && {time < _timeout}} do {
+while {alive _drone && {time < _timeout} && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}} do {
     if (!isNull _target && {alive _target}) then {_targetPos = getPosATL _target};
     private _distance = _drone distance2D _targetPos;
 
-    // Once inside the target area, a lost target can be reacquired locally without scanning the whole map.
     if (_distance < 1100 && {(isNull _target || {!alive _target})} && {(time - _lastSearch) > 2.5}) then {
         _lastSearch = time;
         private _hostileSide = if (_side == playersSide) then {enemySide} else {playersSide};
@@ -210,13 +222,14 @@ while {alive _drone && {time < _timeout}} do {
             if (_isProjectile) then {
                 triggerAmmo _drone;
             } else {
-                // Native vehicle addon warhead/Killed handler; no generic Bo_Mk82 injection.
                 _drone setDamage 1;
             };
         };
     };
     sleep (if (_distance > 2500) then {0.55} else {0.28});
 };
+private _activeIndex = DRO2026_activeDrones find _drone;
+if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
 if (alive _drone) then {
     if (!_isProjectile) then {deleteVehicleCrew _drone};
     deleteVehicle _drone;
