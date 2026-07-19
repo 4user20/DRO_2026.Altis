@@ -152,7 +152,7 @@ while {alive _uav && {time < _end} && {(isNull _operator) || {alive _operator}}}
             if (alive _target && {_target distance2D _uav < _scanRadius}) then {
                 private _targetASL = aimPos _target;
                 if (_targetASL isEqualTo [0,0,0]) then {_targetASL = getPosASL _target vectorAdd [0,0,1.5]};
-                private _visibility = _uav checkVisibility [eyePos _uav, _targetASL];
+                private _visibility = ([_uav, "VIEW"] checkVisibility [eyePos _uav, _targetASL]);
                 if (_visibility > 0.08) then {
                     ["PLAYER", _target, getPosATL _target, (_baseConfidence + (_visibility * 0.1)) min 0.97, "БПЛА", _source, _baseUncertainty] call DRO2026_fnc_addContact;
                 };
