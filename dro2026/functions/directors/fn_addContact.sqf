@@ -20,7 +20,10 @@ if (_subjectId == "") then {
             (_node getOrDefault ["position", [0,0,0]]) distance2D _position < 900
         };
         if (count _near > 0) then {
-            _near = [_near, [], {(DRO2026_networkNodes get _x getOrDefault ["position", [0,0,0]]) distance2D _position}, "ASCEND"] call BIS_fnc_sortBy;
+            _near = [_near, [], {
+                private _node = DRO2026_networkNodes get _x;
+                (_node getOrDefault ["position", [0,0,0]]) distance2D _position
+            }, "ASCEND"] call BIS_fnc_sortBy;
             _subjectId = _near select 0;
         };
     };
