@@ -1,0 +1,5 @@
+DROAI-config.cfg
+logs/
+node_modules/
+.env
+*.log

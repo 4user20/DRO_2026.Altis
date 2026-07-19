@@ -1,0 +1,15 @@
+{
+  "name": "dro2026-ai-director",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dependency-free Node.js sidecar for DRO 2026 AI intent ranking over INIDBI2 transport",
+  "type": "commonjs",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/index.js",
+    "doctor": "node src/doctor.js",
+    "test": "node test/selftest.js",
+    "check": "node --check src/index.js && node --check src/provider.js && node --check src/transport.js && node --check src/validate.js && node --check src/snapshot.js && node --check src/config.js"
+  },
+  "license": "MIT"
+}

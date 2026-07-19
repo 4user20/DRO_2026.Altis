@@ -47,6 +47,27 @@ class CfgFunctions
             class resolveLauncherAmmo {};
             class clientInit {postInit = 1;};
         };
+        class AI
+        {
+            file = "dro2026\functions\ai";
+            class initAITransport {};
+            class writeAIRequest {};
+            class readAIResponses {};
+            class buildIntentCandidates {};
+            class buildAISnapshot {};
+            class validateAIDecision {};
+            class commitIntent {};
+            class applyStrategicPolicy {};
+            class aiResponseListener {};
+            class aiOperationDirector {};
+            class strategicAIDirector {};
+        };
+        class Maneuver
+        {
+            file = "dro2026\functions\maneuver";
+            class assignManagedGroupIds {};
+            class claimGroupLease {};
+        };
         class Directors
         {
             file = "dro2026\functions\directors";
@@ -88,6 +109,8 @@ class CfgFunctions
         {
             file = "dro2026\functions\support";
             class launchFPVStrike {};
+            class isFPVExternallyControlled {};
+            class calculateFPVLeadPoint {};
             class launchLongRangeStrike {};
             class trackIncomingDrone {};
             class offerFPVControl {};
