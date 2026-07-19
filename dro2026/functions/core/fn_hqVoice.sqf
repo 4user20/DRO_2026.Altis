@@ -1,8 +1,8 @@
-params ["_event", ["_forceSubtitle", ""]];
+params ["_event", ["_forceSubtitle", ""], ["_targets", -2]];
 
 if (!hasInterface) exitWith {
     if (isServer) then {
-        [_event, _forceSubtitle] remoteExecCall ["DRO2026_fnc_hqVoice", -2, false];
+        [_event, _forceSubtitle, -2] remoteExecCall ["DRO2026_fnc_hqVoice", _targets, false];
     };
 };
 
