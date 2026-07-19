@@ -1,4 +1,5 @@
 params ["_position", ["_origin", []], ["_operator", objNull], ["_requestedType", "AUTO"]];
+if (!isServer) exitWith {objNull};
 if (!isNull _operator && {!alive _operator}) exitWith {objNull};
 
 private _sideSuffix = switch (playersSide) do {
@@ -42,9 +43,7 @@ private _findByTokens = {
 private _class = _fallback;
 private _offMap = false;
 switch (toUpperANSI _requestedType) do {
-    case "MICRO": {
-        if (count _microPool > 0) then {_class = selectRandom _microPool};
-    };
+    case "MICRO": {if (count _microPool > 0) then {_class = selectRandom _microPool}};
     case "RQ7": {
         private _selected = [_tacticalPool + _pool, ["rq7", "shadow"]] call _findByTokens;
         if (_selected != "") then {_class = _selected; _offMap = true};
@@ -53,27 +52,13 @@ switch (toUpperANSI _requestedType) do {
         private _selected = [_halePool + _pool, ["mq4"]] call _findByTokens;
         if (_selected != "") then {_class = _selected; _offMap = true};
     };
-    case "TACTICAL": {
-        if (count _tacticalPool > 0) then {_class = selectRandom _tacticalPool; _offMap = true};
-    };
-    case "HALE": {
-        if (count _halePool > 0) then {_class = selectRandom _halePool; _offMap = true};
-    };
+    case "TACTICAL": {if (count _tacticalPool > 0) then {_class = selectRandom _tacticalPool; _offMap = true}};
+    case "HALE": {if (count _halePool > 0) then {_class = selectRandom _halePool; _offMap = true}};
     default {
         if (count _pool > 0) then {
-            _class = if (count _microPool > 0 && {random 1 > 0.72}) then {
-                selectRandom _microPool
-            } else {
-                if (count _tacticalPool > 0 && {random 1 > 0.45}) then {
-                    _offMap = true;
-                    selectRandom _tacticalPool
-                } else {
-                    if (count _halePool > 0 && {random 1 > 0.82}) then {
-                        _offMap = true;
-                        selectRandom _halePool
-                    } else {
-                        selectRandom _pool
-                    }
+            _class = if (count _microPool > 0 && {random 1 > 0.72}) then {selectRandom _microPool} else {
+                if (count _tacticalPool > 0 && {random 1 > 0.45}) then {_offMap = true; selectRandom _tacticalPool} else {
+                    if (count _halePool > 0 && {random 1 > 0.82}) then {_offMap = true; selectRandom _halePool} else {selectRandom _pool}
                 }
             };
         };
@@ -84,10 +69,11 @@ if (!isClass (configFile >> "CfgVehicles" >> _class) || {!(_class isKindOf "Air"
 private _lowerName = toLowerANSI _class;
 private _isMicro = (_class isKindOf "UAV_01_base_F") || {(_lowerName find "mavic") >= 0} || {(_lowerName find "quad") >= 0};
 private _isHALE = (_lowerName find "mq4") >= 0;
+private _source = if (_isMicro) then {"MICRO_UAV"} else {if (_isHALE) then {"HALE"} else {"TACTICAL_UAV"}};
 if (_isHALE) then {_offMap = true};
-if (count _origin < 2) then {_origin = getPosATL player};
+if (count _origin < 2) then {_origin = ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode};
 private _spawn = if (_offMap) then {
-    private _axis = DRO2026_theaterNodes getOrDefault ["AXIS", 90];
+    private _axis = DRO2026_theaterLayout getOrDefault ["AXIS", DRO2026_theaterNodes getOrDefault ["AXIS", 90]];
     private _distance = if (_isHALE) then {12000} else {9000};
     private _raw = _position getPos [_distance, (_axis + 180) mod 360];
     private _margin = 300;
@@ -116,9 +102,12 @@ if (!isNull _group) then {
     _group setCombatMode "BLUE";
     _group setSpeedMode "NORMAL";
 };
+["DRONE_LAUNCHED", createHashMapFromArray [["class", _class], ["role", "ISR"], ["source", _source]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
 
 private _end = time + (if (_isMicro) then {360} else {if (_isHALE) then {720} else {520}});
 private _angle = random 360;
+private _lastEWProvocation = -999;
+private _lastFalseContact = -999;
 while {alive _uav && {time < _end} && {(isNull _operator) || {alive _operator}}} do {
     _angle = (_angle + 12 + random 16) mod 360;
     private _baseRadius = if (_isMicro) then {240} else {if (_isHALE) then {1600} else {650}};
@@ -127,17 +116,34 @@ while {alive _uav && {time < _end} && {(isNull _operator) || {alive _operator}}}
     _orbit set [2, _height + (-18 + random 36)];
     if (!isNull (driver _uav)) then {(driver _uav) doMove _orbit};
 
-    private _ew = DRO2026_resources getOrDefault ["enemyEW", 0];
-    private _scanRadius = if (_isMicro) then {
-        linearConversion [0, 100, _ew, 950, 520, true]
-    } else {
-        if (_isHALE) then {
-            linearConversion [0, 100, _ew, 2600, 1350, true]
-        } else {
-            linearConversion [0, 100, _ew, 1650, 880, true]
-        }
+    private _jamming = [getPosATL _uav, playersSide] call DRO2026_fnc_getJammingAtPosition;
+    if (_jamming > 0.10 && {(time - _lastEWProvocation) > 55}) then {
+        private _ewNode = DRO2026_networkNodes getOrDefault ["NODE_EW_01", createHashMap];
+        if (count _ewNode > 0 && {!((_ewNode getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"])}) then {
+            _ewNode set ["emissionState", "BURST"];
+            _ewNode set ["lastEmission", time];
+            DRO2026_networkNodes set ["NODE_EW_01", _ewNode];
+            private _ewPosition = _ewNode getOrDefault ["position", _position];
+            private _estimate = _ewPosition getPos [120 + random (320 + 420 * _jamming), random 360];
+            ["PLAYER", objNull, _estimate, 0.48 + (0.20 * _jamming), "ВЕРОЯТНЫЙ РЭБ", "ELINT", 260 + (420 * _jamming), "NODE_EW_01", 0.08] call DRO2026_fnc_addContact;
+            ["EMISSION_DETECTED", createHashMapFromArray [["nodeId", "NODE_EW_01"], ["mode", "BURST"], ["jamming", _jamming]], "NODE_EW_01"] call DRO2026_fnc_emitEvent;
+            ["NODE_EW_01"] spawn {
+                params ["_nodeId"];
+                sleep 28;
+                private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
+                if (count _node > 0 && {(_node getOrDefault ["emissionState", ""]) == "BURST"}) then {
+                    _node set ["emissionState", "PASSIVE"];
+                    DRO2026_networkNodes set [_nodeId, _node];
+                };
+            };
+            _lastEWProvocation = time;
+        };
     };
-    private _baseConfidence = linearConversion [0, 100, _ew, 0.88, 0.58, true];
+
+    private _nominalRadius = if (_isMicro) then {950} else {if (_isHALE) then {2600} else {1650}};
+    private _scanRadius = _nominalRadius * (1 - (0.52 * _jamming));
+    private _baseConfidence = (if (_isMicro) then {0.88} else {if (_isHALE) then {0.82} else {0.86}}) - (0.28 * _jamming);
+    private _baseUncertainty = (if (_isMicro) then {42} else {if (_isHALE) then {170} else {82}}) + (310 * _jamming);
 
     {
         private _managedGroup = _x;
@@ -148,21 +154,32 @@ while {alive _uav && {time < _end} && {(isNull _operator) || {alive _operator}}}
                 if (_targetASL isEqualTo [0,0,0]) then {_targetASL = getPosASL _target vectorAdd [0,0,1.5]};
                 private _visibility = _uav checkVisibility [eyePos _uav, _targetASL];
                 if (_visibility > 0.08) then {
-                    ["PLAYER", _target, getPosATL _target, (_baseConfidence + (_visibility * 0.1)) min 0.97, "БПЛА"] call DRO2026_fnc_addContact;
+                    ["PLAYER", _target, getPosATL _target, (_baseConfidence + (_visibility * 0.1)) min 0.97, "БПЛА", _source, _baseUncertainty] call DRO2026_fnc_addContact;
                 };
             };
         };
     } forEach DRO2026_managedGroups;
 
     {
-        private _sitePosition = _x getOrDefault ["position", []];
+        private _site = _x;
+        private _sitePosition = _site getOrDefault ["position", []];
         if (count _sitePosition > 1 && {_sitePosition distance2D _uav < _scanRadius}) then {
-            ["PLAYER", _x getOrDefault ["object", objNull], _sitePosition, (_baseConfidence + 0.05) min 0.92, _x getOrDefault ["type", "ОБЪЕКТ"]] call DRO2026_fnc_addContact;
+            [
+                "PLAYER", _site getOrDefault ["object", objNull], _sitePosition,
+                (_baseConfidence + 0.05) min 0.92, _site getOrDefault ["type", "ОБЪЕКТ"],
+                _source, _baseUncertainty, _site getOrDefault ["networkNodeId", ""], 0.03 + (0.10 * _jamming)
+            ] call DRO2026_fnc_addContact;
         };
     } forEach (DRO2026_sites select {
         (_x getOrDefault ["type", ""]) find "ENEMY" >= 0 ||
-        {(_x getOrDefault ["type", ""]) in ["ARTILLERY_SITE", "AIR_DEFENCE_SITE", "LOGISTICS_RUN", "CONVOY"]}
+        {(_x getOrDefault ["type", ""]) in ["ARTILLERY_SITE", "AIR_DEFENCE_SITE", "LOGISTICS_HUB", "LOGISTICS_RUN", "CONVOY", "EW_SITE", "FPV_TEAM", "STRATEGIC_DRONE_SITE"]}
     });
+
+    if (_jamming > 0.55 && {(time - _lastFalseContact) > 70} && {random 1 < (0.08 * _jamming)}) then {
+        private _falsePosition = _position getPos [350 + random 1100, random 360];
+        ["PLAYER", objNull, _falsePosition, 0.28 + random 0.18, selectRandom ["ВОЗМОЖНАЯ ТЕХНИКА", "РАДИОИЗЛУЧЕНИЕ", "НЕЯСНЫЙ ОБЪЕКТ"], _source, 420 + random 500, "", 0.55 + (0.25 * _jamming)] call DRO2026_fnc_addContact;
+        _lastFalseContact = time;
+    };
     sleep 4;
 };
 if (alive _uav) then {
@@ -170,4 +187,5 @@ if (alive _uav) then {
     sleep 25;
     if (alive _uav) then {deleteVehicleCrew _uav; deleteVehicle _uav};
 };
+["DRONE_LOST", createHashMapFromArray [["class", _class], ["role", "ISR"], ["returned", alive _uav]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
 _uav
