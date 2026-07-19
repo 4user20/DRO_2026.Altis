@@ -144,7 +144,7 @@ if (_isProjectile) then {
     _drone = createVehicle [_vehicleClass, ASLToAGL _spawnASL, [], 0, "FLY"];
     _drone setPosASL _spawnASL;
     private _group = _side createVehicleCrew _drone;
-    if (isNull _group || {isNull driver _drone}) exitWith {
+    if (isNull _group || {isNull (driver _drone)}) exitWith {
         deleteVehicleCrew _drone;
         deleteVehicle _drone;
         _drone = objNull;
