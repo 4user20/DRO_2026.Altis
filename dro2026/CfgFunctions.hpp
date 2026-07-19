@@ -37,11 +37,11 @@ class CfgFunctions
             class findObjectivePos {};
             class createObjectiveRecord {};
             class createSiteRecord {};
-            class createContactRecord {};
             class validateSiteRecord {};
             class spawnGuard {};
             class completeObjective {};
             class createFriendlyPositions {};
+            class createFriendlyLogisticsSite {};
             class createStrategicInfrastructure {};
             class calculateTerrainAwareAim {};
             class resolveLauncherAmmo {};
