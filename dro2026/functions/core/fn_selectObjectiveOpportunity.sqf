@@ -83,7 +83,16 @@ if (count _candidates == 0) then {
         };
     } forEach _fallbackOrder;
 };
-if (count _candidates == 0) exitWith {"CUT_REAR"};
+if (count _candidates == 0) exitWith {
+    private _fallback = createHashMapFromArray [
+        ["type", "CUT_REAR"], ["nodeId", "NODE_ENEMY_HQ"], ["score", 0.10],
+        ["reason", "last-resort command objective"], ["phase", _phase], ["createdAt", time]
+    ];
+    DRO2026_operationState set ["activeOpportunities", [_fallback]];
+    missionNamespace setVariable ["DRO2026_selectedOpportunity", _fallback];
+    ["OPPORTUNITY_SELECTED", createHashMapFromArray [["type", "CUT_REAR"], ["nodeId", "NODE_ENEMY_HQ"], ["score", 0.10], ["phase", _phase]], "OPERATION"] call DRO2026_fnc_emitEvent;
+    "CUT_REAR"
+};
 
 _candidates = [_candidates, [], {-(_x getOrDefault ["score", 0])}, "ASCEND"] call BIS_fnc_sortBy;
 private _top = _candidates select [0, (count _candidates) min 4];
