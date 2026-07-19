@@ -6,10 +6,9 @@ private _playerInitDeadline = diag_tickTime + 45;
 waitUntil {sleep 0.05; !isNull player || {diag_tickTime > _playerInitDeadline}};
 if (isNull player) exitWith {diag_log "DRO: initPlayerLocal aborted: player remained null"};
 
-#include "sunday_system\fnc_lib\sundayFunctions.sqf";
-#include "sunday_system\fnc_lib\droFunctions.sqf";
-#include "sunday_revive\reviveFunctions.sqf";
-#include "sunday_system\fnc_lib\menuFunctions.sqf";
+// Legacy libraries are included by the root initPlayerLocal.sqf. Keeping
+// them there is intentional: Arma resolves #include relative to the file
+// containing the directive, not relative to the mission root.
 
 addWeaponItemEverywhere = compileFinal " _this select 0 addPrimaryWeaponItem (_this select 1); ";
 addHandgunItemEverywhere = compileFinal " _this select 0 addHandgunItem (_this select 1); ";
@@ -165,4 +164,3 @@ closeDialog 1;
 */
 
 sleep 3;
-

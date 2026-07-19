@@ -16,11 +16,16 @@ def text(path: Path) -> str:
 
 
 def include_target(owner: Path, raw: str) -> Path | None:
+    """Resolve includes exactly from the file containing #include.
+
+    Arma's preprocessor does not retry a missing nested include from the mission
+    root. A permissive ROOT fallback previously hid broken paths in nested .inc
+    files and allowed a release-blocking error into RC6.
+    """
     normalized = Path(raw.replace('\\', '/'))
-    for candidate in (owner.parent / normalized, ROOT / normalized):
-        candidate = candidate.resolve()
-        if candidate.is_file() and (candidate == ROOT or ROOT in candidate.parents):
-            return candidate
+    candidate = (owner.parent / normalized).resolve()
+    if candidate.is_file() and (candidate == ROOT or ROOT in candidate.parents):
+        return candidate
     return None
 
 
