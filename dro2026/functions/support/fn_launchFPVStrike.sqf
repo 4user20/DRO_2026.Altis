@@ -24,7 +24,18 @@ private _fallback = switch (_side) do {
     case resistance: {"I_UAV_01_F"};
     default {"O_UAV_01_F"};
 };
-private _pool = DRO2026_assetRegistry getOrDefault [_role, []];
+private _sideNumber = switch (_side) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
+private _pool = (DRO2026_assetRegistry getOrDefault [_role, []]) select {
+    private _cfg = configFile >> "CfgVehicles" >> _x;
+    isClass _cfg &&
+    {_x isKindOf "Air"} &&
+    {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}
+};
+if (_requestedClass != "" && {!(_requestedClass in _pool)}) exitWith {
+    [format ["FPV exact class %1 отсутствует в side-correct registry", _requestedClass]] call DRO2026_fnc_log;
+    call _refundFriendly;
+    objNull
+};
 private _isArmored = !isNull _target && {
     (_target isKindOf "Tank") || {_target isKindOf "Wheeled_APC_F"} || {_target isKindOf "Tracked_APC_F"}
 };
@@ -41,13 +52,16 @@ private _preferred = _pool select {
         }
     }
 };
-private _droneClass = if (_requestedClass != "" && {_requestedClass in _pool}) then {
+private _droneClass = if (_requestedClass != "") then {
     _requestedClass
 } else {
     if (count _preferred > 0) then {selectRandom _preferred} else {if (count _pool > 0) then {selectRandom _pool} else {_fallback}}
 };
-if (!isClass (configFile >> "CfgVehicles" >> _droneClass) || {!(_droneClass isKindOf "Air")}) then {
-    _droneClass = _fallback
+private _droneCfg = configFile >> "CfgVehicles" >> _droneClass;
+if (!isClass _droneCfg || {!(_droneClass isKindOf "Air")} || {_sideNumber >= 0 && {getNumber (_droneCfg >> "side") != _sideNumber}}) exitWith {
+    [format ["FPV launch cancelled: invalid or cross-side class %1", _droneClass]] call DRO2026_fnc_log;
+    call _refundFriendly;
+    objNull
 };
 private _usingNativeFPV = _droneClass != _fallback;
 
@@ -56,6 +70,10 @@ private _spawnPosition = _origin getPos [25 + random 20, _direction];
 _spawnPosition set [2, 18 + random 8];
 private _drone = createVehicle [_droneClass, _spawnPosition, [], 0, "FLY"];
 if (isNull _drone) exitWith {call _refundFriendly; objNull};
+// FLY does not guarantee altitude for an empty airframe. Direction must be set
+// before the explicit position to avoid the setDir/setPos ordering issue.
+_drone setDir _direction;
+_drone setPosATL _spawnPosition;
 private _crewGroup = _side createVehicleCrew _drone;
 if (isNull _crewGroup || {isNull (driver _drone)}) exitWith {
     deleteVehicleCrew _drone;
@@ -64,7 +82,11 @@ if (isNull _crewGroup || {isNull (driver _drone)}) exitWith {
     call _refundFriendly;
     objNull
 };
-_drone setDir _direction;
+private _driver = driver _drone;
+_driver disableAI "MOVE";
+_driver disableAI "PATH";
+_driver disableAI "TARGET";
+_driver disableAI "AUTOTARGET";
 _drone setVariable ["DRO2026_operator", _operator];
 _drone setVariable ["DRO2026_manualControl", false, true];
 _drone setVariable ["DRO2026_supportOwner", _supportOwner, true];
@@ -74,10 +96,28 @@ DRO2026_managedVehicles pushBackUnique _drone;
 _crewGroup setBehaviourStrong "CARELESS";
 _crewGroup setCombatMode "BLUE";
 _crewGroup setSpeedMode "FULL";
-[_drone, format ["FPV %1", getText (configFile >> "CfgVehicles" >> _droneClass >> "displayName")], _side] spawn DRO2026_fnc_trackIncomingDrone;
+private _initialDirection = [sin _direction, cos _direction, 0];
+_drone setVelocity (_initialDirection vectorMultiply 24);
+[_drone, format ["FPV %1", getText (_droneCfg >> "displayName")], _side] spawn DRO2026_fnc_trackIncomingDrone;
 
 if (_allowPlayerControl && {!isNull _supportOwner} && {_side == playersSide}) then {
     [_drone] remoteExecCall ["DRO2026_fnc_offerFPVControl", _supportOwner, false];
+};
+
+private _applyFlightVector = {
+    params ["_object", "_rawDirection", "_speed"];
+    private _dirLength = vectorMagnitude _rawDirection;
+    if (_dirLength <= 0.001) exitWith {};
+    private _flightDirection = _rawDirection vectorMultiply (1 / _dirLength);
+    private _right = _flightDirection vectorCrossProduct [0,0,1];
+    private _rightLength = vectorMagnitude _right;
+    if (_rightLength <= 0.001) then {_right = [1,0,0]; _rightLength = 1};
+    _right = _right vectorMultiply (1 / _rightLength);
+    private _up = _right vectorCrossProduct _flightDirection;
+    private _upLength = vectorMagnitude _up;
+    if (_upLength <= 0.001) then {_up = [0,0,1]} else {_up = _up vectorMultiply (1 / _upLength)};
+    _object setVectorDirAndUp [_flightDirection, _up];
+    _object setVelocity (_flightDirection vectorMultiply _speed);
 };
 
 private _timeout = time + 210;
@@ -161,10 +201,9 @@ while {
                     _desiredSpeed = _desiredSpeed * (0.88 + 0.12 * _channelQuality);
                     private _speedBlend = 0.16 + 0.18 * _channelQuality;
                     private _newSpeed = _currentSpeed + ((_desiredSpeed - _currentSpeed) * _speedBlend);
-                    _drone setVectorDirAndUp [_newDirection, [0,0,1]];
-                    _drone setVelocity (_newDirection vectorMultiply _newSpeed);
+                    [_drone, _newDirection, _newSpeed] call _applyFlightVector;
                     private _closingSpeed = (velocity _drone) vectorDotProduct _desiredDirection;
-                    if (_distance < 5.2 && {_closingSpeed > 6}) exitWith {
+                    if (_distance < 5.2 && {_closingSpeed > 6}) then {
                         if (_usingNativeFPV) then {
                             _drone setDamage 1;
                         } else {
@@ -189,9 +228,9 @@ while {
 
 private _activeIndex = DRO2026_activeDrones find _drone;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
-if (alive _drone) then {
+if (!isNull _drone) then {
     deleteVehicleCrew _drone;
-    deleteVehicle _drone;
+    if (alive _drone) then {deleteVehicle _drone};
 };
 if (!isNull _crewGroup) then {deleteGroup _crewGroup};
 _drone
