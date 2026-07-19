@@ -22,6 +22,9 @@ class CfgFunctions
             class registerManagedGroup {};
             class findObjectivePos {};
             class createObjectiveRecord {};
+            class createSiteRecord {};
+            class createContactRecord {};
+            class validateSiteRecord {};
             class spawnGuard {};
             class completeObjective {};
             class createFriendlyPositions {};
@@ -72,6 +75,8 @@ class CfgFunctions
             class requestFPV {};
             class requestISR {};
             class requestLongRangeSupport {};
+            class serverRequestSupport {};
+            class supportMessage {};
             class openSupportConsole {};
             class beginSupportTargeting {};
             class requestArtillery {};
