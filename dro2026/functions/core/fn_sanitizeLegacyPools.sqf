@@ -1,6 +1,6 @@
 private _blockedTokens = [
     "spawner", "module", "logic", "dummy", "placeholder", "virtual", "_base", "curator", "site_", "_root",
-    "samsite", "sam_site", "azncontrol", "unit_scanner", "pook_sam", "pook_azncontrol"
+    "samsite", "sam_site", "azncontrol", "unit_scanner", "pook_sam", "pook_azncontrol", "pook_tos1a"
 ];
 private _blockedSubcatTokens = [
     "samsite", "sam_site", "azncontrol", "module", "logic", "spawner", "control", "unit_scanner", "pook_sam"
