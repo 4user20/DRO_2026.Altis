@@ -1,12 +1,24 @@
 params [
     "_origin", "_contact", ["_side", east], ["_preferFP5", false], ["_operator", objNull],
-    ["_requestedType", "AUTO"], ["_decoy", false], ["_salvoIndex", 0], ["_salvoSize", 1], ["_reservedStock", false]
+    ["_requestedType", "AUTO"], ["_decoy", false], ["_salvoIndex", 0], ["_salvoSize", 1],
+    ["_reservedStock", false], ["_reservationNodeId", "NODE_DRONE_REAR_01"]
 ];
+private _req = toUpperANSI _requestedType;
 private _refundReserved = {
-    if (_reservedStock && {_side == playersSide}) then {
-        private _poolName = if (_decoy) then {"friendlyDecoyStock"} else {"friendlyLongRangeStock"};
+    if (!_reservedStock) exitWith {};
+    if (_side == playersSide) then {
+        private _poolName = if (_decoy) then {
+            "friendlyDecoyStock"
+        } else {
+            if (_req == "FP5") then {"friendlyFP5Stock"} else {"friendlyLongRangeStock"}
+        };
         DRO2026_resources set [_poolName, (DRO2026_resources getOrDefault [_poolName, 0]) + 1];
-        if ((toUpperANSI _requestedType) == "FP5") then {DRO2026_resources set ["friendlyFP5Stock", (DRO2026_resources getOrDefault ["friendlyFP5Stock", 0]) + 1]};
+    } else {
+        if (_reservationNodeId != "") then {
+            [_reservationNodeId, "LONG_RANGE_DRONES", 1, "LONG_RANGE_LAUNCH_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
+            [_reservationNodeId, "FUEL", 1, "LONG_RANGE_LAUNCH_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
+        };
+        DRO2026_resources set ["enemyLongRangeStock", (DRO2026_resources getOrDefault ["enemyLongRangeStock", 0]) + 1];
     };
 };
 if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundReserved; objNull};
@@ -19,7 +31,6 @@ private _vehicleClass = "";
 private _ammoClass = "";
 private _launcherClass = "";
 private _label = "ударный БПЛА";
-private _req = toUpperANSI _requestedType;
 private _exactClass = if ((_req find "CLASS:") == 0) then {_requestedType select [6]} else {""};
 private _sideSuffix = if (_side == west) then {"WEST"} else {if (_side == resistance) then {"GUER"} else {"EAST"}};
 private _role = format ["LONG_RANGE_%1", _sideSuffix];
@@ -109,13 +120,17 @@ if (_exactClass != "" && {_exactClass in _pool} && {_exactClass isKindOf "Air"})
     };
 };
 
+if (_ammoClass != "" && {!isClass (configFile >> "CfgAmmo" >> _ammoClass)}) then {
+    [format ["Отменён запуск %1: боеприпас %2 отсутствует в CfgAmmo", _req, _ammoClass]] call DRO2026_fnc_log;
+    _ammoClass = "";
+};
 if (_vehicleClass == "" && {_ammoClass == ""}) exitWith {
     [format ["Отменён запуск %1: не найден летающий класс или штатный боеприпас пусковой", _req]] call DRO2026_fnc_log;
     call _refundReserved;
     objNull
 };
-if (_vehicleClass != "" && {!(_vehicleClass isKindOf "Air")}) exitWith {
-    [format ["Отменён запуск %1: %2 не является Air", _req, _vehicleClass]] call DRO2026_fnc_log;
+if (_vehicleClass != "" && {(!isClass (configFile >> "CfgVehicles" >> _vehicleClass)) || {!(_vehicleClass isKindOf "Air")}}) exitWith {
+    [format ["Отменён запуск %1: %2 не является доступным Air-классом", _req, _vehicleClass]] call DRO2026_fnc_log;
     call _refundReserved;
     objNull
 };
@@ -134,30 +149,46 @@ if (count _spawn2D < 2) then {_spawn2D = _origin};
 private _spawnASL = AGLToASL _spawn2D;
 _spawnASL set [2, (getTerrainHeightASL _spawn2D) + 130 + random 70];
 private _drone = objNull;
+private _crewGroup = grpNull;
 private _isProjectile = _ammoClass != "";
 private _speed = 66;
 if (_isProjectile) then {
     _drone = createVehicle [_ammoClass, ASLToAGL _spawnASL, [], 0, "CAN_COLLIDE"];
-    _drone setPosASL _spawnASL;
-    _speed = if (_req == "FP5") then {185} else {82};
+    if (!isNull _drone) then {
+        _drone setPosASL _spawnASL;
+        _speed = if (_req == "FP5") then {185} else {82};
+    };
 } else {
     _drone = createVehicle [_vehicleClass, ASLToAGL _spawnASL, [], 0, "FLY"];
-    _drone setPosASL _spawnASL;
-    private _group = _side createVehicleCrew _drone;
-    if (isNull _group || {isNull (driver _drone)}) exitWith {
-        deleteVehicleCrew _drone;
-        deleteVehicle _drone;
-        _drone = objNull;
+    if (!isNull _drone) then {
+        _drone setPosASL _spawnASL;
+        _crewGroup = _side createVehicleCrew _drone;
+        if (isNull _crewGroup || {isNull (driver _drone)}) then {
+            deleteVehicleCrew _drone;
+            deleteVehicle _drone;
+            if (!isNull _crewGroup) then {deleteGroup _crewGroup};
+            _drone = objNull;
+            _crewGroup = grpNull;
+        } else {
+            _crewGroup setBehaviourStrong "CARELESS";
+            _crewGroup setCombatMode "BLUE";
+            _crewGroup setSpeedMode "FULL";
+            private _driver = driver _drone;
+            _driver disableAI "MOVE";
+            _driver disableAI "PATH";
+            _driver disableAI "TARGET";
+            _driver disableAI "AUTOTARGET";
+            private _lower = toLowerANSI _vehicleClass;
+            if ((_lower find "shahed") >= 0 || {(_lower find "geran") >= 0}) then {_speed = 52};
+            if ((_lower find "bm35") >= 0) then {_speed = 64};
+            if ((_lower find "fp2") >= 0) then {_speed = 72};
+        };
     };
-    _group setBehaviourStrong "CARELESS";
-    _group setCombatMode "BLUE";
-    _group setSpeedMode "FULL";
-    private _lower = toLowerANSI _vehicleClass;
-    if ((_lower find "shahed") >= 0 || {(_lower find "geran") >= 0}) then {_speed = 52};
-    if ((_lower find "bm35") >= 0) then {_speed = 64};
-    if ((_lower find "fp2") >= 0) then {_speed = 72};
 };
 if (isNull _drone) exitWith {call _refundReserved; objNull};
+if (_side == playersSide && {_req == "FP5"}) then {
+    DRO2026_friendlyFP5Used = DRO2026_friendlyFP5Used + 1;
+};
 _drone setVariable ["DRO2026_operator", _operator];
 _drone setVariable ["DRO2026_decoy", _decoy];
 DRO2026_activeDrones pushBack _drone;
@@ -234,4 +265,5 @@ if (alive _drone) then {
     if (!_isProjectile) then {deleteVehicleCrew _drone};
     deleteVehicle _drone;
 };
+if (!isNull _crewGroup) then {deleteGroup _crewGroup};
 _drone
