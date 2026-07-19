@@ -20,12 +20,15 @@ while {
 
     private _intent = missionNamespace getVariable ["DRO2026_currentIntent", createHashMap];
     private _intentAction = _intent getOrDefault ["action", ""];
-    private _intentReady = count _intent == 0 || {
-        _intentAction == "ARTILLERY_FIRE" &&
-        {time >= (_intent getOrDefault ["earliestAt", 0])} &&
-        {time <= (_intent getOrDefault ["expiresAt", time])}
+    private _networkReady = missionNamespace getVariable ["DRO2026_networkBuilt", false];
+    private _intentReady = !_networkReady || {
+        count _intent > 0 && {
+            _intentAction == "ARTILLERY_FIRE" &&
+            {time >= (_intent getOrDefault ["earliestAt", 0])} &&
+            {time <= (_intent getOrDefault ["expiresAt", time])}
+        }
     };
-    if (!_intentReady && {missionNamespace getVariable ["DRO2026_networkBuilt", false]}) then {continue};
+    if (!_intentReady) then {continue};
 
     private _ammoNode = DRO2026_networkNodes getOrDefault ["NODE_ARTILLERY_01", createHashMap];
     private _nodeStocks = _ammoNode getOrDefault ["stocks", createHashMap];
@@ -100,12 +103,10 @@ while {
             };
             ["PLAYER", objNull, _estimated, 0.62, "ВЕРОЯТНАЯ АРТИЛЛЕРИЯ", "COUNTERBATTERY", 380, "NODE_ARTILLERY_01", 0.08] call DRO2026_fnc_addContact;
             [format ["Артиллерия выполнила огневую задачу: %1 выстр., источник %2, удаление %3 м", _rounds, _targetKind, round (_arty distance2D _targetPos)]] call DRO2026_fnc_log;
-            if (_intentAction == "ARTILLERY_FIRE") then {
-                _intent set ["status", "EXECUTED"];
-                _intent set ["executedAt", time];
-                missionNamespace setVariable ["DRO2026_currentIntent", _intent];
-                ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "ARTILLERY_FIRE"]], "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
-            };
+            _intent set ["status", "EXECUTED"];
+            _intent set ["executedAt", time];
+            missionNamespace setVariable ["DRO2026_currentIntent", _intent];
+            ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "ARTILLERY_FIRE"]], "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
         } else {
             [format ["Артиллерия %1 не имеет решения по подтверждённым контактам", typeOf _arty]] call DRO2026_fnc_log;
         };
