@@ -2,8 +2,8 @@ if (!hasInterface) exitWith {};
 [] call DRO2026_fnc_initState;
 
 [] spawn {
-    private _playerDeadline = time + 45;
-    waitUntil {sleep 0.1; !isNull player || {time > _playerDeadline}};
+    private _playerDeadline = diag_tickTime + 45;
+    waitUntil {sleep 0.1; !isNull player || {diag_tickTime > _playerDeadline}};
     if (isNull player) exitWith {diag_log "[DRO2026] clientInit: player unavailable after timeout"};
 
     if !(player diarySubjectExists "dro2026") then {player createDiarySubject ["dro2026", "DRO 2026"]};
@@ -17,12 +17,24 @@ if (!hasInterface) exitWith {};
         Сервер публикует клиенту только проверенный каталог выбранной стороны. Наземные пусковые не используются как летающие аппараты; неподдерживаемые или опасные editor/spawner-классы скрываются.
     "]];
 
-    private _readyDeadline = time + 240;
+    // Lobby/loadout configuration is user-driven and may legitimately take longer
+    // than four minutes. The old deadline caused clientInit to exit permanently
+    // before playersReady (confirmed by the 2026-07-19 RPT), so the support menu
+    // never appeared. Wait for the actual start, with mission end as the only abort.
     waitUntil {
         sleep 0.5;
-        ((missionNamespace getVariable ["playersReady", 0]) == 1 && {missionNamespace getVariable ["DRO2026_supportCatalogReady", false]}) || {time > _readyDeadline}
+        (missionNamespace getVariable ["playersReady", 0]) == 1 ||
+        {missionNamespace getVariable ["DRO2026_missionEnding", false]}
     };
-    if ((missionNamespace getVariable ["playersReady", 0]) != 1) exitWith {diag_log "[DRO2026] clientInit: playersReady timeout"};
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {};
+
+    private _catalogDeadline = diag_tickTime + 90;
+    waitUntil {
+        sleep 0.25;
+        missionNamespace getVariable ["DRO2026_supportCatalogReady", false] ||
+        {diag_tickTime > _catalogDeadline} ||
+        {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+    };
     if !(missionNamespace getVariable ["DRO2026_supportCatalogReady", false]) then {
         diag_log "[DRO2026] clientInit: support catalog timeout; panel remains available with diagnostic message";
     };
@@ -46,4 +58,5 @@ if (!hasInterface) exitWith {};
             "alive _target"
         ];
     };
+    diag_log format ["[DRO2026] support UI installed; catalog ready=%1 entries=%2", missionNamespace getVariable ["DRO2026_supportCatalogReady", false], count (missionNamespace getVariable ["DRO2026_supportCatalog", []])];
 };
