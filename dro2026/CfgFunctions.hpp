@@ -26,6 +26,7 @@ class CfgFunctions
             class selectObjectiveOpportunity {};
             class getJammingAtPosition {};
             class getAirWindow {};
+            class buildAAR {};
             class getTheaterNode {};
             class createRouteMarkers {};
             class createDroneTeam {};
@@ -51,6 +52,7 @@ class CfgFunctions
             class startDirectors {};
             class operationDirector {};
             class airDefenceDirector {};
+            class relocateDroneTeam {};
             class performanceGovernor {};
             class addContact {};
             class sensorDirector {};
