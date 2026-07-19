@@ -10,6 +10,8 @@ DRO2026_sites = [];
 DRO2026_friendlyPositions = [];
 DRO2026_activeDrones = [];
 DRO2026_activeConvoys = [];
+DRO2026_supplyLanes = [];
+DRO2026_supplyEvents = [];
 DRO2026_usedObjectiveTypes = [];
 DRO2026_objectiveQueue = [];
 DRO2026_operationPackageName = "";
@@ -46,7 +48,8 @@ DRO2026_resources = createHashMapFromArray [
     ["enemySupply", 100], ["enemyArtilleryAmmo", 80], ["enemyDroneStock", 48],
     ["enemyLongRangeStock", 12], ["enemyReinforcement", 78], ["enemyEW", 65],
     ["enemyAirDefence", 70], ["friendlySupply", 80], ["friendlyFPVStock", 18],
-    ["friendlyISRStock", 8], ["friendlyLongRangeStock", 20], ["friendlyFP5Stock", 2], ["friendlyDecoyStock", 6], ["friendlyArtilleryStock", 18], ["friendlyAirSorties", 4]
+    ["friendlyISRStock", 8], ["friendlyLongRangeStock", 20], ["friendlyFP5Stock", 2],
+    ["friendlyDecoyStock", 6], ["friendlyArtilleryStock", 18], ["friendlyAirSorties", 4]
 ];
 
 DRO2026_voiceMap = createHashMapFromArray [
