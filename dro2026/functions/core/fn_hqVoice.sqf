@@ -1,5 +1,11 @@
 params ["_event", ["_forceSubtitle", ""]];
-if (!hasInterface) exitWith {};
+
+if (!hasInterface) exitWith {
+    if (isServer) then {
+        [_event, _forceSubtitle] remoteExecCall ["DRO2026_fnc_hqVoice", -2, false];
+    };
+};
+
 private _variants = DRO2026_voiceMap getOrDefault [_event, []];
 if (count _variants == 0) exitWith {
     if (_forceSubtitle != "") then {systemChat _forceSubtitle};
@@ -17,8 +23,6 @@ if (!DRO2026_voiceWorkerActive) then {
             if (_subtitle != "") then {
                 [parseText format ["<t font='RobotoCondensedBold' color='#b9e5ff' size='1.05'>%1</t>", _subtitle], true, nil, 5, 0.4, 0] spawn BIS_fnc_textTiles;
             };
-            // fileExists only resolves relative virtual paths and rejects getMissionPath absolute paths.
-            // playSoundUI accepts the mission absolute path, including files packed inside a mission PBO.
             private _absolute = getMissionPath _path;
             playSoundUI [_absolute, 1, 1];
             uiSleep (_duration + 0.45);
