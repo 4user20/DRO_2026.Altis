@@ -5,17 +5,8 @@ if !(_categories isEqualType []) then {_categories = ["UAV", "ARTY", "CAS"]};
 _categories = _categories apply {toUpperANSI _x};
 _categories = _categories arrayIntersect _categories;
 
-private _sideSuffix = switch (playersSide) do {
-    case west: {"WEST"};
-    case resistance: {"GUER"};
-    default {"EAST"};
-};
-private _sideNumber = switch (playersSide) do {
-    case east: {0};
-    case west: {1};
-    case resistance: {2};
-    default {-1};
-};
+private _sideSuffix = switch (playersSide) do {case west: {"WEST"}; case resistance: {"GUER"}; default {"EAST"}};
+private _sideNumber = switch (playersSide) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
 private _selectedFactions = ([playersFaction] + (missionNamespace getVariable ["playersFactionAdv", []])) select {_x isEqualType "" && {_x != ""}};
 _selectedFactions = _selectedFactions apply {toUpperANSI _x};
 private _catalog = [];
@@ -23,8 +14,7 @@ private _seen = [];
 
 private _displayName = {
     params ["_class"];
-    private _cfg = configFile >> "CfgVehicles" >> _class;
-    private _name = getText (_cfg >> "displayName");
+    private _name = getText (configFile >> "CfgVehicles" >> _class >> "displayName");
     if (_name == "") then {_name = _class};
     _name
 };
@@ -40,10 +30,7 @@ private _validVehicle = {
         if !(_faction in _selectedFactions) exitWith {false};
     };
     private _lower = toLowerANSI _class;
-    private _blocked = [
-        "spawner", "module", "logic", "dummy", "placeholder", "_root", "site_",
-        "pook_sam", "azncontrol", "pook_tos1a"
-    ];
+    private _blocked = ["spawner", "module", "logic", "dummy", "placeholder", "_root", "site_", "pook_sam", "azncontrol", "pook_tos1a"];
     (_blocked findIf {(_lower find _x) >= 0}) < 0
 };
 private _add = {
@@ -60,6 +47,15 @@ private _roleClasses = {
     _classes = _classes arrayIntersect _classes;
     _classes select {[_x, _mustFly, _selectedFactionOnly] call _validVehicle}
 };
+private _hasUsableLauncher = {
+    params ["_role", ["_fallbackAmmoRole", ""]];
+    private _launchers = DRO2026_assetRegistry getOrDefault [_role, []];
+    private _available = (_launchers findIf {([_x] call DRO2026_fnc_resolveLauncherAmmo) != ""}) >= 0;
+    if (!_available && {_fallbackAmmoRole != ""}) then {
+        _available = count (DRO2026_ammoRegistry getOrDefault [_fallbackAmmoRole, []]) > 0;
+    };
+    _available
+};
 
 if ("UAV" in _categories) then {
     private _fpvRole = format ["FPV_%1", _sideSuffix];
@@ -70,11 +66,7 @@ if ("UAV" in _categories) then {
     } forEach ([[_fpvRole], true, false] call _roleClasses);
 
     private _isrClasses = [["PLAYER_ISR_UAV"], true, true] call _roleClasses;
-    _isrClasses append ([
-        [format ["ISR_MICRO_%1", _sideSuffix], format ["ISR_TACTICAL_%1", _sideSuffix], format ["ISR_HALE_%1", _sideSuffix]],
-        true,
-        false
-    ] call _roleClasses);
+    _isrClasses append ([[format ["ISR_MICRO_%1", _sideSuffix], format ["ISR_TACTICAL_%1", _sideSuffix], format ["ISR_HALE_%1", _sideSuffix]], true, false] call _roleClasses);
     _isrClasses = _isrClasses arrayIntersect _isrClasses;
     {
         private _name = [_x] call _displayName;
@@ -91,12 +83,11 @@ if ("UAV" in _categories) then {
         params ["_mode", "_label", "_available", ["_maxQuantity", 10]];
         if (_available) then {["UAV", _mode, "", _label, "Профиль использует штатный боеприпас соответствующей пусковой.", _maxQuantity] call _add};
     };
-    private _hasRole = {params ["_role"]; count (DRO2026_assetRegistry getOrDefault [_role, []]) > 0};
-    ["STRIKE_FP1", "Дальний удар — FP-1", [format ["LAUNCHER_FP1_%1", _sideSuffix]] call _hasRole, 10] call _profile;
-    ["STRIKE_FP2", "Дальний удар — FP-2", [format ["LAUNCHER_FP2_%1", _sideSuffix]] call _hasRole, 10] call _profile;
-    ["STRIKE_BM35", "Дальний удар — BM-35 / Italmas", [format ["LAUNCHER_BM35_%1", _sideSuffix]] call _hasRole, 10] call _profile;
-    ["STRIKE_BULAVA", "Дальний удар — Bulava", [format ["LAUNCHER_BULAVA_%1", _sideSuffix]] call _hasRole, 10] call _profile;
-    ["STRIKE_FP5", "Дальний удар — FP-5 Flamingo", playersSide == west && {["LAUNCHER_FP5_WEST"] call _hasRole}, 1] call _profile;
+    ["STRIKE_FP1", "Дальний удар — FP-1", [format ["LAUNCHER_FP1_%1", _sideSuffix], "STRIKE_AMMO_FP1"] call _hasUsableLauncher, 10] call _profile;
+    ["STRIKE_FP2", "Дальний удар — FP-2", [format ["LAUNCHER_FP2_%1", _sideSuffix], "STRIKE_AMMO_FP2"] call _hasUsableLauncher, 10] call _profile;
+    ["STRIKE_BM35", "Дальний удар — BM-35 / Italmas", [format ["LAUNCHER_BM35_%1", _sideSuffix], "STRIKE_AMMO_BM35"] call _hasUsableLauncher, 10] call _profile;
+    ["STRIKE_BULAVA", "Дальний удар — Bulava", [format ["LAUNCHER_BULAVA_%1", _sideSuffix], ""] call _hasUsableLauncher, 10] call _profile;
+    ["STRIKE_FP5", "Дальний удар — FP-5 Flamingo", playersSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _hasUsableLauncher}, 1] call _profile;
     if (count (DRO2026_assetRegistry getOrDefault [_longRole, []]) > 0) then {
         ["UAV", "STRIKE_AUTO", "", "Дальний удар — смешанный пакет", "Автоматический выбор из доступного пула выбранной стороны.", DRO2026_MAX_DRONES_PER_SALVO] call _add;
         ["UAV", "STRIKE_DECOY", "", "Дальний запуск — БПЛА-обманки", "Провоцирует работу ПВО и занимает каналы сопровождения.", DRO2026_MAX_DRONES_PER_SALVO] call _add;
