@@ -65,7 +65,11 @@ if ("UAV" in _categories) then {
         ["UAV", format ["FPV_CLASS_MANUAL:%1", _x], _x, format ["FPV — %1 (ручное управление)", _name], "После запуска появится действие подключения к UAV Terminal.", 1] call _add;
     } forEach ([[_fpvRole], true, false] call _roleClasses);
 
-    private _isrClasses = [["PLAYER_ISR_UAV"], true, true] call _roleClasses;
+    // PLAYER_ISR_UAV is already rebuilt from selected player pools. Do not repeat a
+    // strict config faction check here: many compatible mods place their airframe
+    // under a generic utility faction while still exposing it through the selected
+    // faction's vehicle pool.
+    private _isrClasses = [["PLAYER_ISR_UAV"], true, false] call _roleClasses;
     _isrClasses append ([[format ["ISR_MICRO_%1", _sideSuffix], format ["ISR_TACTICAL_%1", _sideSuffix], format ["ISR_HALE_%1", _sideSuffix]], true, false] call _roleClasses);
     _isrClasses = _isrClasses arrayIntersect _isrClasses;
     {
@@ -98,14 +102,14 @@ if ("ARTY" in _categories) then {
     {
         private _name = [_x] call _displayName;
         ["ARTY", format ["ARTY:%1", _x], _x, format ["Артиллерия — %1", _name], "Физическая система применяет только штатные артиллерийские магазины.", 10] call _add;
-    } forEach ([["PLAYER_ARTILLERY_MORTAR", "PLAYER_ARTILLERY_SPG", "PLAYER_ARTILLERY_MLRS"], false, true] call _roleClasses);
+    } forEach ([["PLAYER_ARTILLERY_MORTAR", "PLAYER_ARTILLERY_SPG", "PLAYER_ARTILLERY_MLRS"], false, false] call _roleClasses);
 };
 
 if ("CAS" in _categories) then {
     {
         private _name = [_x] call _displayName;
         ["CAS", format ["AIR:%1", _x], _x, format ["Авиация — %1", _name], "Самолёт или вертолёт использует штатное вооружение по подтверждённой цели.", 2] call _add;
-    } forEach ([["PLAYER_CAS_AIR"], true, true] call _roleClasses);
+    } forEach ([["PLAYER_CAS_AIR"], true, false] call _roleClasses);
 };
 
 missionNamespace setVariable ["DRO2026_supportCatalog", _catalog, true];
