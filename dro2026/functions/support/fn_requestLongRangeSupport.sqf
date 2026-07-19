@@ -150,9 +150,14 @@ if (count _baseContact == 0) exitWith {
 DRO2026_lastLongSupportRequest = time;
 DRO2026_resources set [_costPool, (_stock - _launchCount) max 0];
 
-[_origin, _baseContact, _operator, _requestedType, _decoy, _launchCount, _requestSide] spawn {
-    params ["_origin", "_baseContact", "_operator", "_type", "_decoy", "_count", "_requestSide"];
+[_origin, _baseContact, _operator, _requestedType, _decoy, _launchCount, _requestSide, _costPool] spawn {
+    params ["_origin", "_baseContact", "_operator", "_type", "_decoy", "_count", "_requestSide", "_costPool"];
     for "_index" from 0 to (_count - 1) do {
+        if ((missionNamespace getVariable ["DRO2026_missionEnding", false]) || {!isNull _operator && {!alive _operator}}) exitWith {
+            private _unlaunched = _count - _index;
+            DRO2026_resources set [_costPool, (DRO2026_resources getOrDefault [_costPool, 0]) + _unlaunched];
+            [format ["Отменена не запущенная часть salvo %1: возвращено %2", _type, _unlaunched]] call DRO2026_fnc_log;
+        };
         private _contact = createHashMap;
         {_contact set [_x, _baseContact get _x]} forEach keys _baseContact;
         private _basePosition = _baseContact getOrDefault ["positionMean", _baseContact getOrDefault ["position", [0,0,0]]];
