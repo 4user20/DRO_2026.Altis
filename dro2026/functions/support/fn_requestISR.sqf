@@ -10,6 +10,18 @@ if (!isNull _requester && {side (group _requester) != playersSide}) exitWith {
     ["Штаб: разведывательная поддержка недоступна для этой стороны.", _requester] call DRO2026_fnc_supportMessage;
 };
 
+private _upperType = toUpperANSI _requestedType;
+if ((_upperType find "CLASS:") == 0) then {
+    private _class = _requestedType select [6];
+    private _catalogMode = format ["ISR_CLASS:%1", _class];
+    private _allowed = (missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {
+        (_x param [1, ""]) == _catalogMode && {(_x param [2, ""]) == _class}
+    };
+    if (_allowed < 0) exitWith {
+        [format ["Штаб: разведывательный БПЛА %1 отсутствует в каталоге выбранной фракции.", _class], _requester] call DRO2026_fnc_supportMessage;
+    };
+};
+
 if ((time - DRO2026_lastISRRequest) < DRO2026_ISR_COOLDOWN) exitWith {
     [format ["Штаб: Разведывательный канал занят. Ожидайте %1 сек.", ceil (DRO2026_ISR_COOLDOWN - (time - DRO2026_lastISRRequest))], _requester] call DRO2026_fnc_supportMessage;
 };
@@ -33,6 +45,6 @@ DRO2026_lastISRRequest = time;
 [_position, _origin, _operator, _requestedType] spawn DRO2026_fnc_launchISR;
 [
     "ACK",
-    format ["Штаб: Разведывательный БПЛА (%1) направлен в сектор.", _requestedType],
+    format ["Штаб: Разведывательный БПЛА (%1) направлен в сектор.", if ((_upperType find "CLASS:") == 0) then {_requestedType select [6]} else {_requestedType}],
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;
