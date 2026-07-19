@@ -2,8 +2,13 @@ if (!isServer) exitWith {};
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep (300 + random 260);
     if (DRO2026_alertLevel < 0.62 || {DRO2026_fpsAverage < 25}) then {continue};
-    private _pool = (DRO2026_assetRegistry getOrDefault ["AIR_EAST", []]) select {
-        isClass (configFile >> "CfgVehicles" >> _x) && {_x isKindOf "Air"}
+
+    private _enemySideNumber = switch (enemySide) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
+    private _pool = (DRO2026_assetRegistry getOrDefault ["ENEMY_CAS_AIR", []]) select {
+        private _cfg = configFile >> "CfgVehicles" >> _x;
+        isClass _cfg &&
+        {_x isKindOf "Air"} &&
+        {_enemySideNumber < 0 || {getNumber (_cfg >> "side") == _enemySideNumber}}
     };
     if (count _pool == 0) then {continue};
 
@@ -21,6 +26,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             count _crew > 0 && {side (group (_crew select 0)) == playersSide}
         }
     };
+    private _humanPlayers = allPlayers select {!(_x isKindOf "VirtualMan_F")};
     {
         if (!isNull _x && {alive _x}) then {
             private _playerVehicle = vehicle _x;
@@ -32,9 +38,9 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 };
             };
         };
-    } forEach allPlayers;
+    } forEach _humanPlayers;
 
-    private _su57Available = isClass (configFile >> "CfgVehicles" >> "RUS_VKS_su57") && {"RUS_VKS_su57" isKindOf "Air"};
+    private _su57Available = enemySide == east && {"RUS_VKS_su57" in _pool};
     private _class = if (count _airTargets > 0 && {_su57Available} && {random 1 > 0.55}) then {"RUS_VKS_su57"} else {selectRandom _pool};
     private _targetPool = if ((toLowerANSI _class find "su57") >= 0 && {count _airTargets > 0}) then {_airTargets} else {_groundTargets};
     if (count _targetPool == 0) then {continue};
@@ -46,8 +52,14 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _isHeli = _class isKindOf "Helicopter";
     private _alt = if (_isHeli) then {240} else {620 + random 220};
     _spawn set [2, _alt];
+    private _spawnDirection = _spawn getDir _targetPos;
     private _air = createVehicle [_class, _spawn, [], 0, "FLY"];
     if (isNull _air) then {continue};
+    // BI's FLY special only guarantees airborne placement when crew already exists.
+    // This vehicle is created empty, so set direction before explicit ATL position.
+    _air setDir _spawnDirection;
+    _air setPosATL _spawn;
+
     private _grp = enemySide createVehicleCrew _air;
     if (isNull _grp || {isNull (driver _air)}) then {
         deleteVehicleCrew _air;
@@ -60,6 +72,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     _grp setBehaviourStrong "COMBAT";
     _grp setCombatMode "RED";
     _grp setSpeedMode "FULL";
+    private _initialSpeed = if (_isHeli) then {38} else {145};
+    _air setVelocity [sin _spawnDirection * _initialSpeed, cos _spawnDirection * _initialSpeed, 0];
     DRO2026_managedVehicles pushBackUnique _air;
     _air flyInHeight (if (_isHeli) then {110} else {430});
     _air reveal [_target, 4];
@@ -103,10 +117,10 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             {time > _exitDeadline} ||
             {missionNamespace getVariable ["DRO2026_missionEnding", false]}
         };
-        if (alive _air) then {
+        if (!isNull _air) then {
             deleteVehicleCrew _air;
-            deleteVehicle _air;
-            if (!isNull _grp) then {deleteGroup _grp};
+            if (alive _air) then {deleteVehicle _air};
         };
+        if (!isNull _grp) then {deleteGroup _grp};
     };
 };
