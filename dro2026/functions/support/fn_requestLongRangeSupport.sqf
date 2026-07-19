@@ -41,22 +41,25 @@ private _launcherHasAmmo = {
     };
     _ok
 };
+private _fp1LauncherRole = ["FP1"] call _launcherRole;
+private _fp2LauncherRole = ["FP2"] call _launcherRole;
+private _bm35LauncherRole = ["BM35"] call _launcherRole;
+private _bulavaLauncherRole = ["BULAVA"] call _launcherRole;
 
 private _available = if (_exactClass != "") then {
     private _mode = format ["STRIKE_CLASS:%1", _exactClass];
-    (_exactClass in (DRO2026_assetRegistry getOrDefault [_longRole, []])) && {
-        isClass (configFile >> "CfgVehicles" >> _exactClass) && {_exactClass isKindOf "Air"}
-    } && {
-        ((missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {(_x param [1, ""]) == _mode}) >= 0
-    }
+    (_exactClass in (DRO2026_assetRegistry getOrDefault [_longRole, []])) &&
+    {isClass (configFile >> "CfgVehicles" >> _exactClass)} &&
+    {_exactClass isKindOf "Air"} &&
+    {((missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {(_x param [1, ""]) == _mode}) >= 0}
 } else {
     switch _requestUpper do {
-        case "FP1": {[['FP1'] call _launcherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};
-        case "FP2": {[_longRole, ["fp2"]] call _roleHasToken || {[(['FP2'] call _launcherRole), "STRIKE_AMMO_FP2"] call _launcherHasAmmo}};
-        case "BM35": {[_longRole, ["bm35"]] call _roleHasToken || {[(['BM35'] call _launcherRole), "STRIKE_AMMO_BM35"] call _launcherHasAmmo}};
-        case "BULAVA": {[(['BULAVA'] call _launcherRole), ""] call _launcherHasAmmo};
+        case "FP1": {[_fp1LauncherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};
+        case "FP2": {([_longRole, ["fp2"]] call _roleHasToken) || {[_fp2LauncherRole, "STRIKE_AMMO_FP2"] call _launcherHasAmmo}};
+        case "BM35": {([_longRole, ["bm35"]] call _roleHasToken) || {[_bm35LauncherRole, "STRIKE_AMMO_BM35"] call _launcherHasAmmo}};
+        case "BULAVA": {[_bulavaLauncherRole, ""] call _launcherHasAmmo};
         case "FP5": {_requestSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _launcherHasAmmo}};
-        case "SHAHED": {[_longRole, ["shahed", "geran"]] call _roleHasToken || {count (DRO2026_ammoRegistry getOrDefault ["STRIKE_AMMO_SHAHED", []]) > 0}};
+        case "SHAHED": {([_longRole, ["shahed", "geran"]] call _roleHasToken) || {count (DRO2026_ammoRegistry getOrDefault ["STRIKE_AMMO_SHAHED", []]) > 0}};
         default {count (DRO2026_assetRegistry getOrDefault [_longRole, []]) > 0};
     }
 };
@@ -111,13 +114,8 @@ private _siteContacts = DRO2026_sites select {
 if (count _siteContacts > 0) then {
     private _record = _siteContacts select 0;
     _baseContact = [
-        "PLAYER",
-        _record getOrDefault ["object", objNull],
-        _record getOrDefault ["position", _position],
-        0.92,
-        _record getOrDefault ["type", "ЦЕЛЬ"],
-        "PLAYER_DESIGNATION",
-        90,
+        "PLAYER", _record getOrDefault ["object", objNull], _record getOrDefault ["position", _position],
+        0.92, _record getOrDefault ["type", "ЦЕЛЬ"], "PLAYER_DESIGNATION", 90,
         _record getOrDefault ["networkNodeId", ""]
     ] call DRO2026_fnc_createContactRecord;
 };
