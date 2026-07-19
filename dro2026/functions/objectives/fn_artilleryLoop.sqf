@@ -1,5 +1,5 @@
 params ["_arty", "_positions", ["_taskName", ""], ["_marker", ""]];
-if (isNull _arty) exitWith {};
+if (!isServer || {isNull _arty}) exitWith {};
 waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {!alive _arty}};
 if (!alive _arty) exitWith {};
 private _shotsAtPosition = 0;
@@ -16,44 +16,81 @@ while {
     };
     sleep _delay;
     _firstMission = false;
-
     if (!alive _arty) exitWith {};
-    private _ammoPool = getArtilleryAmmo [_arty];
-    if (count _ammoPool > 0 && {(DRO2026_resources getOrDefault ["enemyArtilleryAmmo", 0]) > 2}) then {
-        private _candidatePositions = [];
-        {
-            private _p = _x getOrDefault ["position", []];
-            if (count _p > 1) then {_candidatePositions pushBack _p};
-        } forEach DRO2026_friendlyPositions;
 
+    private _intent = missionNamespace getVariable ["DRO2026_currentIntent", createHashMap];
+    private _intentAction = _intent getOrDefault ["action", ""];
+    private _intentReady = count _intent == 0 || {
+        _intentAction == "ARTILLERY_FIRE" &&
+        {time >= (_intent getOrDefault ["earliestAt", 0])} &&
+        {time <= (_intent getOrDefault ["expiresAt", time])}
+    };
+    if (!_intentReady && {missionNamespace getVariable ["DRO2026_networkBuilt", false]}) then {continue};
+
+    private _ammoNode = DRO2026_networkNodes getOrDefault ["NODE_ARTILLERY_01", createHashMap];
+    private _nodeStocks = _ammoNode getOrDefault ["stocks", createHashMap];
+    private _nodeAmmo = _nodeStocks getOrDefault ["ARTILLERY_AMMO", DRO2026_resources getOrDefault ["enemyArtilleryAmmo", 0]];
+    private _ammoPool = getArtilleryAmmo [_arty];
+    if (count _ammoPool > 0 && {_nodeAmmo > 2}) then {
+        private _intentContactId = _intent getOrDefault ["contactId", ""];
         private _enemyContacts = DRO2026_contacts select {
             (_x getOrDefault ["owner", ""]) == "ENEMY" &&
             {(_x getOrDefault ["confidence", 0]) >= 0.58} &&
-            {(time - (_x getOrDefault ["lastSeen", 0])) < 300}
+            {(time - (_x getOrDefault ["lastSeen", 0])) < 300} &&
+            {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])}
         };
+        if (_intentContactId != "") then {
+            private _preferred = _enemyContacts select {(_x getOrDefault ["id", ""]) == _intentContactId};
+            if (count _preferred > 0) then {_enemyContacts = _preferred};
+        };
+
+        private _targetCandidates = [];
         {
-            private _p = _x getOrDefault ["position", []];
-            if (count _p > 1) then {_candidatePositions pushBack _p};
+            private _mean = _x getOrDefault ["positionMean", _x getOrDefault ["position", []]];
+            if (count _mean > 1) then {
+                private _uncertainty = _x getOrDefault ["uncertaintyRadius", 80];
+                private _aim = _mean getPos [random (_uncertainty min 260), random 360];
+                _targetCandidates pushBack [_aim, _x getOrDefault ["id", ""], _x getOrDefault ["confidence", 0], "CONTACT"];
+            };
         } forEach _enemyContacts;
 
-        if (alive player) then {_candidatePositions pushBack (getPosATL player)};
+        // Doctrine area denial is allowed only during a red counterattack and never uses the live player position.
+        private _phase = DRO2026_operationState getOrDefault ["phase", "RECON"];
+        private _alert = DRO2026_operationState getOrDefault ["alertState", "GREEN"];
+        if (count _targetCandidates == 0 && {_phase == "COUNTERATTACK"} && {_alert == "RED"}) then {
+            {
+                private _staticPos = _x getOrDefault ["position", []];
+                if (count _staticPos > 1) then {
+                    _targetCandidates pushBack [_staticPos getPos [80 + random 180, random 360], "STATIC_AREA", 0.45, "AREA_DENIAL"];
+                };
+            } forEach DRO2026_friendlyPositions;
+        };
+
         private _solutions = [];
         {
-            private _targetPos = _x;
+            _x params ["_targetPos", "_contactId", "_confidence", "_targetKind"];
             {
                 if (_targetPos inRangeOfArtillery [[_arty], _x]) then {
-                    _solutions pushBack [_targetPos, _x];
+                    _solutions pushBack [_targetPos, _x, _contactId, _confidence, _targetKind];
                 };
             } forEach _ammoPool;
-        } forEach _candidatePositions;
+        } forEach _targetCandidates;
 
         if (count _solutions > 0) then {
             private _solution = selectRandom _solutions;
-            _solution params ["_targetPos", "_mag"];
-            private _rounds = 2 + floor random 3;
+            _solution params ["_targetPos", "_mag", "_contactId", "_confidence", "_targetKind"];
+            private _rounds = ((2 + floor random 3) min floor _nodeAmmo) max 1;
             _arty doArtilleryFire [_targetPos, _mag, _rounds];
-            DRO2026_resources set ["enemyArtilleryAmmo", ((DRO2026_resources getOrDefault ["enemyArtilleryAmmo", 0]) - _rounds) max 0];
+            ["NODE_ARTILLERY_01", "ARTILLERY_AMMO", -_rounds, "FIRE_MISSION"] call DRO2026_fnc_changeNetworkNodeStock;
+            private _remaining = ((_nodeAmmo - _rounds) max 0);
+            DRO2026_resources set ["enemyArtilleryAmmo", _remaining];
             _shotsAtPosition = _shotsAtPosition + 1;
+
+            private _fireMission = createHashMapFromArray [
+                ["observerContact", _contactId], ["targetArea", +_targetPos], ["ammoType", _mag],
+                ["rounds", _rounds], ["priority", _confidence], ["targetKind", _targetKind], ["createdAt", time]
+            ];
+            ["FIRE_MISSION_EXECUTED", _fireMission, "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
 
             private _estimated = (getPosATL _arty) getPos [180 + random 420, random 360];
             if (_marker != "") then {
@@ -61,16 +98,24 @@ while {
                 _marker setMarkerSize [360, 360];
                 _marker setMarkerAlpha 0.72;
             };
-            ["PLAYER", objNull, _estimated, 0.62, "ВЕРОЯТНАЯ АРТИЛЛЕРИЯ"] call DRO2026_fnc_addContact;
-            [format ["Артиллерия выполнила огневую задачу: %1 выстр., цель %2 м", _rounds, round (_arty distance2D _targetPos)]] call DRO2026_fnc_log;
+            ["PLAYER", objNull, _estimated, 0.62, "ВЕРОЯТНАЯ АРТИЛЛЕРИЯ", "COUNTERBATTERY", 380, "NODE_ARTILLERY_01", 0.08] call DRO2026_fnc_addContact;
+            [format ["Артиллерия выполнила огневую задачу: %1 выстр., источник %2, удаление %3 м", _rounds, _targetKind, round (_arty distance2D _targetPos)]] call DRO2026_fnc_log;
+            if (_intentAction == "ARTILLERY_FIRE") then {
+                _intent set ["status", "EXECUTED"];
+                _intent set ["executedAt", time];
+                missionNamespace setVariable ["DRO2026_currentIntent", _intent];
+                ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "ARTILLERY_FIRE"]], "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
+            };
         } else {
-            [format ["Артиллерия %1 не имеет решения по доступным союзным целям", typeOf _arty]] call DRO2026_fnc_log;
+            [format ["Артиллерия %1 не имеет решения по подтверждённым контактам", typeOf _arty]] call DRO2026_fnc_log;
         };
     };
 
     if (_shotsAtPosition >= 2 && {canMove _arty} && {count _positions > 1} && {!isNull (driver _arty)}) then {
+        private _stocks = (DRO2026_networkNodes getOrDefault ["NODE_ARTILLERY_01", createHashMap]) getOrDefault ["stocks", createHashMap];
+        private _fuel = _stocks getOrDefault ["FUEL", 0];
         private _alternatives = _positions select {_arty distance2D _x > 180};
-        if (count _alternatives > 0) then {
+        if (_fuel > 0 && {count _alternatives > 0}) then {
             private _next = selectRandom _alternatives;
             private _group = group (driver _arty);
             while {count waypoints _group > 0} do {deleteWaypoint ((waypoints _group) select 0)};
@@ -78,13 +123,11 @@ while {
             _wp setWaypointType "MOVE";
             _wp setWaypointSpeed "FULL";
             _wp setWaypointBehaviour "AWARE";
+            ["NODE_ARTILLERY_01", "FUEL", -1, "SHOOT_AND_SCOOT"] call DRO2026_fnc_changeNetworkNodeStock;
             private _moveDeadline = time + 210;
-            waitUntil {
-                sleep 3;
-                !alive _arty || {!canMove _arty} || {_arty distance2D _next < 45} || {time > _moveDeadline}
-            };
+            waitUntil {sleep 3; !alive _arty || {!canMove _arty} || {_arty distance2D _next < 45} || {time > _moveDeadline}};
             _shotsAtPosition = 0;
-            [format ["Артиллерия сменила позицию, остаток боезапаса %1%%", round (DRO2026_resources getOrDefault ["enemyArtilleryAmmo", 0])]] call DRO2026_fnc_log;
+            ["SITE_RELOCATED", createHashMapFromArray [["nodeId", "NODE_ARTILLERY_01"], ["position", getPosATL _arty]], "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
         };
     };
 };
