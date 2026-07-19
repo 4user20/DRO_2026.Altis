@@ -83,34 +83,43 @@ private _registerAmmo = {
 // Air defence. Explicit classes only; never editor site/spawner/root classes.
 {["SHORAD_EAST", _x] call _registerVehicle} forEach ["O_T_APC_Tracked_02_AA_ghex_F", "O_APC_Tracked_02_AA_F", "RUS_vdv_kamaz5350zu232"];
 {["SHORAD_WEST", _x] call _registerVehicle} forEach ["B_APC_Tracked_01_AA_F"];
+{["SHORAD_GUER", _x] call _registerVehicle} forEach ["I_LT_01_AA_F"];
 {["LONG_RANGE_AA_EAST", _x] call _registerVehicle} forEach ["S300_F_UCG"];
 {["LONG_RANGE_AA_WEST", _x] call _registerVehicle} forEach ["B_SAM_System_03_F"];
+{["LONG_RANGE_AA_GUER", _x] call _registerVehicle} forEach ["I_E_SAM_System_03_F"];
 {["RADAR_EAST", _x] call _registerVehicle} forEach ["S300_RS_F_UCG", "RUS_vks_p37", "RUS_vks_prv13", "Land_Radar_F"];
 {["RADAR_WEST", _x] call _registerVehicle} forEach ["B_SAM_System_03_radar_F", "B_Radar_System_01_F", "Land_Radar_F"];
+{["RADAR_GUER", _x] call _registerVehicle} forEach ["I_E_Radar_System_01_F", "Land_Radar_F"];
 
 // Artillery.
-{["ARTILLERY_EAST", _x] call _registerVehicle} forEach ["O_MBT_02_arty_F", "O_Mortar_01_F", "I_Truck_02_MRL_F"];
+{["ARTILLERY_EAST", _x] call _registerVehicle} forEach ["O_MBT_02_arty_F", "O_Mortar_01_F"];
 {["ARTILLERY_WEST", _x] call _registerVehicle} forEach ["B_MBT_01_arty_F", "B_Mortar_01_F", "DRA_MLRS_H_B"];
+{["ARTILLERY_GUER", _x] call _registerVehicle} forEach ["I_Truck_02_MRL_F", "I_Mortar_01_F"];
 {["PLAYER_ARTILLERY_MORTAR", _x] call _registerVehicle} forEach ["B_Mortar_01_F"];
 {["PLAYER_ARTILLERY_SPG", _x] call _registerVehicle} forEach ["B_MBT_01_arty_F"];
 {["PLAYER_ARTILLERY_MLRS", _x] call _registerVehicle} forEach ["DRA_MLRS_H_B", "B_MBT_01_mlrs_F"];
 
-// EW.
+// EW and command vehicles.
 {["EW_EAST", _x] call _registerVehicle} forEach ["O_Truck_03_device_F", "O_Truck_03_covered_F"];
 {["EW_WEST", _x] call _registerVehicle} forEach ["B_Truck_01_box_F", "B_Truck_01_covered_F"];
+{["EW_GUER", _x] call _registerVehicle} forEach ["I_E_Offroad_01_comms_F", "I_Truck_02_box_F"];
 
 // Logistics and convoy-specific vehicles.
-{["LOGISTICS_EAST", _x] call _registerVehicle} forEach ["O_Truck_03_ammo_F", "O_Truck_03_fuel_F", "O_Truck_03_repair_F", "O_Truck_03_transport_F", "I_Truck_02_ammo_F", "I_Truck_02_fuel_F", "RUS_MP_kamaz53501", "RUS_MP_atz75557", "RUS_MP_ac554320", "AV_KamAZ_Refuel_schnell"];
+{["LOGISTICS_EAST", _x] call _registerVehicle} forEach ["O_Truck_03_ammo_F", "O_Truck_03_fuel_F", "O_Truck_03_repair_F", "O_Truck_03_transport_F", "RUS_MP_kamaz53501", "RUS_MP_atz75557", "RUS_MP_ac554320", "AV_KamAZ_Refuel_schnell"];
 {["LOGISTICS_WEST", _x] call _registerVehicle} forEach ["B_Truck_01_ammo_F", "B_Truck_01_fuel_F", "B_Truck_01_Repair_F", "B_Truck_01_transport_F", "UAZ_03_transport_F", "UAZ_08_transport_F"];
+{["LOGISTICS_GUER", _x] call _registerVehicle} forEach ["I_Truck_02_ammo_F", "I_Truck_02_fuel_F", "I_Truck_02_box_F", "I_Truck_02_transport_F"];
 {["CONVOY_CARGO_EAST", _x] call _registerVehicle} forEach ["RUS_MP_kamaz53501", "RUS_MP_atz75557", "RUS_MP_ac554320", "O_Truck_03_transport_F", "O_Truck_03_ammo_F"];
 {["CONVOY_CARGO_WEST", _x] call _registerVehicle} forEach ["B_Truck_01_transport_F", "B_Truck_01_ammo_F", "UAZ_03_transport_F"];
+{["CONVOY_CARGO_GUER", _x] call _registerVehicle} forEach ["I_Truck_02_transport_F", "I_Truck_02_ammo_F", "I_Truck_02_fuel_F"];
 {["CONVOY_ESCORT_EAST", _x] call _registerVehicle} forEach ["RUS_vdv_kamaz5350zu232", "O_MRAP_02_hmg_F"];
 {["CONVOY_ESCORT_WEST", _x] call _registerVehicle} forEach ["B_MRAP_01_hmg_F", "B_MRAP_01_gmg_F"];
+{["CONVOY_ESCORT_GUER", _x] call _registerVehicle} forEach ["I_MRAP_03_hmg_F", "I_MRAP_03_gmg_F"];
 
 // Command, officers, aircraft.
 {["COMMAND", _x] call _registerVehicle} forEach ["Land_Cargo_HQ_V1_F", "Land_Cargo_HQ_V2_F", "Land_Cargo_HQ_V3_F", "Land_Bunker_01_HQ_F"];
 {["OFFICER_WEST", _x] call _registerVehicle} forEach ["B_Soldier_F", "B_UAV_AI", "B_crew_F", "B_soldier_UAV_F"];
 {["OFFICER_EAST", _x] call _registerVehicle} forEach ["O_T_Crew_F", "O_crew_F", "RUS_vks_pilot", "rhs_vdv_des_efreitor"];
+{["OFFICER_GUER", _x] call _registerVehicle} forEach ["I_Soldier_F", "I_soldier_UAV_F", "I_crew_F"];
 {["AIR_EAST", _x, true] call _registerVehicle} forEach ["RUS_VKS_su57", "RUS_VKS_mi8t", "RUS_VKS_an2", "RUS_VKS_l39"];
 
 // Civilian traffic.
