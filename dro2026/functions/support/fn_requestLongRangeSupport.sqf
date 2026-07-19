@@ -9,9 +9,21 @@ if (isNull _requester && {hasInterface}) then {_requester = player};
 if (!isNull _requester && {side (group _requester) != playersSide}) exitWith {
     ["Штаб: дальняя поддержка недоступна для этой стороны.", _requester] call DRO2026_fnc_supportMessage;
 };
+if !(_requestedType isEqualType "" && {_decoy isEqualType true} && {_quantity isEqualType 0}) exitWith {
+    ["Штаб: некорректный профиль дальнего удара.", _requester] call DRO2026_fnc_supportMessage;
+};
+
 private _requestSide = if (!isNull _requester) then {side (group _requester)} else {playersSide};
 private _requestUpper = toUpperANSI _requestedType;
 private _exactClass = if ((_requestUpper find "CLASS:") == 0) then {_requestedType select [6]} else {""};
+private _knownTypes = ["AUTO", "FP1", "FP2", "BM35", "BULAVA", "FP5", "SHAHED"];
+if (_exactClass == "" && {!(_requestUpper in _knownTypes)}) exitWith {
+    [format ["Штаб: неизвестный профиль дальнего удара %1.", _requestedType], _requester] call DRO2026_fnc_supportMessage;
+};
+if (_decoy && {_requestUpper != "AUTO"}) exitWith {
+    ["Штаб: режим обманки разрешён только для автоматического профиля.", _requester] call DRO2026_fnc_supportMessage;
+};
+
 _quantity = ((round _quantity) max 1) min DRO2026_MAX_DRONES_PER_SALVO;
 if (_requestUpper == "FP5") then {_quantity = 1};
 
@@ -51,7 +63,11 @@ private _available = if (_exactClass != "") then {
     (_exactClass in (DRO2026_assetRegistry getOrDefault [_longRole, []])) &&
     {isClass (configFile >> "CfgVehicles" >> _exactClass)} &&
     {_exactClass isKindOf "Air"} &&
-    {((missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {(_x param [1, ""]) == _mode}) >= 0}
+    {((missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {
+        (_x isEqualType []) &&
+        {(_x param [1, ""]) == _mode} &&
+        {(_x param [2, ""]) == _exactClass}
+    }) >= 0}
 } else {
     switch _requestUpper do {
         case "FP1": {[_fp1LauncherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};
@@ -60,7 +76,8 @@ private _available = if (_exactClass != "") then {
         case "BULAVA": {[_bulavaLauncherRole, ""] call _launcherHasAmmo};
         case "FP5": {_requestSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _launcherHasAmmo}};
         case "SHAHED": {([_longRole, ["shahed", "geran"]] call _roleHasToken) || {count (DRO2026_ammoRegistry getOrDefault ["STRIKE_AMMO_SHAHED", []]) > 0}};
-        default {count (DRO2026_assetRegistry getOrDefault [_longRole, []]) > 0};
+        case "AUTO": {count (DRO2026_assetRegistry getOrDefault [_longRole, []]) > 0};
+        default {false};
     }
 };
 if (!_available) exitWith {
@@ -141,8 +158,9 @@ if (_requestUpper == "FP5") then {
         sleep (2.5 + random 3.5);
     };
 };
+private _launchLabel = if (_decoy) then {"БПЛА-обманка"} else {if (_exactClass != "") then {_exactClass} else {_requestedType}};
 [
     "ACK",
-    format ["Штаб: Подтверждаю запуск: %1, количество %2.", if (_decoy) then {"БПЛА-обманка"} else {if (_exactClass != "") then {_exactClass} else {_requestedType}}, _launchCount],
+    format ["Штаб: Подтверждаю запуск: %1, количество %2.", _launchLabel, _launchCount],
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;
