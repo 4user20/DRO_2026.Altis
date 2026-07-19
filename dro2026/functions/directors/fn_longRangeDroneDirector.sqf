@@ -113,6 +113,18 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             [_origin, _contact, _operator, _type, _count, _nodeId] spawn {
                 params ["_origin", "_contact", "_operator", "_type", "_count", "_nodeId"];
                 for "_index" from 0 to (_count - 1) do {
+                    private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
+                    private _abort =
+                        (missionNamespace getVariable ["DRO2026_missionEnding", false]) ||
+                        {!isNull _operator && {!alive _operator}} ||
+                        {count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"]}};
+                    if (_abort) exitWith {
+                        private _unlaunched = _count - _index;
+                        [_nodeId, "LONG_RANGE_DRONES", _unlaunched, "LONG_RANGE_SALVO_ABORT"] call DRO2026_fnc_changeNetworkNodeStock;
+                        [_nodeId, "FUEL", _unlaunched, "LONG_RANGE_SALVO_ABORT"] call DRO2026_fnc_changeNetworkNodeStock;
+                        DRO2026_resources set ["enemyLongRangeStock", (DRO2026_resources getOrDefault ["enemyLongRangeStock", 0]) + _unlaunched];
+                        [format ["Enemy long-range salvo aborted before %1 remaining launches", _unlaunched]] call DRO2026_fnc_log;
+                    };
                     private _copy = createHashMap;
                     {_copy set [_x, _contact get _x]} forEach keys _contact;
                     if (isNull (_contact getOrDefault ["target", objNull]) && {_count > 1}) then {
