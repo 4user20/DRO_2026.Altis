@@ -106,6 +106,7 @@ else:
 
     require(errors, 'DRO2026_usedObjectiveNodes' in selector and 'DRO2026_usedObjectiveTypes' in selector, "selector does not suppress repeated type/node")
     require(errors, 'selectRandom DRO2026_OPERATION_PACKAGES' not in selector, "random objective packages returned")
+    require(errors, 'last-resort command objective' in selector and 'missionNamespace setVariable ["DRO2026_selectedOpportunity", _fallback]' in selector, "objective fallback can reuse stale selected opportunity")
     require(errors, 'ISR_RELAY' in recon and 'Land_TTowerSmall_1_F' in recon and 'relatedNodeId' in recon, "ISR objective is still an empty observation sector")
     require(errors, 'OBJECTIVE_MATERIALIZATION_FAILED' in materializer and '_maxAttempts = 4' in materializer, "objective adapter failure is not retried")
 
@@ -113,6 +114,7 @@ else:
     require(errors, 'RUS_VKS_forpostru' in enemy_isr and 'subjectId' in enemy_isr, "enemy long-range ISR/subject identity chain incomplete")
     require(errors, not re.search(r'\bplayer\b', re.sub(r'allPlayers', '', enemy_isr)), "server-only enemy ISR still depends on global player")
     require(errors, 'LONG_RANGE_ATTACK' in operation and 'FPV_ATTACK' in operation and 'LOGISTICS' in operation, "operation director target priority is incomplete")
+    require(errors, 'private _validTarget = true;' in operation and 'if (!_validTarget) exitWith' in operation and 'alive _target' in operation, "FPV intent target rejection can fall through nested scope")
     require(errors, 'subjectId' in enemy_strike and 'DRO2026_MAX_ENEMY_LONG_RANGE_SALVO' in enemy_strike, "enemy ISR-to-strike chain or salvo cap missing")
 
     require(errors, 'DRO2026_supportFireLockUntil' in artillery and 'DRO2026_activeHeavySupport' in artillery, "artillery is outside shared heavy-fire budget")
