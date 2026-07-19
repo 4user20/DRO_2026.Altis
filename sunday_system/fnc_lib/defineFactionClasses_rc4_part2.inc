@@ -51,7 +51,7 @@
 					civCarClasses pushBack _cfgName;					
 				};
 				_edSubcat = ((_cfgVehName >> "editorSubcategory") call BIS_fnc_GetCfgData);
-				if (!isNil "_edSubcat") then {
+				if (_edSubcat isEqualType "") then {
 					if (_edSubcat == "EdSubcat_Drones") then {
 						
 					} else {
@@ -140,11 +140,11 @@
 			};
 			if (_checkSubcats) then {
 				_edSubcat = ((_cfgVehName >> "editorSubcategory") call BIS_fnc_GetCfgData);
-				if (!isNil "_edSubcat") then {	
+				if (_edSubcat isEqualType "") then {	
 					_pVars = [pArtyClasses, pAAClasses, pTankClasses, pTankClasses, pHeliClasses, pPlaneClasses, pShipClasses, pUAVClasses];
 					_eVars = [eArtyClasses, eAAClasses, eTankClasses, eTankClasses, eHeliClasses, ePlaneClasses, eShipClasses, eUAVClasses];
 					{						
-						if ( [_x, ((_cfgVehName >> "editorSubcategory") call BIS_fnc_GetCfgData), false] call BIS_fnc_inString ) exitWith {
+						if ([_x, _edSubcat, false] call BIS_fnc_inString) exitWith {
 							if (_isPlayerFaction) then {
 								(_pVars select _forEachIndex) pushBackUnique _cfgName;
 							};
@@ -156,8 +156,10 @@
 				};				
 				_pVars = [pMortarClasses, pStaticClasses, pStaticClasses, pAmmoClasses];
 				_eVars = [eMortarClasses, eStaticClasses, eStaticClasses, eAmmoClasses];
+				private _staticBases = ["StaticMortar", "StaticMGWeapon", "StaticGrenadeLauncher", "ReammoBox_F"];
 				{						
-					if (_cfgName isKindOf 'StaticMortar') exitWith {
+					private _baseClass = _x;
+					if (_cfgName isKindOf _baseClass) exitWith {
 						if (_isPlayerFaction) then {
 							(_pVars select _forEachIndex) pushBackUnique _cfgName;
 						};
@@ -165,7 +167,7 @@
 							(_eVars select _forEachIndex) pushBackUnique _cfgName;
 						};
 					};
-				} forEach ["StaticMortar", "StaticMGWeapon", "StaticGrenadeLauncher", "ReammoBox_F"];			
+				} forEach _staticBases;			
 			};
 		};
 	};
