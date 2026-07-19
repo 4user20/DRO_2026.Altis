@@ -1,8 +1,8 @@
 if (!isServer) exitWith {};
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
-    private _players = allPlayers select {alive _x};
+    private _players = allPlayers select {alive _x && {!(_x isKindOf "VirtualMan_F")}};
 
-    // Player intelligence: aggregate actual knowledge/visibility across connected players.
+    // Player intelligence: aggregate actual knowledge/visibility across connected human players.
     {
         private _group = _x;
         if (!isNull _group && {(side _group) == enemySide} && {count units _group > 0}) then {
@@ -46,7 +46,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         };
     } forEach DRO2026_managedVehicles;
 
-    // Enemy knowledge: evaluate every unique player-group unit instead of server-local `player`.
+    // Enemy knowledge: evaluate every unique human player-group unit instead of server-local `player`.
     private _friendlyUnits = [];
     {_friendlyUnits append (units group _x)} forEach _players;
     _friendlyUnits = _friendlyUnits arrayIntersect _friendlyUnits;
