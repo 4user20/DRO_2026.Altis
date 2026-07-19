@@ -9,6 +9,10 @@ if (!isNull _requester && {side (group _requester) != playersSide}) exitWith {
     ["Штаб: артиллерийская поддержка недоступна для этой стороны.", _requester] call DRO2026_fnc_supportMessage;
 };
 
+private _lowerClass = toLowerANSI _class;
+if ((_lowerClass find "pook_tos1a") >= 0) exitWith {
+    ["Штаб: TOS-1A скрыт из поддержки: текущая версия аддона вызвала продолжительный Fired-handler spam в RPT.", _requester] call DRO2026_fnc_supportMessage;
+};
 private _allowedClasses = [];
 {_allowedClasses append (DRO2026_assetRegistry getOrDefault [_x, []])} forEach ["PLAYER_ARTILLERY_MORTAR", "PLAYER_ARTILLERY_SPG", "PLAYER_ARTILLERY_MLRS"];
 _allowedClasses = _allowedClasses arrayIntersect _allowedClasses;
@@ -18,11 +22,14 @@ if !(_class in _allowedClasses) exitWith {
 if (!isClass (configFile >> "CfgVehicles" >> _class)) exitWith {
     [format ["Штаб: артсистема %1 недоступна.", _class], _requester] call DRO2026_fnc_supportMessage;
 };
+if (time < DRO2026_supportFireLockUntil || {DRO2026_activeHeavySupport >= DRO2026_MAX_CONCURRENT_HEAVY_SUPPORT}) exitWith {
+    [format ["Штаб: тяжёлый огневой канал занят. Ожидайте %1 сек.", ceil ((DRO2026_supportFireLockUntil - time) max 1)], _requester] call DRO2026_fnc_supportMessage;
+};
 
 private _contacts = DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence", 0]) >= 0.62} &&
-    {(_x getOrDefault ["uncertaintyRadius", 9999]) <= 420} &&
+    {(_x getOrDefault ["uncertaintyRadius", 9999]) <= DRO2026_MAX_CONTACT_UNCERTAINTY_FOR_ARTY} &&
     {(time - (_x getOrDefault ["lastSeen", 0])) < 240} &&
     {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} &&
     {(_x getOrDefault ["positionMean", _x getOrDefault ["position", [0,0,0]]]) distance2D _position < 550}
@@ -51,11 +58,10 @@ private _key = format ["ARTY_%1", _class];
 private _arty = DRO2026_supportAssets getOrDefault [_key, objNull];
 private _createdNow = false;
 if (isNull _arty || {!alive _arty}) then {
-    private _cfgName = toLowerANSI _class;
-    private _node = if ((_cfgName find "mortar") >= 0) then {"FRIENDLY_FORWARD"} else {"FRIENDLY_REAR"};
+    private _node = if ((_lowerClass find "mortar") >= 0) then {"FRIENDLY_FORWARD"} else {"FRIENDLY_REAR"};
     private _anchor = [_node] call DRO2026_fnc_getTheaterNode;
     private _bearing = _targetPosition getDir _anchor;
-    private _distance = if ((_cfgName find "mortar") >= 0) then {2300} else {if ((_cfgName find "mlrs") >= 0 || {(_cfgName find "mrl") >= 0}) then {7000} else {4800}};
+    private _distance = if ((_lowerClass find "mortar") >= 0) then {2300} else {if ((_lowerClass find "mlrs") >= 0 || {(_lowerClass find "mrl") >= 0}) then {7000} else {4800}};
     private _candidate = _targetPosition getPos [_distance, _bearing];
     private _safe = [_candidate, 0, 450, 8, 0, 0.25, 0, [], [_candidate, _candidate]] call BIS_fnc_findSafePos;
     if !(_safe isEqualTo [0,0,0]) then {_candidate = _safe};
@@ -90,6 +96,8 @@ if (count _solutions == 0) exitWith {
 private _ammo = selectRandom _solutions;
 private _missionId = format ["FRIENDLY_FIRE_%1_%2", floor diag_tickTime, floor random 1000000];
 DRO2026_resources set ["friendlyArtilleryStock", (_stock - _rounds) max 0];
+DRO2026_supportFireLockUntil = time + DRO2026_SUPPORT_HEAVY_FIRE_SPACING;
+DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
 _arty doArtilleryFire [_targetPosition, _ammo, _rounds];
 ["FIRE_MISSION_EXECUTED", createHashMapFromArray [
     ["missionId", _missionId], ["side", "PLAYER"], ["observerContact", _contact getOrDefault ["id", ""]],
@@ -100,4 +108,9 @@ _arty doArtilleryFire [_targetPosition, _ammo, _rounds];
     format ["Штаб: огневая задача принята по контакту %1. %2 выстрелов.", _contact getOrDefault ["classification", "ЦЕЛЬ"], _rounds],
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;
-[_arty] spawn {params ["_arty"]; sleep 90; if (!isNull _arty && {alive _arty}) then {_arty enableDynamicSimulation true}};
+[_arty] spawn {
+    params ["_arty"];
+    sleep 75;
+    DRO2026_activeHeavySupport = (DRO2026_activeHeavySupport - 1) max 0;
+    if (!isNull _arty && {alive _arty}) then {_arty enableDynamicSimulation true};
+};
