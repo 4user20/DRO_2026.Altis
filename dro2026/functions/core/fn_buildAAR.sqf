@@ -44,14 +44,22 @@ private _friendlyFireMissions = count (DRO2026_eventLog select {
 });
 private _airRequests = _eventCounts getOrDefault ["SUPPORT_REQUESTED", 0];
 private _droneLaunches = _eventCounts getOrDefault ["DRONE_LAUNCHED", 0];
+private _supportRecommendations = _eventCounts getOrDefault ["SUPPORT_RECOMMENDED", 0];
+private _friendlyAutoStrikes = _eventCounts getOrDefault ["FRIENDLY_AUTO_STRIKE", 0];
 private _civilianHarm = _eventCounts getOrDefault ["CIVILIAN_HARM", 0];
+private _civilianReports = _eventCounts getOrDefault ["CIVILIAN_REPORT", 0];
+private _civilianTrust = DRO2026_operationState getOrDefault ["civilianTrust", 55];
+private _civilianFear = DRO2026_operationState getOrDefault ["civilianFear", 18];
+private _localHostility = DRO2026_operationState getOrDefault ["localHostility", 10];
 private _networkHealth = DRO2026_operationState getOrDefault ["networkHealth", 1];
 private _score = round (
     ((1 - _networkHealth) * 55) +
     ((_destroyed / ((count DRO2026_networkNodes) max 1)) * 20) +
     ((_confirmedBDA min 8) * 2.5) +
-    ((_interdicted min 6) * 2) -
+    ((_interdicted min 6) * 2) +
+    (linearConversion [0, 100, _civilianTrust, -8, 5, true]) -
     ((_civilianHarm min 8) * 8) -
+    (linearConversion [0, 100, _localHostility, 0, 8, true]) -
     ((DRO2026_alertLevel max 0) * 8)
 );
 DRO2026_operationState set ["operationScore", _score];
@@ -67,7 +75,10 @@ createHashMapFromArray [
     ["confirmedBDA", _confirmedBDA], ["probableBDA", _probableBDA], ["highQualityIntel", _highQualityIntel],
     ["deliveriesInterdicted", _interdicted], ["deliveriesCompleted", _delivered],
     ["friendlyFireMissions", _friendlyFireMissions], ["airRequests", _airRequests], ["droneLaunchEvents", _droneLaunches],
-    ["civilianHarm", _civilianHarm], ["civilianTrust", DRO2026_operationState getOrDefault ["civilianTrust", 55]],
+    ["supportAutomation", DRO2026_supportPreset getOrDefault ["automation", "RECOMMEND_ONLY"]],
+    ["supportRecommendations", _supportRecommendations], ["friendlyAutoStrikes", _friendlyAutoStrikes],
+    ["civilianHarm", _civilianHarm], ["civilianReports", _civilianReports],
+    ["civilianTrust", _civilianTrust], ["civilianFear", _civilianFear], ["localHostility", _localHostility],
     ["elapsed", time - (DRO2026_operationState getOrDefault ["startedAt", time])],
     ["generatedAt", time]
 ]
