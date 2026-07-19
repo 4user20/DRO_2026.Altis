@@ -4,9 +4,9 @@ diag_log "DRO: Initialising support categories (RC6 catalog mode)";
 
 // Legacy code randomly selected and physically spawned one artillery/CAS/UAV class
 // during mission generation. That prevented the player from choosing a concrete
-// system and, in the latest RPT, selected pook_TOS1A_BLUFOR before the fire-spam
-// freeze. RC6 keeps the startup choice at category level and materialises a class
-// only after an explicit server-authoritative request from the support console.
+// system and, in the latest RPT, selected a known unstable heavy launcher before
+// the fire-spam freeze. RC6 keeps the startup choice at category level and
+// materialises a class only after an explicit server-authoritative request.
 private _enabled = [];
 if (randomSupports == 1) then {
     if (!isNil "customSupports" && {customSupports isEqualType []}) then {
