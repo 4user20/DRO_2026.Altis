@@ -33,11 +33,20 @@ _hint ctrlCommit 0;
 
 private _category = _display ctrlCreate ["RscCombo", 9405];
 _category ctrlSetPosition [safeZoneX + safeZoneW * 0.29, safeZoneY + safeZoneH * 0.265, safeZoneW * 0.42, safeZoneH * 0.042];
+private _availableCategories = (_catalog apply {_x param [0, ""]}) arrayIntersect (_catalog apply {_x param [0, ""]});
+private _categoryDefinitions = [
+    ["Все доступные средства", "ALL"],
+    ["БПЛА и беспилотные удары", "UAV"],
+    ["Артиллерия", "ARTY"],
+    ["Авиация", "CAS"]
+];
 {
     _x params ["_label", "_data"];
-    private _index = _category lbAdd _label;
-    _category lbSetData [_index, _data];
-} forEach [["Все доступные средства", "ALL"], ["БПЛА и беспилотные удары", "UAV"], ["Артиллерия", "ARTY"], ["Авиация", "CAS"]];
+    if (_data == "ALL" || {_data in _availableCategories}) then {
+        private _index = _category lbAdd _label;
+        _category lbSetData [_index, _data];
+    };
+} forEach _categoryDefinitions;
 _category lbSetCurSel 0;
 _category ctrlCommit 0;
 
