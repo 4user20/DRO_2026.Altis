@@ -16,7 +16,9 @@ if ((lbData [1301, _playersIndex]) == "RANDOM") then {
 	profileNamespace setVariable ["DRO_playersFaction", playersFaction];
 };		
 publicVariable "playersFaction";		
-playersFactionAdv = [lbData [3800,  lbCurSel 3800], lbData [3801,  lbCurSel 3801], lbData [3802,  lbCurSel 3802]];
+playersFactionAdv = [lbData [3800, lbCurSel 3800], lbData [3801, lbCurSel 3801], lbData [3802, lbCurSel 3802]] select {
+	_x isEqualType "" && {_x != ""} && {_x != "0"}
+};
 publicVariable "playersFactionAdv";			
 
 if ((lbData [1311, _enemyIndex]) == "RANDOM") then {			
@@ -27,20 +29,19 @@ if ((lbData [1311, _enemyIndex]) == "RANDOM") then {
 	profileNamespace setVariable ["DRO_enemyFaction", enemyFaction];
 };
 publicVariable "enemyFaction";		
-enemyFactionAdv = [lbData [3803,  lbCurSel 3803], lbData [3804,  lbCurSel 3804], lbData [3805,  lbCurSel 3805]];
+enemyFactionAdv = [lbData [3803, lbCurSel 3803], lbData [3804, lbCurSel 3804], lbData [3805, lbCurSel 3805]] select {
+	_x isEqualType "" && {_x != ""} && {_x != "0"}
+};
 publicVariable "enemyFactionAdv";
 
 civFaction = lbData [1321, _civIndex];
 publicVariable "civFaction";		
 
-diag_log format ["DRO: okAO.sqf: player %2 playersFaction = %1", playersFaction, player];
-diag_log format ["DRO: okAO.sqf: player %2 playersFactionAdv = %1", playersFactionAdv, player];
-diag_log format ["DRO: okAO.sqf: player %2 enemyFaction = %1", enemyFaction, player];
-diag_log format ["DRO: okAO.sqf: player %2 enemyFactionAdv = %1", enemyFactionAdv, player];
+if (missionNamespace getVariable ["DRO2026_DEBUG", false]) then {
+	diag_log format ["DRO: okAO player=%1 players=%2 adv=%3 enemy=%4 adv=%5", player, playersFaction, playersFactionAdv, enemyFaction, enemyFactionAdv];
+};
 
 missionNameSpace setVariable ["factionsChosen", 1, true];
-
-diag_log format ["DRO: okAO.sqf: player %2 factionsChosen set to %1 and broadcast", (missionNameSpace getVariable ['factionsChosen', -1]), player];
 
 aiMultiplier = (round (((sliderPosition 2041)/10) * (10 ^ 1)) / (10 ^ 1));
 publicVariable "aiMultiplier";
@@ -53,9 +54,6 @@ if (('FORTIFY' in preferredObjectives) || ('DISARM' in preferredObjectives) || (
 	};
 };
 
-hintSilent  "";
+hintSilent "";
 closeDialog 1;				
-[toUpper "Please wait while mission is generated", "objectivesSpawned", 1, ""] call sun_callLoadScreen;					
-	
-
-
+[toUpper "Please wait while mission is generated", "objectivesSpawned", 1, ""] call sun_callLoadScreen;
