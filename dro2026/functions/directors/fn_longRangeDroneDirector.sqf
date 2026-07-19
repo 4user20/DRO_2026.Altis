@@ -26,6 +26,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             (_x getOrDefault ["owner", ""]) == "ENEMY" &&
             {(_x getOrDefault ["confidence", 0]) >= DRO2026_CONTACT_REQUIRED_FOR_LONG_RANGE} &&
             {(time - (_x getOrDefault ["lastSeen", 0])) < 300} &&
+            {(_x getOrDefault ["subjectId", ""]) != ""} &&
             {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])}
         };
         private _intentContactId = _intent getOrDefault ["contactId", ""];
@@ -46,15 +47,20 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _site = selectRandom _sites;
             private _operator = _site getOrDefault ["operator", objNull];
             private _origin = _site getOrDefault ["position", ["ENEMY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
-            private _maxSalvo = if (DRO2026_alertLevel > 0.78) then {5} else {2};
+            private _maxSalvo = (if (DRO2026_alertLevel > 0.78) then {DRO2026_MAX_ENEMY_LONG_RANGE_SALVO} else {2}) min DRO2026_MAX_ENEMY_LONG_RANGE_SALVO;
             private _count = (1 + floor random _maxSalvo) min _stock min _slots;
             private _type = "AUTO";
-            private _enemyPool = DRO2026_assetRegistry getOrDefault [if (enemySide == west) then {"LONG_RANGE_WEST"} else {"LONG_RANGE_EAST"}, []];
+            private _enemyPool = DRO2026_assetRegistry getOrDefault [if (enemySide == west) then {"LONG_RANGE_WEST"} else {if (enemySide == resistance) then {"LONG_RANGE_GUER"} else {"LONG_RANGE_EAST"}}, []];
+            private _classification = toUpperANSI (_contact getOrDefault ["classification", ""]);
+            private _fixedStrategic = (_classification find "HQ") >= 0 || {(_classification find "ШТАБ") >= 0} || {(_classification find "AA") >= 0} || {(_classification find "ПВО") >= 0} || {(_classification find "LOGISTICS") >= 0} || {(_classification find "ЛОГИСТ") >= 0};
             private _hasShahed = (_enemyPool findIf {
                 private _name = toLowerANSI _x;
                 (_name find "shahed") >= 0 || {(_name find "geran") >= 0}
             }) >= 0;
-            if (_hasShahed && {enemySide == east} && {random 1 < 0.72}) then {_type = "SHAHED"};
+            if (_hasShahed && {enemySide == east} && {_fixedStrategic}) then {_type = "SHAHED"};
+            if ((_classification find "ARTILLERY") >= 0 || {(_classification find "АРТИЛ") >= 0} || {(_classification find "DRONE") >= 0} || {(_classification find "БПЛА") >= 0}) then {
+                if ((_enemyPool findIf {(toLowerANSI _x find "bm35") >= 0}) >= 0) then {_type = "BM35"};
+            };
 
             ["NODE_DRONE_REAR_01", "LONG_RANGE_DRONES", -_count, "LONG_RANGE_ATTACK"] call DRO2026_fnc_changeNetworkNodeStock;
             ["NODE_DRONE_REAR_01", "FUEL", -_count, "LONG_RANGE_ATTACK"] call DRO2026_fnc_changeNetworkNodeStock;
@@ -72,15 +78,15 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         _copy set ["positionMean", _copy get "position"];
                     };
                     [_origin, _copy, enemySide, false, _operator, _type, false, _index, _count] spawn DRO2026_fnc_launchLongRangeStrike;
-                    sleep (3 + random 5);
+                    sleep (4 + random 6);
                 };
             };
-            ["DRONE_LAUNCHED", createHashMapFromArray [["role", "LONG_RANGE"], ["type", _type], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]]], "NODE_DRONE_REAR_01"] call DRO2026_fnc_emitEvent;
+            ["DRONE_LAUNCHED", createHashMapFromArray [["role", "LONG_RANGE"], ["type", _type], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]], ["subjectId", _contact getOrDefault ["subjectId", ""]]], "NODE_DRONE_REAR_01"] call DRO2026_fnc_emitEvent;
             _intent set ["status", "EXECUTED"];
             _intent set ["executedAt", time];
             missionNamespace setVariable ["DRO2026_currentIntent", _intent];
             ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "LONG_RANGE_ATTACK"]], "NODE_DRONE_REAR_01"] call DRO2026_fnc_emitEvent;
-            [format ["Тыловой drone-node запустил %1 x %2, остаток %3", _count, _type, (_airframes - _count) max 0]] call DRO2026_fnc_log;
+            [format ["Тыловой drone-node запустил %1 x %2 по %3, остаток %4", _count, _type, _classification, (_airframes - _count) max 0]] call DRO2026_fnc_log;
         };
     };
 };

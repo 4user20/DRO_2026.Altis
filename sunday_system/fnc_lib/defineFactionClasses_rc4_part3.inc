@@ -50,7 +50,7 @@ if (_debugFactionScan) then {
 	diag_log format [
 		"DRO: faction pools ready: pInf=%1 eInf=%2 pSubcats=%3 eSubcats=%4 blockedClasses=%5 blockedSubcats=%6",
 		count pInfClasses, count eInfClasses,
-		({_x} count _pInfEditorSubcats), ({_x} count _eInfEditorSubcats),
+		count _pInfEditorSubcats, count _eInfEditorSubcats,
 		_blockedClassCount, _blockedSubcatCount
 	];
 };

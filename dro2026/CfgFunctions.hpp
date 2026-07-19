@@ -10,6 +10,7 @@ class CfgFunctions
             class initState {};
             class registerAssets {};
             class refreshFactionAssets {};
+            class publishSupportCatalog {};
             class getRoleClass {};
             class isSafeInfantryClass {};
             class sanitizeLegacyPools {};
@@ -36,11 +37,11 @@ class CfgFunctions
             class findObjectivePos {};
             class createObjectiveRecord {};
             class createSiteRecord {};
-            class createContactRecord {};
             class validateSiteRecord {};
             class spawnGuard {};
             class completeObjective {};
             class createFriendlyPositions {};
+            class createFriendlyLogisticsSite {};
             class createStrategicInfrastructure {};
             class calculateTerrainAwareAim {};
             class resolveLauncherAmmo {};

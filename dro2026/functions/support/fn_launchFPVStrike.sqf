@@ -1,6 +1,6 @@
 params [
     "_origin", "_contact", ["_side", east], ["_operator", objNull],
-    ["_allowPlayerControl", false], ["_supportOwner", objNull]
+    ["_allowPlayerControl", false], ["_supportOwner", objNull], ["_requestedClass", ""]
 ];
 private _refundFriendly = {
     if (_side == playersSide) then {
@@ -10,7 +10,7 @@ private _refundFriendly = {
 if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundFriendly; objNull};
 if (!isNull _operator && {!alive _operator}) exitWith {call _refundFriendly; objNull};
 private _target = _contact getOrDefault ["target", objNull];
-private _targetPosition = _contact getOrDefault ["position", []];
+private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
 if (count _targetPosition < 2) exitWith {call _refundFriendly; objNull};
 if (!isNull _target && {!alive _target}) exitWith {call _refundFriendly; objNull};
 
@@ -41,10 +41,10 @@ private _preferred = _pool select {
         }
     }
 };
-private _droneClass = if (count _preferred > 0) then {
-    selectRandom _preferred
+private _droneClass = if (_requestedClass != "" && {_requestedClass in _pool}) then {
+    _requestedClass
 } else {
-    if (count _pool > 0) then {selectRandom _pool} else {_fallback}
+    if (count _preferred > 0) then {selectRandom _preferred} else {if (count _pool > 0) then {selectRandom _pool} else {_fallback}}
 };
 if (!isClass (configFile >> "CfgVehicles" >> _droneClass) || {!(_droneClass isKindOf "Air")}) then {
     _droneClass = _fallback
@@ -73,7 +73,7 @@ DRO2026_managedVehicles pushBackUnique _drone;
 _crewGroup setBehaviourStrong "CARELESS";
 _crewGroup setCombatMode "BLUE";
 _crewGroup setSpeedMode "FULL";
-[_drone, "FPV", _side] spawn DRO2026_fnc_trackIncomingDrone;
+[_drone, format ["FPV %1", getText (configFile >> "CfgVehicles" >> _droneClass >> "displayName")], _side] spawn DRO2026_fnc_trackIncomingDrone;
 
 if (_allowPlayerControl && {!isNull _supportOwner} && {_side == playersSide}) then {
     [_drone] remoteExecCall ["DRO2026_fnc_offerFPVControl", _supportOwner, false];
@@ -96,7 +96,6 @@ while {
         if (!isNull _target && {alive _target}) then {
             _targetPosition = getPosATL _target;
         } else {
-            // Stale intelligence permits only a local search around the last known position.
             if ((time - _lastTargetSearch) > 2.5) then {
                 _lastTargetSearch = time;
                 private _candidates = nearestObjects [_targetPosition, ["LandVehicle", "Man"], 180, true] select {

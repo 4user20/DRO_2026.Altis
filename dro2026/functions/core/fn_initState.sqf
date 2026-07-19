@@ -13,12 +13,12 @@ DRO2026_activeConvoys = [];
 DRO2026_supplyLanes = [];
 DRO2026_supplyEvents = [];
 DRO2026_usedObjectiveTypes = [];
+DRO2026_usedObjectiveNodes = [];
 DRO2026_objectiveQueue = [];
 DRO2026_operationPackageName = "";
 DRO2026_objectiveMeta = createHashMap;
 DRO2026_reservedObjectivePositions = [];
 
-// Geographic layout is intentionally separate from the logical capability network.
 DRO2026_theaterNodes = createHashMap;
 DRO2026_theaterLayout = createHashMap;
 DRO2026_theaterBuilt = false;
@@ -53,6 +53,7 @@ DRO2026_directorsStarted = false;
 DRO2026_lastFPVRequest = -999;
 DRO2026_lastISRRequest = -999;
 DRO2026_lastEnemyFPV = -999;
+DRO2026_lastEnemyISR = -999;
 DRO2026_lastEnemyLongRange = -999;
 DRO2026_lastFriendlyStrike = -999;
 DRO2026_lastLongSupportRequest = -999;
@@ -60,6 +61,12 @@ DRO2026_friendlyFP5Used = 0;
 DRO2026_reinforcementWaves = 0;
 DRO2026_supportAssets = createHashMap;
 DRO2026_supportDialogOpen = false;
+DRO2026_supportCatalog = [];
+DRO2026_supportCatalogReady = false;
+DRO2026_supportCatalogVersion = 0;
+DRO2026_supportCategories = ["UAV", "ARTY", "CAS"];
+DRO2026_supportFireLockUntil = -1;
+DRO2026_activeHeavySupport = 0;
 DRO2026_missionEnding = false;
 if (isServer) then {
     addMissionEventHandler ["Ended", {missionNamespace setVariable ["DRO2026_missionEnding", true]}];
@@ -68,7 +75,6 @@ if (isServer) then {
 DRO2026_civilTraffic = [];
 DRO2026_supportPreset = createHashMapFromArray [["isrDefault", "AUTO"], ["strikeDefault", "AUTO"], ["automation", "RECOMMEND_ONLY"]];
 
-// Compatibility aggregate. New systems read/write node stocks first and mirror strategic totals here.
 DRO2026_resources = createHashMapFromArray [
     ["enemySupply", 100], ["enemyArtilleryAmmo", 80], ["enemyDroneStock", 48],
     ["enemyLongRangeStock", 12], ["enemyReinforcement", 78], ["enemyEW", 65],

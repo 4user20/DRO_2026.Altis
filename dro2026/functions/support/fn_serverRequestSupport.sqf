@@ -30,32 +30,99 @@ private _validPosition = {
     {(_position select 0) <= worldSize} &&
     {(_position select 1) <= worldSize}
 };
+private _catalogContains = {
+    params ["_mode", ["_class", ""]];
+    private _catalog = missionNamespace getVariable ["DRO2026_supportCatalog", []];
+    if !(_catalog isEqualType []) exitWith {false};
+    (_catalog findIf {
+        (_x isEqualType []) &&
+        {(_x param [1, ""]) == _mode} &&
+        {_class == "" || {(_x param [2, ""]) == _class}}
+    }) >= 0
+};
+private _rejectMalformed = {
+    ["Штаб: отклонён некорректно сформированный запрос поддержки.", _requester] call DRO2026_fnc_supportMessage;
+};
 
 _kind = toUpperANSI _kind;
 switch _kind do {
     case "FPV": {
-        _payload params ["_position", ["_manual", false], ["_quantity", 1]];
+        private _position = _payload param [0, []];
+        private _manual = _payload param [1, false];
+        private _quantity = _payload param [2, 1];
+        private _class = _payload param [3, ""];
+        if !(_manual isEqualType true && {_quantity isEqualType 0} && {_class isEqualType ""}) exitWith {call _rejectMalformed};
         if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка FPV.", _requester] call DRO2026_fnc_supportMessage};
-        [_position, _manual, _quantity, _requester] call DRO2026_fnc_requestFPV;
+        private _classPublished = true;
+        if (_class != "") then {
+            private _modeTemplate = if (_manual) then {"FPV_CLASS_MANUAL:%1"} else {"FPV_CLASS_AUTO:%1"};
+            private _mode = format [_modeTemplate, _class];
+            _classPublished = [_mode, _class] call _catalogContains;
+        };
+        if (!_classPublished) exitWith {
+            [format ["Штаб: FPV-класс %1 не опубликован для выбранной стороны.", _class], _requester] call DRO2026_fnc_supportMessage;
+        };
+        [_position, _manual, _quantity, _requester, _class] call DRO2026_fnc_requestFPV;
     };
     case "ISR": {
-        _payload params ["_position", ["_type", "AUTO"]];
+        private _position = _payload param [0, []];
+        private _type = _payload param [1, "AUTO"];
+        if !(_type isEqualType "") exitWith {call _rejectMalformed};
         if !([_position] call _validPosition) exitWith {["Штаб: некорректный сектор разведки.", _requester] call DRO2026_fnc_supportMessage};
+        private _upperType = toUpperANSI _type;
+        private _classPublished = true;
+        private _class = "";
+        if ((_upperType find "CLASS:") == 0) then {
+            _class = _type select [6];
+            private _mode = format ["ISR_CLASS:%1", _class];
+            _classPublished = _class != "" && {[_mode, _class] call _catalogContains};
+        };
+        if (!_classPublished) exitWith {
+            [format ["Штаб: разведывательный БПЛА %1 не опубликован для выбранной стороны.", _class], _requester] call DRO2026_fnc_supportMessage;
+        };
         [_position, _type, _requester] call DRO2026_fnc_requestISR;
     };
     case "LONG_RANGE": {
-        _payload params ["_position", ["_type", "AUTO"], ["_decoy", false], ["_quantity", 1]];
+        private _position = _payload param [0, []];
+        private _type = _payload param [1, "AUTO"];
+        private _decoy = _payload param [2, false];
+        private _quantity = _payload param [3, 1];
+        if !(_type isEqualType "" && {_decoy isEqualType true} && {_quantity isEqualType 0}) exitWith {call _rejectMalformed};
         if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка дальнего удара.", _requester] call DRO2026_fnc_supportMessage};
+        private _upperType = toUpperANSI _type;
+        if (_decoy && {_upperType != "AUTO"}) exitWith {call _rejectMalformed};
+        private _catalogClass = if ((_upperType find "CLASS:") == 0) then {_type select [6]} else {""};
+        if (_catalogClass == "" && {(_upperType find "CLASS:") == 0}) exitWith {call _rejectMalformed};
+        private _catalogMode = if (_catalogClass != "") then {
+            format ["STRIKE_CLASS:%1", _catalogClass]
+        } else {
+            if (_decoy) then {"STRIKE_DECOY"} else {format ["STRIKE_%1", _upperType]}
+        };
+        if !([_catalogMode, _catalogClass] call _catalogContains) exitWith {
+            [format ["Штаб: профиль дальнего удара %1 не опубликован для выбранной стороны.", _type], _requester] call DRO2026_fnc_supportMessage;
+        };
         [_position, _type, _decoy, _quantity, _requester] call DRO2026_fnc_requestLongRangeSupport;
     };
     case "ARTILLERY": {
-        _payload params ["_position", "_class", ["_rounds", 3]];
+        private _position = _payload param [0, []];
+        private _class = _payload param [1, ""];
+        private _rounds = _payload param [2, 3];
+        if !(_class isEqualType "" && {_rounds isEqualType 0}) exitWith {call _rejectMalformed};
         if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка артиллерии.", _requester] call DRO2026_fnc_supportMessage};
+        if (_class == "" || {!([format ["ARTY:%1", _class], _class] call _catalogContains)}) exitWith {
+            [format ["Штаб: артсистема %1 не опубликована для выбранной стороны.", _class], _requester] call DRO2026_fnc_supportMessage;
+        };
         [_position, _class, _rounds, _requester] call DRO2026_fnc_requestArtillery;
     };
     case "AIR": {
-        _payload params ["_position", "_class", ["_quantity", 1]];
+        private _position = _payload param [0, []];
+        private _class = _payload param [1, ""];
+        private _quantity = _payload param [2, 1];
+        if !(_class isEqualType "" && {_quantity isEqualType 0}) exitWith {call _rejectMalformed};
         if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка авиационной поддержки.", _requester] call DRO2026_fnc_supportMessage};
+        if (_class == "" || {!([format ["AIR:%1", _class], _class] call _catalogContains)}) exitWith {
+            [format ["Штаб: авиационный класс %1 не опубликован для выбранной стороны.", _class], _requester] call DRO2026_fnc_supportMessage;
+        };
         [_position, _class, _quantity, _requester] call DRO2026_fnc_requestAirSupport;
     };
     default {

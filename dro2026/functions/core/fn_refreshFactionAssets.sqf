@@ -6,7 +6,7 @@ private _appendFiltered = {
     {
         private _cfg = configFile >> "CfgVehicles" >> _x;
         private _name = toLowerANSI _x;
-        private _blockedTokens = ["spawner", "module", "logic", "dummy", "placeholder", "_root", "site_", "pook_sam"];
+        private _blockedTokens = ["spawner", "module", "logic", "dummy", "placeholder", "_root", "site_", "pook_sam", "pook_tos1a"];
         private _blocked = (_blockedTokens findIf {(_name find _x) >= 0}) >= 0;
         private _valid = isClass _cfg && {getNumber (_cfg >> "scope") >= 2} && {!_blocked};
         if (_valid && {_sideNumber >= 0}) then {
@@ -22,6 +22,10 @@ private _appendFiltered = {
     DRO2026_assetRegistry set [_role, _pool];
 };
 
+{
+    DRO2026_assetRegistry set [_x, []];
+} forEach ["PLAYER_ISR_UAV", "ENEMY_ISR_UAV", "PLAYER_ARTILLERY_MORTAR", "PLAYER_ARTILLERY_SPG", "PLAYER_ARTILLERY_MLRS", "PLAYER_CAS_AIR", "PLAYER_LOGISTICS"];
+
 private _enemyArtyRole = if (enemySide == west) then {"ARTILLERY_WEST"} else {"ARTILLERY_EAST"};
 private _enemyLogRole = if (enemySide == west) then {"LOGISTICS_WEST"} else {"LOGISTICS_EAST"};
 if (!isNil "eArtyClasses") then {[_enemyArtyRole, eArtyClasses, true, _enemySideNumber] call _appendFiltered};
@@ -31,6 +35,8 @@ if (!isNil "eCarNoTurretClasses") then {[_enemyLogRole, eCarNoTurretClasses, fal
 if (!isNil "eUAVClasses") then {["ENEMY_ISR_UAV", eUAVClasses, false, _enemySideNumber, true] call _appendFiltered};
 if (!isNil "pUAVClasses") then {["PLAYER_ISR_UAV", pUAVClasses, false, _playerSideNumber, true] call _appendFiltered};
 
+if (!isNil "pAmmoClasses") then {["PLAYER_LOGISTICS", pAmmoClasses, false, _playerSideNumber] call _appendFiltered};
+if (!isNil "pCarNoTurretClasses") then {["PLAYER_LOGISTICS", pCarNoTurretClasses, false, _playerSideNumber] call _appendFiltered};
 if (!isNil "pMortarClasses") then {["PLAYER_ARTILLERY_MORTAR", pMortarClasses, true, _playerSideNumber] call _appendFiltered};
 if (!isNil "pArtyClasses") then {
     private _spg = pArtyClasses select {
@@ -44,4 +50,21 @@ if (!isNil "pArtyClasses") then {
 if (!isNil "pPlaneClasses") then {["PLAYER_CAS_AIR", pPlaneClasses, false, _playerSideNumber, true] call _appendFiltered};
 if (!isNil "pHeliClasses") then {["PLAYER_CAS_AIR", pHeliClasses, false, _playerSideNumber, true] call _appendFiltered};
 
-[format ["Реестр техники обновлён: %1 ролей; player artillery=%2/%3/%4, CAS=%5", count DRO2026_assetRegistry, count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MORTAR", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_SPG", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MLRS", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_CAS_AIR", []])]] call DRO2026_fnc_log;
+// Explicit ISR classes requested for the modern scenario stay available when their
+// side is correct, even if an addon puts them under a generic utility faction.
+private _explicitPlayerISR = switch (playersSide) do {
+    case west: {["rksla3_uav_rq7shadow_01_blufor", "HE_MQ4A_Blufor", "B_UAV_02_dynamicLoadout_F"]};
+    case resistance: {["I_UAV_02_dynamicLoadout_F"]};
+    default {["RUS_VKS_forpostru", "O_UAV_02_dynamicLoadout_F"]};
+};
+["PLAYER_ISR_UAV", _explicitPlayerISR, false, _playerSideNumber, true] call _appendFiltered;
+private _explicitEnemyISR = switch (enemySide) do {
+    case east: {["RUS_VKS_forpostru", "O_UAV_02_dynamicLoadout_F"]};
+    case west: {["rksla3_uav_rq7shadow_01_blufor", "HE_MQ4A_Blufor", "B_UAV_02_dynamicLoadout_F"]};
+    case resistance: {["I_UAV_02_dynamicLoadout_F"]};
+    default {[]};
+};
+["ENEMY_ISR_UAV", _explicitEnemyISR, false, _enemySideNumber, true] call _appendFiltered;
+
+[format ["Реестр техники обновлён: %1 ролей; player artillery=%2/%3/%4, CAS=%5, ISR=%6, logistics=%7; enemy ISR=%8", count DRO2026_assetRegistry, count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MORTAR", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_SPG", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MLRS", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_CAS_AIR", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ISR_UAV", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_LOGISTICS", []]), count (DRO2026_assetRegistry getOrDefault ["ENEMY_ISR_UAV", []])]] call DRO2026_fnc_log;
+if (isServer) then {[] call DRO2026_fnc_publishSupportCatalog};

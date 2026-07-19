@@ -16,6 +16,9 @@ if !(_class in _allowedClasses) exitWith {
 if (!isClass (configFile >> "CfgVehicles" >> _class) || {!(_class isKindOf "Air")}) exitWith {
     [format ["Штаб: авиационный класс %1 недоступен.", _class], _requester] call DRO2026_fnc_supportMessage;
 };
+if (time < DRO2026_supportFireLockUntil || {DRO2026_activeHeavySupport >= DRO2026_MAX_CONCURRENT_HEAVY_SUPPORT}) exitWith {
+    [format ["Штаб: тяжёлый огневой канал занят. Ожидайте %1 сек.", ceil ((DRO2026_supportFireLockUntil - time) max 1)], _requester] call DRO2026_fnc_supportMessage;
+};
 
 private _airWindow = [_position, playersSide] call DRO2026_fnc_getAirWindow;
 private _windowState = _airWindow getOrDefault ["state", "CLOSED"];
@@ -40,7 +43,7 @@ private _isHostileTarget = {
 private _contacts = DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence", 0]) >= 0.72} &&
-    {(_x getOrDefault ["uncertaintyRadius", 9999]) <= 360} &&
+    {(_x getOrDefault ["uncertaintyRadius", 9999]) <= DRO2026_MAX_CONTACT_UNCERTAINTY_FOR_CAS} &&
     {(time - (_x getOrDefault ["lastSeen", 0])) < 180} &&
     {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} &&
     {(_x getOrDefault ["positionMean", _x getOrDefault ["position", [0,0,0]]]) distance2D _position < 750}
@@ -68,10 +71,13 @@ if (count _targets == 0) exitWith {
 };
 
 private _missionId = format ["AIR_%1_%2", floor diag_tickTime, floor random 1000000];
-["SUPPORT_REQUESTED", createHashMapFromArray [["missionId", _missionId], ["type", "AIR"], ["window", _windowState], ["quantity", _quantity]], _missionId] call DRO2026_fnc_emitEvent;
+["SUPPORT_REQUESTED", createHashMapFromArray [["missionId", _missionId], ["type", "AIR"], ["class", _class], ["window", _windowState], ["quantity", _quantity]], _missionId] call DRO2026_fnc_emitEvent;
 DRO2026_resources set ["friendlyAirSorties", (_sorties - _quantity) max 0];
+DRO2026_supportFireLockUntil = time + DRO2026_SUPPORT_HEAVY_FIRE_SPACING;
+DRO2026_activeHeavySupport = DRO2026_activeHeavySupport + 1;
 [_missionId, _class, _position, _targets, _quantity, _requester] spawn {
     params ["_missionId", "_class", "_position", "_targets", "_quantity", "_requester"];
+    private _missionAircraft = [];
     for "_index" from 0 to (_quantity - 1) do {
         private _axis = DRO2026_theaterLayout getOrDefault ["AXIS", DRO2026_theaterNodes getOrDefault ["AXIS", 90]];
         private _spawn = _position getPos [9000 + random 2500, (_axis + 180 + (-18 + random 36)) mod 360];
@@ -84,12 +90,14 @@ DRO2026_resources set ["friendlyAirSorties", (_sorties - _quantity) max 0];
             ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "ABORTED"], ["reason", "SPAWN_FAILED"]], _missionId] call DRO2026_fnc_emitEvent;
         } else {
             private _group = playersSide createVehicleCrew _aircraft;
-            if (isNull _group || {isNull driver _aircraft}) then {
+            if (isNull _group || {isNull (driver _aircraft)}) then {
                 deleteVehicleCrew _aircraft;
                 deleteVehicle _aircraft;
                 DRO2026_resources set ["friendlyAirSorties", (DRO2026_resources getOrDefault ["friendlyAirSorties", 0]) + 1];
                 ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "ABORTED"], ["reason", "NO_CREW"]], _missionId] call DRO2026_fnc_emitEvent;
             } else {
+                _missionAircraft pushBack _aircraft;
+                _aircraft setVariable ["DRO2026_airMissionId", _missionId, true];
                 [_group, false] call DRO2026_fnc_registerManagedGroup;
                 DRO2026_managedVehicles pushBackUnique _aircraft;
                 _group setBehaviourStrong "COMBAT";
@@ -117,22 +125,22 @@ DRO2026_resources set ["friendlyAirSorties", (_sorties - _quantity) max 0];
                             };
                         };
                         _aircraft reveal [_target, 4];
-                        if (!isNull driver _aircraft) then {
+                        if (!isNull (driver _aircraft)) then {
                             (driver _aircraft) doTarget _target;
-                            if (_aircraft distance2D _target < 2600 && {(time - _lastFireOrder) > 4}) then {
+                            if (_aircraft distance2D _target < 2600 && {(time - _lastFireOrder) > 6}) then {
                                 _lastFireOrder = time;
                                 _engagementIssued = true;
                                 (driver _aircraft) doFire _target;
                                 ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", "ATTACKING"], ["contactId", _contactId]], _missionId] call DRO2026_fnc_emitEvent;
                             };
                         };
-                        sleep 1;
+                        sleep 1.5;
                     };
                     private _state = if (_abortReason != "") then {"ABORTED"} else {if (_engagementIssued) then {"EGRESS"} else {"ABORTED"}};
                     ["AIR_MISSION_STATE_CHANGED", createHashMapFromArray [["missionId", _missionId], ["state", _state], ["reason", _abortReason]], _missionId] call DRO2026_fnc_emitEvent;
                     private _egress = _position getPos [9500, (_axis + 180) mod 360];
                     _egress set [2, if (_aircraft isKindOf "Helicopter") then {260} else {700}];
-                    if (!isNull driver _aircraft) then {(driver _aircraft) doMove _egress};
+                    if (!isNull (driver _aircraft)) then {(driver _aircraft) doMove _egress};
                     private _exitDeadline = time + 150;
                     waitUntil {sleep 2; !alive _aircraft || {_aircraft distance2D _position > 8000} || {time > _exitDeadline} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
                     if (alive _aircraft) then {deleteVehicleCrew _aircraft; deleteVehicle _aircraft};
@@ -140,11 +148,17 @@ DRO2026_resources set ["friendlyAirSorties", (_sorties - _quantity) max 0];
                 };
             };
         };
-        sleep (8 + random 8);
+        sleep (10 + random 10);
     };
+    private _releaseAt = time + 300;
+    waitUntil {
+        sleep 3;
+        ({!isNull _x && {alive _x}} count _missionAircraft) == 0 || {time > _releaseAt} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+    };
+    DRO2026_activeHeavySupport = (DRO2026_activeHeavySupport - 1) max 0;
 };
 [
     "ACK",
-    format ["Штаб: авиационная поддержка подтверждена. Окно %1, вылетов %2.", _windowState, _quantity],
+    format ["Штаб: авиационная поддержка подтверждена. Борт %1, окно %2, вылетов %3.", getText (configFile >> "CfgVehicles" >> _class >> "displayName"), _windowState, _quantity],
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;

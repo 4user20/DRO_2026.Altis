@@ -129,20 +129,21 @@ private _isBlockedSubcat = {
 	true
 };
 {
-	_cfgName = (configName _x);
-	_cfgVehName = configFile >> "CfgVehicles" >> _cfgName;
-	_thisFac = ((_cfgVeh >> _cfgName >> "faction") call BIS_fnc_GetCfgData);
-	if !(_thisFac isEqualType "") then {_thisFac = ""};
+	private _cfgName = configName _x;
+	private _cfgVehName = _cfgVeh >> _cfgName;
+	// getText always returns a string. BIS_fnc_GetCfgData may return nil; assigning nil
+	// deletes a local variable and caused the _thisFac/_isPlayerFaction RPT spam.
+	private _thisFac = getText (_cfgVehName >> "faction");
 	private _classBlocked = [_cfgName] call _isBlockedClass;
-	_isCivFaction = (!_classBlocked) && {toUpperANSI _thisFac == toUpperANSI civFaction};
-	_isPlayerFaction = (!_classBlocked) && {(toUpperANSI _thisFac) in _playerFactions};
-	_isEnemyFaction = (!_classBlocked) && {(toUpperANSI _thisFac) in _enemyFactions};	
-	if (_isPlayerFaction OR _isEnemyFaction OR _isCivFaction) then {				
-		if (_cfgName isKindOf 'Man') then {	
-			if (_isPlayerFaction) then {	
+	private _isCivFaction = (!_classBlocked) && {toUpperANSI _thisFac == toUpperANSI civFaction};
+	private _isPlayerFaction = (!_classBlocked) && {(toUpperANSI _thisFac) in _playerFactions};
+	private _isEnemyFaction = (!_classBlocked) && {(toUpperANSI _thisFac) in _enemyFactions};
+	if (_isPlayerFaction OR _isEnemyFaction OR _isCivFaction) then {
+		if (_cfgName isKindOf 'Man') then {
+			if (_isPlayerFaction) then {
 				if (count pGenericNames == 0) then {
 					pGenericNames = ((_cfgVehName >> "genericNames") call BIS_fnc_GetCfgData);
-					pIdentityTypes = ((_cfgVehName >> "identityTypes") call BIS_fnc_GetCfgData);					
+					pIdentityTypes = ((_cfgVehName >> "identityTypes") call BIS_fnc_GetCfgData);
 				};
 			} else {
 				if (_isEnemyFaction) then {
@@ -151,7 +152,7 @@ private _isBlockedSubcat = {
 						eIdentityTypes = ((_cfgVehName >> "identityTypes") call BIS_fnc_GetCfgData);
 					};
 				};
-			};	
+			};
 			if ((["officer", _cfgName, false] call BIS_fnc_inString) || (["commander", _cfgName, false] call BIS_fnc_inString)) then {
 				if (_isPlayerFaction) then {
 					pOfficerClasses pushBack _cfgName;
@@ -159,31 +160,31 @@ private _isBlockedSubcat = {
 				if (_isEnemyFaction) then {
 					eOfficerClasses pushBack _cfgName;
 				};
-			} else {					
-				if (						
+			} else {
+				if (
 					(["driver", _cfgName, false] call BIS_fnc_inString) ||
 					(["diver", _cfgName, false] call BIS_fnc_inString) ||
 					(["story", _cfgName, false] call BIS_fnc_inString) ||
 					(["competitor", _cfgName, false] call BIS_fnc_inString) ||
 					(["survivor", _cfgName, false] call BIS_fnc_inString) ||
 					(["unarmed", _cfgName, false] call BIS_fnc_inString) ||
-					(["protagonist", _cfgName, false] call BIS_fnc_inString) ||						
+					(["protagonist", _cfgName, false] call BIS_fnc_inString) ||
 					(["_vr_", _cfgName, false] call BIS_fnc_inString) ||
-					(["story", ((_cfgVehName >> "editorSubcategory") call BIS_fnc_GetCfgData), false] call BIS_fnc_inString)						
+					(["story", ((_cfgVehName >> "editorSubcategory") call BIS_fnc_GetCfgData), false] call BIS_fnc_inString)
 				) then {
-				
+
 				} else {
 					if (_isCivFaction) exitWith {
-						if ((count ((_cfgVehName >> "weapons") call BIS_fnc_GetCfgData)) <= 2) then {							
+						if ((count ((_cfgVehName >> "weapons") call BIS_fnc_GetCfgData)) <= 2) then {
 							civClasses pushBack _cfgName;
 						};
 					};
-					_pFactionIndex = if (_isPlayerFaction) then {							
-						(_playerFactions find (toUpperANSI ((_cfgVehName >> "faction") call BIS_fnc_GetCfgData)))
-					};
-					_eFactionIndex = if (_isEnemyFaction) then {
-						(_enemyFactions find (toUpperANSI ((_cfgVehName >> "faction") call BIS_fnc_GetCfgData)))
-					};					
+					private _pFactionIndex = if (_isPlayerFaction) then {
+						_playerFactions find (toUpperANSI _thisFac)
+					} else {-1};
+					private _eFactionIndex = if (_isEnemyFaction) then {
+						_enemyFactions find (toUpperANSI _thisFac)
+					} else {-1};
 					if ((count ((_cfgVehName >> "weapons") call BIS_fnc_GetCfgData) <= 2)) then {
 						if (_isPlayerFaction && {_pFactionIndex >= 0}) then {
 							_pInfClassesUnarmed pushBack _cfgName;
@@ -201,8 +202,8 @@ private _isBlockedSubcat = {
 						};
 						if (_isEnemyFaction) then {
 							eInfClasses pushBack _cfgName;
-						};							
-						_thisWeight = 0;							
+						};
+						_thisWeight = 0;
 						_thisRole = ((_cfgVehName >> "role") call BIS_fnc_GetCfgData);
 						switch (_thisRole) do {
 							case "Crewman": {_thisWeight = 0};
