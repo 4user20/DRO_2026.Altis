@@ -4,9 +4,19 @@ private _targetStocks = createHashMapFromArray [
     ["FUEL", 18], ["EW_BATTERIES", 10], ["AA_MISSILES", 10],
     ["RADAR_PARTS", 3], ["BATTERIES", 10], ["INFANTRY_REPLACEMENTS", 24], ["MEDICAL", 12]
 ];
+private _setActiveConvoyStatus = {
+    params ["_deliveryId", "_status"];
+    private _index = DRO2026_activeConvoys findIf {(_x getOrDefault ["id", ""]) == _deliveryId};
+    if (_index >= 0) then {
+        private _convoy = DRO2026_activeConvoys select _index;
+        _convoy set ["status", _status];
+        DRO2026_activeConvoys set [_index, _convoy];
+    };
+};
 
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _now = time;
+    private _humanPlayers = allPlayers select {alive _x && {!(_x isKindOf "VirtualMan_F")}};
     [] call DRO2026_fnc_syncNetworkState;
 
     // Remove old history only; active and recently completed deliveries remain inspectable.
@@ -35,7 +45,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _physicalState = _delivery getOrDefault ["physicalState", "VIRTUAL"];
             private _edgeId = _delivery getOrDefault ["edgeId", ""];
             private _edge = DRO2026_networkEdges getOrDefault [_edgeId, createHashMap];
-            private _detected = (allPlayers findIf {alive _x && {_x distance2D _current < 3400}}) >= 0;
+            private _detected = (_humanPlayers findIf {_x distance2D _current < 3400}) >= 0;
             private _knownByPlayer = (DRO2026_contacts findIf {
                 (_x getOrDefault ["owner", ""]) == "PLAYER" &&
                 {(_x getOrDefault ["classification", ""]) in ["КОЛОННА", "ЛОГИСТИКА", "ТЕХНИКА"]} &&
@@ -58,8 +68,13 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     if (!isNull _vehicle) then {
                         _vehicle setDir _direction;
                         private _crew = enemySide createVehicleCrew _vehicle;
-                        if (!isNull _crew && {!isNull driver _vehicle}) then {
-                            if (isNull _group) then {_group = _crew} else {(units _crew) joinSilent _group; if (count units _crew == 0) then {deleteGroup _crew}};
+                        if (!isNull _crew && {!isNull (driver _vehicle)}) then {
+                            if (isNull _group) then {
+                                _group = _crew;
+                            } else {
+                                (units _crew) joinSilent _group;
+                                if (count units _crew == 0) then {deleteGroup _crew};
+                            };
                             _vehicles pushBack _vehicle;
                             DRO2026_managedVehicles pushBackUnique _vehicle;
                             _vehicle forceFollowRoad true;
@@ -67,6 +82,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         } else {
                             deleteVehicleCrew _vehicle;
                             deleteVehicle _vehicle;
+                            if (!isNull _crew) then {deleteGroup _crew};
                         };
                     };
                 } forEach [_cargoClass, _escortClass];
@@ -95,6 +111,9 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     private _site = ["LOGISTICS_RUN", _spawn, _vehicles select 0, _vehicles, _extra] call DRO2026_fnc_createSiteRecord;
                     DRO2026_sites pushBack _site;
                     ["DELIVERY_MATERIALIZED", createHashMapFromArray [["deliveryId", _delivery get "id"], ["edgeId", _edgeId], ["position", _spawn]], _delivery get "id"] call DRO2026_fnc_emitEvent;
+                } else {
+                    {if (!isNull _x) then {deleteVehicleCrew _x; deleteVehicle _x}} forEach _vehicles;
+                    if (!isNull _group) then {deleteGroup _group};
                 };
             };
 
@@ -104,6 +123,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     _delivery set ["status", "INTERDICTED"];
                     _delivery set ["completedAt", _now];
                     _delivery set ["physicalState", "DESTROYED"];
+                    [_delivery get "id", "INTERDICTED"] call _setActiveConvoyStatus;
                     if (count _edge > 0) then {
                         _edge set ["risk", ((_edge getOrDefault ["risk", 0.12]) + 0.22) min 0.95];
                         _edge set ["interdictionPressure", (_edge getOrDefault ["interdictionPressure", 0]) + 1];
@@ -115,6 +135,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     if (_cargoVehicle distance2D _to < 120) then {
                         _delivery set ["status", "DELIVERED"];
                         _delivery set ["completedAt", _now];
+                        [_delivery get "id", "DELIVERED"] call _setActiveConvoyStatus;
                     };
                 };
             } else {
@@ -139,6 +160,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 };
                 ["DELIVERY_COMPLETED", createHashMapFromArray [["deliveryId", _delivery get "id"], ["toNode", _toNode], ["cargoType", _cargoType], ["amount", _amount]], _delivery get "id"] call DRO2026_fnc_emitEvent;
                 {if (!isNull _x) then {deleteVehicleCrew _x; deleteVehicle _x}} forEach (_delivery getOrDefault ["vehicles", []]);
+                private _deliveryGroup = _delivery getOrDefault ["group", grpNull];
+                if (!isNull _deliveryGroup) then {deleteGroup _deliveryGroup};
             };
         };
     } forEach DRO2026_supplyLanes;
