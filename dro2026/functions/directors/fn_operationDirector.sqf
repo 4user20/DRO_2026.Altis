@@ -56,7 +56,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         if (count _strategic > 0) then {_strategic = [_strategic, [], {-([_x] call _priority)}, "ASCEND"] call BIS_fnc_sortBy};
         if (count _tactical > 0) then {_tactical = [_tactical, [], {-([_x] call _priority)}, "ASCEND"] call BIS_fnc_sortBy};
         private _bestGeneral = if (count _contacts > 0) then {_contacts select 0} else {createHashMap};
-        private _bestStrategic = if (count _strategic > 0) then {_strategic select 0} else {_bestGeneral};
+        private _bestStrategic = if (count _strategic > 0) then {_strategic select 0} else {createHashMap};
         private _bestTactical = if (count _tactical > 0) then {_tactical select 0} else {_bestGeneral};
         private _candidates = [];
         private _addIntent = {
@@ -70,6 +70,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 private _targetPos = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
                 if (isNull _target || {count _targetPos < 2} || {(_node getOrDefault ["position", [0,0,0]]) distance2D _targetPos > 4800}) exitWith {};
             };
+            if (_action == "LONG_RANGE_ATTACK" && {(_contact getOrDefault ["subjectId", ""]) == ""}) exitWith {};
             if (_action == "ARTILLERY_FIRE" && {(_contact getOrDefault ["uncertaintyRadius", 9999]) > 520}) exitWith {};
             private _exposure = if ((_node getOrDefault ["knownByPlayer", "UNKNOWN"]) in ["CONFIRMED", "TRACKED"]) then {0.22} else {0.05};
             private _phaseWeight = switch _phase do {
