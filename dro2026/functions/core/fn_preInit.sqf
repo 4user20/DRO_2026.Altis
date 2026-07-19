@@ -42,6 +42,11 @@ DRO2026_FPV_MAX_TURN_RATE = 42;
 DRO2026_FPV_BASE_RESPONSE = 0.24;
 DRO2026_FPV_MIN_CHANNEL_QUALITY = 0.38;
 
+// External AI is optional and starts in shadow mode. Hard gameplay limits always win.
+DRO2026_AI_MODE = "OBSERVE"; // OFF | OBSERVE | HYBRID
+DRO2026_AI_TACTICAL_TIMEOUT = 18;
+DRO2026_AI_STRATEGIC_INTERVAL = 300;
+
 // Legacy objective scripts remain adapters, but runtime selection is state-driven.
 DRO2026_OPERATION_TYPES = [
     "LOGISTICS_HUB", "LOGISTICS_RUN", "ARTILLERY_HUNT", "EW_HUNT",
