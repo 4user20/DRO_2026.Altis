@@ -6,7 +6,7 @@ if (count _position < 2) exitWith {
     missionNamespace setVariable ["DRO2026_pendingSupport", [_mode, _quantity]];
     openMap true;
     hint "Штаб: укажите точку применения поддержки на карте. Закройте карту для отмены.";
-    onMapSingleClick "private _p = missionNamespace getVariable ['DRO2026_pendingSupport', []]; onMapSingleClick ''; openMap false; hintSilent ''; if (count _p >= 2) then {[_p select 0, _p select 1, _pos] call DRO2026_fnc_beginSupportTargeting}; missionNamespace setVariable ['DRO2026_pendingSupport', []]; true";
+    onMapSingleClick "private _p = missionNamespace getVariable ['DRO2026_pendingSupport', []]; missionNamespace setVariable ['DRO2026_pendingSupport', []]; onMapSingleClick ''; openMap false; hintSilent ''; if (count _p >= 2) then {[_p select 0, _p select 1, _pos] call DRO2026_fnc_beginSupportTargeting}; true";
     [] spawn {
         waitUntil {
             sleep 0.2;
