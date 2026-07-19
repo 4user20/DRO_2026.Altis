@@ -15,6 +15,15 @@ class CfgFunctions
             class sanitizeLegacyPools {};
             class findStrategicPosition {};
             class buildTheaterGraph {};
+            class buildCapabilityNetwork {};
+            class createNetworkNode {};
+            class createNetworkEdge {};
+            class changeNetworkNodeStock {};
+            class syncNetworkState {};
+            class emitEvent {};
+            class readEvents {};
+            class evaluateOperationPhase {};
+            class selectObjectiveOpportunity {};
             class getTheaterNode {};
             class createRouteMarkers {};
             class createDroneTeam {};
@@ -38,6 +47,7 @@ class CfgFunctions
         {
             file = "dro2026\functions\directors";
             class startDirectors {};
+            class operationDirector {};
             class performanceGovernor {};
             class addContact {};
             class sensorDirector {};
