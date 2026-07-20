@@ -27,7 +27,7 @@ private _networkNodeId = switch true do {
 };
 private _components = _extra getOrDefault ["components", createHashMapFromArray [["crew",[]],["guards",[]],["launchers",[]],["antennas",[]],["terminals",[]],["generators",[]],["stocks",[]],["transports",[]],["camouflage",[]],["staticProps",[]]]];
 private _record = createHashMapFromArray [
-    ["schema",4],["id",format ["SITE_%1_%2_%3",_type,floor diag_tickTime,floor random 1000000]],
+    ["schema",3],["id",format ["SITE_%1_%2_%3",_type,floor diag_tickTime,floor random 1000000]],
     ["side",_extra getOrDefault ["side",if (_friendly) then {playersSide} else {enemySide}]],
     ["type",_type],["state","ACTIVE"],["status","ACTIVE"],["position",+_positionATL],["positionATL",+_positionATL],["positionASL",+_positionASL],
     ["locationId",_extra getOrDefault ["locationId",""]],["roadAnchorNetId",_extra getOrDefault ["roadAnchorNetId",""]],
