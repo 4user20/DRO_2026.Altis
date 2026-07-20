@@ -40,16 +40,15 @@ private _best = createHashMapFromArray [
                     _roads = [_roads,[],{_sample distance2D _x},"ASCEND"] call BIS_fnc_sortBy;
                     _road = _roads select 0;
                 };
-                private _roadRequiredNow = _requireRoad || {_roadPreferred};
-                if (!_roadRequiredNow || {!isNull _road}) then {
+                if (!_requireRoad || {!isNull _road}) then {
                     private _positionATL = +_sample;
                     private _heading = _bearing;
                     private _distanceToRoad = -1;
                     if (!isNull _road) then {
                         _distanceToRoad = _positionATL distance2D _road;
-                        private _connected = roadsConnectedTo _road;
+                        private _connected = roadsConnectedTo [_road,false];
                         if (count _connected > 0) then {_heading = _road getDir (_connected select 0)};
-                        if (_roadRequiredNow && {_distanceToRoad > 180}) then {
+                        if ((_requireRoad || {_roadPreferred}) && {_distanceToRoad > 180}) then {
                             _positionATL = getPosATL _road;
                             private _sideRoll = [1,format ["%1_%2_SIDE",_stream,_candidateId],0] call DRO2026_fnc_seededRandom;
                             private _sideBearing = if (_sideRoll < 0.5) then {_heading + 90} else {_heading + 270};
@@ -64,10 +63,10 @@ private _best = createHashMapFromArray [
                     private _observerDistance = if (count _observers == 0) then {1e9} else {selectMin (_observers apply {_positionATL distance2D _x})};
                     private _reservedDistance = if (count DRO2026_reservedObjectivePositions == 0) then {1e9} else {selectMin (DRO2026_reservedObjectivePositions apply {_positionATL distance2D _x})};
                     if (_observerDistance >= _minObserverDistance && {_reservedDistance >= _reservationRadius}) then {
-                        private _roadBonus = if (isNull _road) then {0} else {600 - ((_distanceToRoad max 0) min 600)};
+                        private _roadBonus = if (isNull _road) then {if (_roadPreferred) then {-700} else {0}} else {600 - ((_distanceToRoad max 0) min 600)};
                         private _score = _baseWeight * 20 + (_observerDistance min 7000) * 0.35 + (_reservedDistance min 4000) * 0.25 + _roadBonus - _slopePenalty;
                         if (_score > (_best getOrDefault ["score",-1e12])) then {
-                            private _positionASL = [_positionATL select 0,_positionATL select 1,getTerrainHeightASL _positionATL];
+                            private _positionASL = ATLToASL _positionATL;
                             _best = createHashMapFromArray [
                                 ["ok",true],["code","OK"],["positionATL",_positionATL],["positionASL",_positionASL],
                                 ["road",_road],["roadFound",!isNull _road],["heading",_heading],
