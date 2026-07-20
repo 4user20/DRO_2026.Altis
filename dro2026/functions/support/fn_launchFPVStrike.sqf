@@ -1,18 +1,25 @@
 params [
     "_origin", "_contact", ["_side", east], ["_operator", objNull],
-    ["_allowPlayerControl", false], ["_supportOwner", objNull], ["_requestedClass", ""]
+    ["_allowPlayerControl", false], ["_supportOwner", objNull], ["_requestedClass", ""],
+    ["_reservationNodeId", ""]
 ];
-private _refundFriendly = {
+private _refundReservation = {
     if (_side == playersSide) then {
         DRO2026_resources set ["friendlyFPVStock", (DRO2026_resources getOrDefault ["friendlyFPVStock", 0]) + 1];
+    } else {
+        if (_reservationNodeId != "") then {
+            [_reservationNodeId, "FPV_KITS", 1, "FPV_LAUNCH_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
+            [_reservationNodeId, "BATTERIES", 1, "FPV_LAUNCH_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
+            DRO2026_resources set ["enemyDroneStock", (DRO2026_resources getOrDefault ["enemyDroneStock", 0]) + 1];
+        };
     };
 };
-if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundFriendly; objNull};
-if (!isNull _operator && {!alive _operator}) exitWith {call _refundFriendly; objNull};
+if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundReservation; objNull};
+if (!isNull _operator && {!alive _operator}) exitWith {call _refundReservation; objNull};
 private _target = _contact getOrDefault ["target", objNull];
 private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
-if (count _targetPosition < 2) exitWith {call _refundFriendly; objNull};
-if (!isNull _target && {!alive _target}) exitWith {call _refundFriendly; objNull};
+if (count _targetPosition < 2) exitWith {call _refundReservation; objNull};
+if (!isNull _target && {!alive _target}) exitWith {call _refundReservation; objNull};
 
 private _role = switch (_side) do {
     case west: {"FPV_WEST"};
@@ -33,7 +40,7 @@ private _pool = (DRO2026_assetRegistry getOrDefault [_role, []]) select {
 };
 if (_requestedClass != "" && {!(_requestedClass in _pool)}) exitWith {
     [format ["FPV exact class %1 отсутствует в side-correct registry", _requestedClass]] call DRO2026_fnc_log;
-    call _refundFriendly;
+    call _refundReservation;
     objNull
 };
 private _isArmored = !isNull _target && {
@@ -60,7 +67,7 @@ private _droneClass = if (_requestedClass != "") then {
 private _droneCfg = configFile >> "CfgVehicles" >> _droneClass;
 if (!isClass _droneCfg || {!(_droneClass isKindOf "Air")} || {_sideNumber >= 0 && {getNumber (_droneCfg >> "side") != _sideNumber}}) exitWith {
     [format ["FPV launch cancelled: invalid or cross-side class %1", _droneClass]] call DRO2026_fnc_log;
-    call _refundFriendly;
+    call _refundReservation;
     objNull
 };
 private _usingNativeFPV = _droneClass != _fallback;
@@ -69,16 +76,14 @@ private _direction = _origin getDir _targetPosition;
 private _spawnPosition = _origin getPos [25 + random 20, _direction];
 _spawnPosition set [2, 18 + random 8];
 private _drone = createVehicle [_droneClass, _spawnPosition, [], 0, "FLY"];
-if (isNull _drone) exitWith {call _refundFriendly; objNull};
-// FLY does not guarantee altitude for an empty airframe. Position is explicit;
-// orientation is controlled only through setVectorDirAndUp in the guidance loop.
+if (isNull _drone) exitWith {call _refundReservation; objNull};
 _drone setPosATL _spawnPosition;
 private _crewGroup = _side createVehicleCrew _drone;
 if (isNull _crewGroup || {isNull (driver _drone)}) exitWith {
     deleteVehicleCrew _drone;
     deleteVehicle _drone;
     if (!isNull _crewGroup) then {deleteGroup _crewGroup};
-    call _refundFriendly;
+    call _refundReservation;
     objNull
 };
 private _driver = driver _drone;
