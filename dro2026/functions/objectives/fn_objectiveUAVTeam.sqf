@@ -34,7 +34,8 @@ private _objectiveCritical = [_operator, _antenna, _cache] select {!isNull _x};
 private _extra = createHashMapFromArray [["operator", _operator], ["group", _teamGroup], ["team", _team], ["background", false]];
 private _site = ["FPV_TEAM", _pos, _operator, _siteObjects, _extra] call DRO2026_fnc_createSiteRecord;
 if !([_site, true] call DRO2026_fnc_validateSiteRecord) exitWith {
-    {if (!isNull _x) then {if !(_x isKindOf "Man") then {deleteVehicleCrew _x}; deleteVehicle _x}} forEach _siteObjects;
+    if (!isNull _parked) then {deleteVehicleCrew _parked};
+    {if (!isNull _x) then {deleteVehicle _x}} forEach _siteObjects;
     if (!isNull _teamGroup) then {
         {if (!isNull _x) then {deleteVehicle _x}} forEach units _teamGroup;
         deleteGroup _teamGroup;
