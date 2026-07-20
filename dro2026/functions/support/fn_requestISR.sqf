@@ -56,7 +56,7 @@ private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
 DRO2026_resources set ["friendlyISRStock", ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) - 1) max 0];
 DRO2026_lastISRRequest = time;
-[_position, _origin, _operator, _requestedType] spawn DRO2026_fnc_launchISR;
+[_position, _origin, _operator, _requestedType, _site] spawn DRO2026_fnc_launchISR;
 private _profileLabel = if (_exactClass != "") then {_exactClass} else {_requestedType};
 [
     "ACK",
