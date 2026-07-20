@@ -1,5 +1,7 @@
-params [["_allowRepeat", false]];
-if (!isServer) exitWith {"ISR_RECON"};
+params [["_allowRepeat", false], ["_excludedTypes", []]];
+if (!isServer) exitWith {""};
+missionNamespace setVariable ["DRO2026_selectedOpportunity", createHashMap];
+DRO2026_operationState set ["activeOpportunities", []];
 [] call DRO2026_fnc_evaluateOperationPhase;
 private _phase = DRO2026_operationState getOrDefault ["phase", "RECON"];
 private _candidates = [];
@@ -11,16 +13,18 @@ private _knownNode = {
     (DRO2026_contacts findIf {
         (_x getOrDefault ["owner", ""]) == "PLAYER" &&
         {(_x getOrDefault ["subjectId", ""]) == _nodeId} &&
-        {(_x getOrDefault ["confidence", 0]) >= 0.42}
+        {(_x getOrDefault ["confidence", 0]) >= 0.42} &&
+        {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])}
     }) >= 0
 };
 private _add = {
     params ["_type", "_nodeId", "_base", ["_reason", ""]];
+    if (_type in _excludedTypes) exitWith {};
     if (!_allowRepeat && {_type in DRO2026_usedObjectiveTypes}) exitWith {};
     if (_nodeId != "" && {!_allowRepeat} && {_nodeId in DRO2026_usedObjectiveNodes}) exitWith {};
     private _node = if (_nodeId == "") then {createHashMap} else {DRO2026_networkNodes getOrDefault [_nodeId, createHashMap]};
     private _status = _node getOrDefault ["status", "ACTIVE"];
-    if (_nodeId != "" && {(count _node == 0) || {_status in ["DESTROYED", "DISABLED"]}}) exitWith {};
+    if (_nodeId != "" && {(count _node == 0) || {_status in ["DESTROYED", "DISABLED", "CANCELLED"]}}) exitWith {};
     private _score = _base;
     if (_nodeId != "" && {[_nodeId] call _knownNode}) then {_score = _score + 0.28};
     switch _phase do {
@@ -35,13 +39,11 @@ private _add = {
     ];
 };
 
-// ISR is never a free-floating empty area. It exposes one concrete, still unknown
-// strategic node and can only occur once while repeats are disabled.
 private _reconPriority = ["NODE_DRONE_REAR_01", "NODE_ARTILLERY_01", "NODE_LOGISTICS_01", "NODE_EW_01", "NODE_AA_LONG_01", "NODE_FPV_FORWARD_01", "NODE_ENEMY_HQ"];
 private _unknownNodes = _reconPriority select {
     private _node = DRO2026_networkNodes getOrDefault [_x, createHashMap];
     count _node > 0 &&
-    {!((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"])} &&
+    {!((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"])} &&
     {!([_x] call _knownNode)} &&
     {!(_x in DRO2026_usedObjectiveNodes)}
 };
@@ -68,30 +70,44 @@ if (count _openEdges > 0) then {
 };
 
 if (count _candidates == 0) then {
-    // Exhausted operation: allow a single repeat, but prefer a physical target over
-    // another generic observation sector.
-    private _fallbackOrder = [
+    private _physicalFallbacks = [
         ["DRONE_SITE", "NODE_DRONE_REAR_01"], ["ARTILLERY_HUNT", "NODE_ARTILLERY_01"],
         ["LOGISTICS_HUB", "NODE_LOGISTICS_01"], ["UAV_TEAM", "NODE_FPV_FORWARD_01"],
-        ["EW_HUNT", "NODE_EW_01"], ["AIR_DEFENCE", "NODE_AA_LONG_01"]
+        ["EW_HUNT", "NODE_EW_01"], ["AIR_DEFENCE", "NODE_AA_LONG_01"],
+        ["CUT_REAR", "NODE_ENEMY_HQ"]
     ];
     {
         _x params ["_type", "_nodeId"];
         private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-        if (count _candidates == 0 && {count _node > 0} && {!((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"])}) then {
-            _candidates pushBack createHashMapFromArray [["type", _type], ["nodeId", _nodeId], ["score", 0.25], ["reason", "fallback physical objective"], ["phase", _phase]];
+        if (
+            count _candidates == 0 &&
+            {!(_type in _excludedTypes)} &&
+            {count _node > 0} &&
+            {!((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"])}
+        ) then {
+            _candidates pushBack createHashMapFromArray [
+                ["type", _type], ["nodeId", _nodeId], ["score", 0.25],
+                ["reason", "deterministic active-node fallback"], ["phase", _phase], ["createdAt", time]
+            ];
         };
-    } forEach _fallbackOrder;
+    } forEach _physicalFallbacks;
 };
+
+if (count _candidates == 0) then {
+    private _genericFallbacks = ["LOGISTICS_RUN", "LOGISTICS_HUB", "UAV_TEAM", "CUT_REAR"];
+    {
+        if (count _candidates == 0 && {!(_x in _excludedTypes)}) then {
+            _candidates pushBack createHashMapFromArray [
+                ["type", _x], ["nodeId", ""], ["score", 0.12],
+                ["reason", "deterministic vanilla materialization fallback"], ["phase", _phase], ["createdAt", time]
+            ];
+        };
+    } forEach _genericFallbacks;
+};
+
 if (count _candidates == 0) exitWith {
-    private _fallback = createHashMapFromArray [
-        ["type", "CUT_REAR"], ["nodeId", "NODE_ENEMY_HQ"], ["score", 0.10],
-        ["reason", "last-resort command objective"], ["phase", _phase], ["createdAt", time]
-    ];
-    DRO2026_operationState set ["activeOpportunities", [_fallback]];
-    missionNamespace setVariable ["DRO2026_selectedOpportunity", _fallback];
-    ["OPPORTUNITY_SELECTED", createHashMapFromArray [["type", "CUT_REAR"], ["nodeId", "NODE_ENEMY_HQ"], ["score", 0.10], ["phase", _phase]], "OPERATION"] call DRO2026_fnc_emitEvent;
-    "CUT_REAR"
+    ["NO_OBJECTIVE_OPPORTUNITY", createHashMapFromArray [["phase", _phase], ["excludedTypes", +_excludedTypes]], "OPERATION"] call DRO2026_fnc_emitEvent;
+    ""
 };
 
 _candidates = [_candidates, [], {-(_x getOrDefault ["score", 0])}, "ASCEND"] call BIS_fnc_sortBy;
@@ -101,4 +117,4 @@ private _selected = [_top, _weights] call BIS_fnc_selectRandomWeighted;
 DRO2026_operationState set ["activeOpportunities", _top];
 missionNamespace setVariable ["DRO2026_selectedOpportunity", _selected];
 ["OPPORTUNITY_SELECTED", createHashMapFromArray [["type", _selected get "type"], ["nodeId", _selected get "nodeId"], ["score", _selected get "score"], ["phase", _phase]], "OPERATION"] call DRO2026_fnc_emitEvent;
-_selected getOrDefault ["type", "CUT_REAR"]
+_selected getOrDefault ["type", ""]
