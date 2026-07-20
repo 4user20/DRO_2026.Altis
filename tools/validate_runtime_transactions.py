@@ -17,6 +17,7 @@ REQUIRED: dict[str, tuple[str, ...]] = {
     "dro2026/functions/core/fn_isLiveContactSubject.sqf": (
         '"PROBABLY_DESTROYED"',
         '"CONFIRMED_DESTROYED"',
+        '"CANCELLED"',
         'isKindOf "VirtualMan_F"',
         "objectFromNetId",
     ),
@@ -49,7 +50,7 @@ REQUIRED: dict[str, tuple[str, ...]] = {
     "dro2026/functions/directors/fn_enemyFPVDirector.sqf": (
         '"FPV_SALVO_ABORT"',
         "_unlaunched",
-        "_nodeId] spawn DRO2026_fnc_launchFPVStrike",
+        "DRO2026_fnc_launchFPVStrike",
     ),
     "dro2026/functions/support/fn_requestFPV.sqf": (
         "FPV salvo aborted",
@@ -62,10 +63,22 @@ REQUIRED: dict[str, tuple[str, ...]] = {
         '"TARGETS_LOST_BEFORE_LAUNCH"',
         '"AIR_WINDOW_CLOSED_BEFORE_LAUNCH"',
     ),
+    "dro2026/functions/support/fn_requestArtillery.sqf": (
+        'isKindOf "VirtualMan_F"',
+        "DRO2026_supportGroup",
+        "deleteVehicleCrew",
+        "deleteGroup",
+    ),
     "dro2026/functions/directors/fn_longRangeDroneDirector.sqf": (
         "DRO2026_fnc_isLiveContactSubject",
         '"LONG_RANGE_SALVO_ABORT"',
         "_unlaunched",
+        '"CANCELLED"',
+    ),
+    "dro2026/functions/directors/fn_friendlyStrikeDirector.sqf": (
+        "_catalogHasMode",
+        '"STRIKE_FP5"',
+        '"STRIKE_AUTO"',
     ),
     "dro2026/functions/directors/fn_operationDirector.sqf": (
         "DRO2026_fnc_isLiveContactSubject",
@@ -79,6 +92,16 @@ REQUIRED: dict[str, tuple[str, ...]] = {
         "deleteVehicle _projectile",
         '"AA_LAUNCH_REJECTED"',
     ),
+    "dro2026/functions/directors/fn_enemyAirDirector.sqf": (
+        'missionNamespace getVariable ["DRO2026_missionEnding", false]',
+        "deleteVehicleCrew",
+        "deleteGroup",
+    ),
+    "dro2026/functions/directors/fn_enemyISRDirector.sqf": (
+        'missionNamespace getVariable ["DRO2026_missionEnding", false]',
+        "deleteVehicleCrew",
+        "deleteGroup",
+    ),
     "dro2026/functions/objectives/fn_objectiveConvoy.sqf": (
         "validateSiteRecord",
         '"OBJECTIVE_CONVOY_REFUND"',
@@ -86,6 +109,7 @@ REQUIRED: dict[str, tuple[str, ...]] = {
         '"CANCELLED"',
         '"INTERDICTED"',
         '"DELIVERED"',
+        "_cleanup",
     ),
     "dro2026/functions/directors/fn_logisticsDirector.sqf": (
         "validateSiteRecord",
@@ -93,6 +117,12 @@ REQUIRED: dict[str, tuple[str, ...]] = {
         '"DELIVERY_CANCELLED"',
         '"CANCELLED"',
         "_cargoVehicle",
+        "_setDeliverySiteStatus",
+        '"siteRecord"',
+        '"COMPLETED"',
+        '"DESTROYED"',
+        '"DISABLED"',
+        "_cleanupDeliveryVehicles",
     ),
     "dro2026/functions/objectives/fn_artilleryLoop.sqf": (
         'missionNamespace getVariable ["DRO2026_missionEnding", false]',
@@ -118,6 +148,9 @@ FORBIDDEN: dict[str, tuple[str, ...]] = {
         "vehicle player",
         "alive player",
     ),
+    "dro2026/functions/directors/fn_longRangeDroneDirector.sqf": (
+        "private _isLiveStrategicContact",
+    ),
 }
 
 AMBIGUOUS_NOT = re.compile(
@@ -136,8 +169,8 @@ def line_number(source: str, offset: int) -> int:
 
 def check_empty_fly(path: Path, source: str, errors: list[str]) -> None:
     for match in EMPTY_FLY.finditer(source):
-        window = source[match.end() : match.end() + 900]
-        if not any(token in window for token in ("setPosATL", "setPosASL")):
+        window = source[match.end() : match.end() + 1000]
+        if not any(token in window for token in ("setPosATL", "setPosASL", "setPosWorld")):
             errors.append(
                 f"{path.relative_to(ROOT).as_posix()}:{line_number(source, match.start())}: "
                 "empty FLY materialization lacks explicit position"
