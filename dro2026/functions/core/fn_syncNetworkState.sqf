@@ -18,13 +18,18 @@ private _siteNodeId = {
             if ((_position distance2D (_long getOrDefault ["position", _position])) <= (_position distance2D (_short getOrDefault ["position", _position]))) then {"NODE_AA_LONG_01"} else {"NODE_AA_SHORAD_01"}
         };
         case "ENEMY_LAYERED_AA": {"NODE_AA_LONG_01"};
+        case "REAR_LINK": {"NODE_ENEMY_HQ"};
         default {""};
     }
 };
 
+private _terminalSiteStatuses = ["DESTROYED", "DISABLED", "CANCELLED", "COMPLETED"];
 private _nodeRefs = createHashMap;
-private _nodeHasLive = createHashMap;
 private _nodeSeen = createHashMap;
+private _nodeHasActive = createHashMap;
+private _nodeHasDegraded = createHashMap;
+private _nodeHasDisabled = createHashMap;
+private _nodeHasDestroyed = createHashMap;
 
 {
     private _site = _x;
@@ -46,13 +51,26 @@ private _nodeSeen = createHashMap;
     _refs = _refs select {!isNull _x};
     private _liveRefs = _refs select {alive _x};
     private _oldStatus = _site getOrDefault ["status", "ACTIVE"];
-    private _newStatus = if (count _refs == 0) then {
-        if (_site getOrDefault ["virtual", false]) then {"ACTIVE"} else {"UNKNOWN"}
-    } else {
-        if (count _liveRefs == 0) then {"DESTROYED"} else {if (count _liveRefs < count _refs) then {"DEGRADED"} else {"ACTIVE"}}
+    private _terminal = _oldStatus in _terminalSiteStatuses;
+    private _newStatus = _oldStatus;
+
+    if (!_terminal) then {
+        _newStatus = if (count _refs == 0) then {
+            if (_site getOrDefault ["virtual", false]) then {"ACTIVE"} else {"UNKNOWN"}
+        } else {
+            if (count _liveRefs == 0) then {"DESTROYED"} else {if (count _liveRefs < count _refs) then {"DEGRADED"} else {"ACTIVE"}}
+        };
     };
+
     _site set ["status", _newStatus];
-    _site set ["physicalState", if (count _liveRefs > 0) then {"ACTIVE"} else {if (_newStatus == "DESTROYED") then {"DESTROYED"} else {"VIRTUAL"}}];
+    private _physicalState = switch _newStatus do {
+        case "DESTROYED": {"DESTROYED"};
+        case "DISABLED": {"DISABLED"};
+        case "CANCELLED": {"DISABLED"};
+        case "COMPLETED": {"COMPLETED"};
+        default {if (count _liveRefs > 0) then {"ACTIVE"} else {"VIRTUAL"}};
+    };
+    _site set ["physicalState", _physicalState];
     _site set ["lastUpdatedAt", time];
     if (_newStatus == "DESTROYED" && {_oldStatus != "DESTROYED"}) then {
         _site set ["destroyedAt", time];
@@ -69,12 +87,25 @@ private _nodeSeen = createHashMap;
     if (_nodeId != "") then {
         {_x setVariable ["DRO2026_networkNodeId", _nodeId, true]} forEach _refs;
     };
+
     if (!_transient && {_nodeId != ""} && {!isNil {DRO2026_networkNodes get _nodeId}}) then {
         _nodeSeen set [_nodeId, true];
-        private _acc = _nodeRefs getOrDefault [_nodeId, []];
-        {_acc pushBackUnique _x} forEach _liveRefs;
-        _nodeRefs set [_nodeId, _acc];
-        if (count _liveRefs > 0) then {_nodeHasLive set [_nodeId, true]};
+        switch _newStatus do {
+            case "ACTIVE": {
+                _nodeHasActive set [_nodeId, true];
+                private _acc = _nodeRefs getOrDefault [_nodeId, []];
+                {_acc pushBackUnique _x} forEach _liveRefs;
+                _nodeRefs set [_nodeId, _acc];
+            };
+            case "DEGRADED": {
+                _nodeHasDegraded set [_nodeId, true];
+                private _acc = _nodeRefs getOrDefault [_nodeId, []];
+                {_acc pushBackUnique _x} forEach _liveRefs;
+                _nodeRefs set [_nodeId, _acc];
+            };
+            case "DESTROYED": {_nodeHasDestroyed set [_nodeId, true]};
+            default {_nodeHasDisabled set [_nodeId, true]};
+        };
     };
 } forEach DRO2026_sites;
 
@@ -84,14 +115,26 @@ private _nodeSeen = createHashMap;
     if (_nodeSeen getOrDefault [_nodeId, false]) then {
         private _refs = _nodeRefs getOrDefault [_nodeId, []];
         private _oldStatus = _node getOrDefault ["status", "ACTIVE"];
-        private _newStatus = if (_nodeHasLive getOrDefault [_nodeId, false]) then {if (count _refs > 0) then {"ACTIVE"} else {"DEGRADED"}} else {"DESTROYED"};
+        private _newStatus = if (_nodeHasActive getOrDefault [_nodeId, false]) then {
+            "ACTIVE"
+        } else {
+            if (_nodeHasDegraded getOrDefault [_nodeId, false]) then {
+                "DEGRADED"
+            } else {
+                if (_nodeHasDisabled getOrDefault [_nodeId, false]) then {"DISABLED"} else {"DESTROYED"}
+            }
+        };
         _node set ["physicalRefs", _refs];
-        _node set ["physicalState", if (_newStatus == "ACTIVE") then {"ACTIVE"} else {if (_newStatus == "DEGRADED") then {"ACTIVE"} else {"DESTROYED"}}];
+        _node set ["physicalState", switch _newStatus do {case "ACTIVE": {"ACTIVE"}; case "DEGRADED": {"ACTIVE"}; case "DESTROYED": {"DESTROYED"}; default {"DISABLED"}}];
         _node set ["status", _newStatus];
         _node set ["lastUpdatedAt", time];
         if (_newStatus == "DESTROYED" && {_oldStatus != "DESTROYED"}) then {
             _node set ["destroyedAt", time];
             ["NETWORK_NODE_DESTROYED", createHashMapFromArray [["nodeId", _nodeId], ["nodeType", _node getOrDefault ["type", "UNKNOWN"]]], _nodeId] call DRO2026_fnc_emitEvent;
+        };
+        if (_newStatus == "DISABLED" && {!(_oldStatus in ["DISABLED", "DESTROYED"])}) then {
+            _node set ["disabledAt", time];
+            ["NETWORK_NODE_DISABLED", createHashMapFromArray [["nodeId", _nodeId], ["nodeType", _node getOrDefault ["type", "UNKNOWN"]]], _nodeId] call DRO2026_fnc_emitEvent;
         };
         DRO2026_networkNodes set [_nodeId, _node];
     };
