@@ -7,24 +7,23 @@ createMarker [_marker, _pos]; _marker setMarkerShape "ELLIPSE"; _marker setMarke
 private _team = [_pos, enemySide, "STRATEGIC_DRONE_SITE"] call DRO2026_fnc_createDroneTeam;
 private _operator = _team getOrDefault ["operator", objNull];
 private _antenna = _team getOrDefault ["antenna", objNull];
-private _controlRole = if (enemySide == west) then {"EW_WEST"} else {"EW_EAST"};
-private _controlFallback = if (enemySide == west) then {"B_Truck_01_box_F"} else {"O_Truck_03_device_F"};
-private _control = createVehicle [[_controlRole, _controlFallback] call DRO2026_fnc_getRoleClass, _pos getPos [28, 110], [], 0, "NONE"];
+if (isNull _operator) exitWith {deleteMarker _marker; [_AOIndex] call DRO2026_fnc_objectiveUAVTeam};
+private _suffix = [enemySide] call DRO2026_fnc_getSideSuffix;
+private _controlFallback = switch (enemySide) do {case west: {"B_Truck_01_box_F"}; case resistance: {"I_Truck_02_box_F"}; default {"O_Truck_03_device_F"}};
+private _controlClass = [format ["EW_%1", _suffix], _controlFallback, enemySide] call DRO2026_fnc_getSideRoleClass;
+private _control = if (_controlClass == "") then {objNull} else {createVehicle [_controlClass, _pos getPos [28, 110], [], 0, "NONE"]};
 private _stock = createVehicle ["Land_Cargo20_military_green_F", _pos getPos [26, 245], [], 0, "NONE"];
 private _generator = createVehicle ["Land_PortableGenerator_01_F", _pos getPos [18, 310], [], 0, "CAN_COLLIDE"];
 private _critical = [_operator, _antenna, _control, _stock, _generator] select {!isNull _x};
-if (!isNull _control && {_control isKindOf "AllVehicles"}) then {DRO2026_managedVehicles pushBackUnique _control};
+if (!isNull _control) then {DRO2026_managedVehicles pushBackUnique _control};
 [_pos, 3, 5, 120] call DRO2026_fnc_spawnGuard;
-private _site = createHashMapFromArray [["type", "STRATEGIC_DRONE_SITE"], ["position", _pos], ["object", _control], ["operator", _operator], ["team", _team], ["objects", _critical]];
+private _siteObject = if (!isNull _control) then {_control} else {_operator};
+private _site = createHashMapFromArray [["type", "STRATEGIC_DRONE_SITE"], ["position", _pos], ["object", _siteObject], ["operator", _operator], ["team", _team], ["objects", _critical]];
 DRO2026_sites pushBack _site;
 private _title = "Вывести из строя тыловую площадку БПЛА";
-private _desc = "На конкретной площадке находятся операторская группа, антенна, машина управления, генератор и запас аппаратов. Сама площадка не создаёт огромный набор модовых пусковых установок: доступные FPV, FP-1/FP-2, BM-35, Shahed/Geran и другие аппараты запускаются директором только при наличии живого оператора и подтверждённой цели. Уничтожьте оператора и не менее двух элементов инфраструктуры.";
+private _desc = "На конкретной площадке находятся операторская группа, антенна, машина управления, генератор и запас аппаратов. Доступные ударные аппараты запускаются директором только при наличии живого оператора и подтверждённой цели. Уничтожьте оператора и не менее двух элементов инфраструктуры.";
 private _meta = createHashMapFromArray [["type", "DRONE_SITE"], ["critical", _critical], ["operator", _operator]];
 [_taskName, _desc, _title, _marker, "destroy", _pos, 0.9, [], _meta] call DRO2026_fnc_createObjectiveRecord;
-[_taskName, _critical, _operator] spawn {
-    params ["_task", "_critical", "_operator"];
-    waitUntil {sleep 3; !alive _operator && {({alive _x} count _critical) <= 2}};
-    [_task, "TARGET_DESTROYED", [["enemyDroneStock", -24], ["enemyLongRangeStock", -5], ["enemySupply", -8]]] call DRO2026_fnc_completeObjective;
-};
-[] spawn {waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1}; sleep 8; ["NEW_TASK", "Штаб: Найдите и выведите из строя тыловую площадку беспилотников."] call DRO2026_fnc_hqVoice};
+[_taskName, _critical, _operator] spawn {params ["_task", "_critical", "_operator"]; waitUntil {sleep 3; (!alive _operator && {({!isNull _x && {alive _x}} count _critical) <= 2}) || {missionNamespace getVariable ["DRO2026_missionEnding", false]}}; if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {[_task, "TARGET_DESTROYED", [["enemyDroneStock", -24], ["enemyLongRangeStock", -5], ["enemySupply", -8]]] call DRO2026_fnc_completeObjective}};
+[] spawn {waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}}; if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {sleep 8; ["NEW_TASK", "Штаб: Найдите и выведите из строя тыловую площадку беспилотников."] call DRO2026_fnc_hqVoice}};
 _taskName
