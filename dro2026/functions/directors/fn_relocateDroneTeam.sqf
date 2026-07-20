@@ -1,19 +1,20 @@
 params [["_nodeId", "NODE_FPV_FORWARD_01"]];
 if (!isServer) exitWith {false};
 private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-if (count _node == 0 || {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"]}) exitWith {false};
+if (count _node == 0 || {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"]}) exitWith {false};
 private _stocks = _node getOrDefault ["stocks", createHashMap];
 if ((_stocks getOrDefault ["FUEL", 0]) < 1) exitWith {false};
 private _sites = DRO2026_sites select {
-    (_x getOrDefault ["networkNodeId", ""]) == _nodeId || {
+    ((_x getOrDefault ["networkNodeId", ""]) == _nodeId || {
         _nodeId == "NODE_FPV_FORWARD_01" && {(_x getOrDefault ["type", ""]) in ["FPV_TEAM", "UAV_TEAM"]}
-    }
+    }) &&
+    {!((_x getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"])}
 };
 if (count _sites == 0) exitWith {false};
 private _site = _sites select 0;
-if ((_site getOrDefault ["status", "ACTIVE"]) == "RELOCATING") exitWith {false};
 private _team = _site getOrDefault ["team", createHashMap];
 private _operator = _site getOrDefault ["operator", _team getOrDefault ["operator", objNull]];
+private _assistant = _team getOrDefault ["assistant", objNull];
 private _group = _team getOrDefault ["group", if (isNull _operator) then {grpNull} else {group _operator}];
 if (isNull _operator || {!alive _operator} || {isNull _group}) exitWith {false};
 
@@ -53,8 +54,8 @@ _waypoint setWaypointType "MOVE";
 _waypoint setWaypointSpeed "FULL";
 _waypoint setWaypointCompletionRadius 25;
 
-[_nodeId, _site, _team, _operator, _group, _destination] spawn {
-    params ["_nodeId", "_site", "_team", "_operator", "_group", "_destination"];
+[_nodeId, _site, _team, _operator, _assistant, _group, _destination] spawn {
+    params ["_nodeId", "_site", "_team", "_operator", "_assistant", "_group", "_destination"];
     private _deadline = time + 240;
     waitUntil {
         sleep 3;
@@ -63,8 +64,12 @@ _waypoint setWaypointCompletionRadius 25;
     private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
     if (!alive _operator || {missionNamespace getVariable ["DRO2026_missionEnding", false]}) exitWith {
         _site set ["status", "DISABLED"];
+        _site set ["physicalState", "DISABLED"];
+        _site set ["disabledAt", time];
         _node set ["status", "DISABLED"];
+        _node set ["physicalState", "DISABLED"];
         _node set ["emissionState", "OFF"];
+        _node set ["lastUpdatedAt", time];
         DRO2026_networkNodes set [_nodeId, _node];
     };
     private _actual = getPosATL _operator;
@@ -76,13 +81,14 @@ _waypoint setWaypointCompletionRadius 25;
     _site set ["team", _team];
     _site set ["position", +_actual];
     _site set ["object", _operator];
-    _site set ["objects", [_operator, _antenna, _tent]];
+    private _objects = [_operator, _assistant, _antenna, _tent] select {!isNull _x};
+    _site set ["objects", _objects];
     _site set ["status", "ACTIVE"];
     _site set ["physicalState", "ACTIVE"];
     _site set ["lastUpdatedAt", time];
-    {_x setVariable ["DRO2026_networkNodeId", _nodeId, true]} forEach [_operator, _antenna, _tent];
+    {_x setVariable ["DRO2026_networkNodeId", _nodeId, true]} forEach _objects;
     _node set ["position", +_actual];
-    _node set ["physicalRefs", [_operator, _antenna, _tent]];
+    _node set ["physicalRefs", _objects];
     _node set ["status", "ACTIVE"];
     _node set ["physicalState", "ACTIVE"];
     _node set ["emissionState", "PASSIVE"];
