@@ -16,6 +16,7 @@ args = parser.parse_args()
 preflight_validators = [
     "validate_group_lifecycle_contracts.py",
     "validate_site_lifecycle_contracts.py",
+    "validate_launch_materialization_contracts.py",
     "validate_status_contracts.py",
 ]
 commands: list[list[str]] = [
