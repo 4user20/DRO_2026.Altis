@@ -42,24 +42,21 @@ if ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) <= 0) exitWith {
     ["Штаб: Резерв разведывательных БПЛА исчерпан.", _requester] call DRO2026_fnc_supportMessage;
 };
 private _sites = DRO2026_sites select {
-    (_x getOrDefault ["type", ""]) == "FRIENDLY_DRONE_SITE" &&
-    {!((_x getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"])} && {
-        private _operator = _x getOrDefault ["operator", objNull];
-        !isNull _operator && {alive _operator}
+    (_x getOrDefault ["type", ""]) == "FRIENDLY_DRONE_SITE" && {
+        private _siteId = _x getOrDefault ["id", ""];
+        _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
     }
 };
 if (count _sites == 0) exitWith {
     ["Штаб: Союзный расчёт БПЛА не отвечает или площадка недоступна.", _requester] call DRO2026_fnc_supportMessage;
 };
 private _site = _sites select 0;
+private _siteId = _site getOrDefault ["id", ""];
 private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
-if ((_site getOrDefault ["id", ""]) == "") exitWith {
-    ["Штаб: площадка БПЛА не имеет стабильного идентификатора; запуск отменён.", _requester] call DRO2026_fnc_supportMessage;
-};
 DRO2026_resources set ["friendlyISRStock", ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) - 1) max 0];
 DRO2026_lastISRRequest = time;
-[_position, _origin, _operator, _requestedType, _site] spawn DRO2026_fnc_launchISR;
+[_position, _origin, _operator, _requestedType, _siteId] spawn DRO2026_fnc_launchISR;
 private _profileLabel = if (_exactClass != "") then {_exactClass} else {_requestedType};
 [
     "ACK",
