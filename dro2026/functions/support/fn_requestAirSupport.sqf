@@ -53,34 +53,65 @@ DRO2026_resources set ["friendlyAirSorties",(_sorties - _quantity) max 0];
 [_farpId,"FUEL",-_quantity,"PLAYER_AIR_MISSION_RESERVED"] call DRO2026_fnc_changeNetworkNodeStock;
 ["SUPPORT_REQUESTED",createHashMapFromArray [["missionId",_missionId],["type","STANDOFF_AIR"],["class",_class],["quantity",_quantity],["contactId",_contactId]],_missionId] call DRO2026_fnc_emitEvent;
 
-[_missionId,_class,_target,_contactId,_quantity,_requester,_home,_farpId] spawn {
-    params ["_missionId","_class","_target","_contactId","_quantity","_requester","_home","_farpId"];
+[_missionId,_class,_target,_contactId,_quantity,_requester,_home,_farpId,_positionASL] spawn {
+    params ["_missionId","_class","_target","_contactId","_quantity","_requester","_home","_farpId","_requestedPositionASL"];
     private _released = 0;
+    private _refunded = 0;
+    private _refundTail = {
+        params ["_remaining","_reason"];
+        if (_remaining > 0) then {
+            DRO2026_resources set ["friendlyAirSorties",(DRO2026_resources getOrDefault ["friendlyAirSorties",0]) + _remaining];
+            [_farpId,"HELICOPTER_MUNITIONS",_remaining,format ["AIR_TAIL_REFUND_%1",_reason]] call DRO2026_fnc_changeNetworkNodeStock;
+            [_farpId,"FUEL",_remaining,format ["AIR_TAIL_REFUND_%1",_reason]] call DRO2026_fnc_changeNetworkNodeStock;
+            _refunded = _refunded + _remaining;
+        };
+        ["AIR_MISSION_STATE_CHANGED",createHashMapFromArray [["missionId",_missionId],["state","ABORTED"],["reason",_reason],["refunded",_remaining]],_missionId] call DRO2026_fnc_emitEvent;
+    };
     for "_index" from 0 to (_quantity - 1) do {
-        if (isNull _target || {!alive _target} || {missionNamespace getVariable ["DRO2026_missionEnding",false]}) exitWith {};
+        private _remaining = _quantity - _index;
+        if (missionNamespace getVariable ["DRO2026_missionEnding",false]) exitWith {[_remaining,"MISSION_ENDING"] call _refundTail};
+        if (isNull _target || {!alive _target}) exitWith {[_remaining,"TARGETS_LOST_BEFORE_LAUNCH"] call _refundTail};
+        private _currentWindow = [_requestedPositionASL,playersSide] call DRO2026_fnc_getAirWindow;
+        if ((_currentWindow getOrDefault ["state","CLOSED"]) == "CLOSED") exitWith {
+            private _reason = if (_currentWindow getOrDefault ["civiliansClose",false]) then {"CIVILIAN_RISK"} else {
+                if (_currentWindow getOrDefault ["friendliesClose",false]) then {"FRIENDLIES_CLOSE"} else {"AA_ACTIVE"}
+            };
+            [_remaining,"AIR_WINDOW_CLOSED_BEFORE_LAUNCH"] call _refundTail;
+            ["AIR_MISSION_STATE_CHANGED",createHashMapFromArray [["missionId",_missionId],["state","ABORTED"],["reason",_reason]],_missionId] call DRO2026_fnc_emitEvent;
+        };
+
         private _spawn = _home getPos [450 + (_index * 120),_home getDir getPosATL _target];
         private _isHeli = _class isKindOf "Helicopter";
         _spawn set [2,if (_isHeli) then {85} else {540}];
         private _air = createVehicle [_class,_spawn,[],0,"FLY"];
         if (isNull _air) then {
-            [_farpId,"HELICOPTER_MUNITIONS",1,"AIR_SPAWN_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
-            [_farpId,"FUEL",1,"AIR_SPAWN_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
-            DRO2026_resources set ["friendlyAirSorties",(DRO2026_resources getOrDefault ["friendlyAirSorties",0]) + 1];
+            [1,"SPAWN_FAILED"] call _refundTail;
         } else {
-            _air setDir (_spawn getDir getPosATL _target); _air setPosATL _spawn;
+            _air setDir (_spawn getDir getPosATL _target);
+            _air setPosATL _spawn;
             private _group = playersSide createVehicleCrew _air;
             if (isNull _group || {isNull driver _air}) then {
-                deleteVehicleCrew _air; deleteVehicle _air; if (!isNull _group) then {deleteGroup _group};
-                [_farpId,"HELICOPTER_MUNITIONS",1,"AIR_CREW_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
-                [_farpId,"FUEL",1,"AIR_CREW_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
-                DRO2026_resources set ["friendlyAirSorties",(DRO2026_resources getOrDefault ["friendlyAirSorties",0]) + 1];
+                deleteVehicleCrew _air;
+                deleteVehicle _air;
+                if (!isNull _group) then {deleteGroup _group};
+                [1,"NO_CREW"] call _refundTail;
             } else {
-                _group addVehicle _air; [_group,false] call DRO2026_fnc_registerManagedGroup; DRO2026_managedVehicles pushBackUnique _air;
+                _group addVehicle _air;
+                [_group,false] call DRO2026_fnc_registerManagedGroup;
+                DRO2026_managedVehicles pushBackUnique _air;
                 private _result = [_air,_target,playersSide,_home,format ["%1_%2",_missionId,_index]] call DRO2026_fnc_executeStandoffAirMission;
-                if (_result getOrDefault ["ok",false]) then {_released = _released + 1} else {
-                    [_farpId,"HELICOPTER_MUNITIONS",1,"AIR_NO_RELEASE_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
+                if (_result getOrDefault ["ok",false]) then {
+                    _released = _released + 1;
+                } else {
+                    private _reason = _result getOrDefault ["code","NO_WEAPON_RELEASE"];
+                    [_farpId,"HELICOPTER_MUNITIONS",1,format ["AIR_NO_RELEASE_REFUND_%1",_reason]] call DRO2026_fnc_changeNetworkNodeStock;
+                    _refunded = _refunded + 1;
+                    if (_reason == "INGRESS_FAILED" && {isNull _target || {!alive _target}}) then {
+                        ["AIR_MISSION_STATE_CHANGED",createHashMapFromArray [["missionId",_missionId],["state","ABORTED"],["reason","TARGET_LOST"]],_missionId] call DRO2026_fnc_emitEvent;
+                    };
                 };
-                private _return = +_home; _return set [2,if (_isHeli) then {100} else {650}];
+                private _return = +_home;
+                _return set [2,if (_isHeli) then {100} else {650}];
                 if (alive _air && {!isNull driver _air}) then {(driver _air) doMove _return};
                 private _deadline = time + 180;
                 waitUntil {sleep 2; !alive _air || {_air distance2D _home < 500} || {time > _deadline} || {missionNamespace getVariable ["DRO2026_missionEnding",false]}};
@@ -91,6 +122,6 @@ DRO2026_resources set ["friendlyAirSorties",(_sorties - _quantity) max 0];
         sleep 5;
     };
     DRO2026_activeHeavySupport = (DRO2026_activeHeavySupport - 1) max 0;
-    ["AIR_MISSION_STATE_CHANGED",createHashMapFromArray [["missionId",_missionId],["state","COMPLETE"],["released",_released],["requested",_quantity]],_missionId] call DRO2026_fnc_emitEvent;
+    ["AIR_MISSION_STATE_CHANGED",createHashMapFromArray [["missionId",_missionId],["state","COMPLETE"],["released",_released],["requested",_quantity],["refunded",_refunded]],_missionId] call DRO2026_fnc_emitEvent;
     [if (_released > 0) then {"ACK"} else {"ALERT"},format ["Штаб: авиационная задача завершена, выполнено пусков %1 из %2.",_released,_quantity],_requester] call DRO2026_fnc_hqVoice;
 };
