@@ -13,10 +13,14 @@ parser.add_argument("--rpt", action="append", default=[])
 parser.add_argument("--require-hemtt", action="store_true")
 args = parser.parse_args()
 
+group_lifecycle = [
+    sys.executable,
+    str(ROOT / "tools" / "validate_group_lifecycle_contracts.py"),
+]
 base = [sys.executable, str(ROOT / "tools" / "validate_rc6.py")]
 if args.require_hemtt:
     base.append("--require-hemtt")
-commands: list[list[str]] = [base]
+commands: list[list[str]] = [group_lifecycle, base]
 
 if args.rpt:
     rpt = [
