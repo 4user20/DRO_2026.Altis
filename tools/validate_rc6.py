@@ -120,7 +120,7 @@ def delimiter_errors(label: str, source: str) -> list[str]:
     for char in source:
         if char == "\n":
             line += 1
-        elif char in "([{" :
+        elif char in "([{":
             stack.append((char, line))
         elif char in ")]}" :
             if not stack or stack[-1][0] != pairs[char]:
@@ -178,6 +178,24 @@ def run_optional_hemtt(require_hemtt: bool) -> tuple[dict[str, object], bool]:
     result["exit_code"] = process.returncode
     result["output"] = process.stdout[-12000:]
     return result, process.returncode != 0
+
+
+def run_contract_validator(filename: str) -> dict[str, object]:
+    path = ROOT / "tools" / filename
+    if not path.is_file():
+        return {"validator": filename, "exit_code": 1, "output": "missing validator"}
+    process = subprocess.run(
+        [sys.executable, str(path)],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    return {
+        "validator": filename,
+        "exit_code": process.returncode,
+        "output": process.stdout[-12000:] if process.returncode != 0 else "",
+    }
 
 
 parser = ArgumentParser(description="DRO 2026 RC6 static and semantic validator")
@@ -254,7 +272,7 @@ semantic: dict[str, list[str]] = {
     "EW and AA": [],
     "support ROE": [],
     "resource accounting": [],
-    "Arma Wiki contracts": [],
+    "source-backed contracts": [],
 }
 
 contract(
@@ -271,6 +289,17 @@ contract(
 )
 if "class createContactRecord {};" not in cfg:
     semantic["contact model"].append("CfgFunctions: createContactRecord is not registered")
+contract(
+    semantic["contact model"],
+    "dro2026/functions/core/fn_isLiveContactSubject.sqf",
+    (
+        '"PROBABLY_DESTROYED"',
+        '"CONFIRMED_DESTROYED"',
+        '"CANCELLED"',
+        'isKindOf "VirtualMan_F"',
+        "objectFromNetId",
+    ),
+)
 contract(
     semantic["contact model"],
     "dro2026/functions/directors/fn_sensorDirector.sqf",
@@ -326,14 +355,28 @@ contract(
         "DELIVERY_MATERIALIZED",
         "DELIVERY_COMPLETED",
         "DELIVERY_INTERDICTED",
+        "DELIVERY_CANCELLED",
         "_setActiveConvoyStatus",
+        "_setDeliverySiteStatus",
+        '"siteRecord"',
+        "_cleanupDeliveryVehicles",
         "changeNetworkNodeStock",
     ),
 )
 contract(
     semantic["node logistics"],
     "dro2026/functions/objectives/fn_objectiveConvoy.sqf",
-    ("edgeId", "cargoType", "toNode", "DELIVERY_INTERDICTED"),
+    (
+        "edgeId",
+        "cargoType",
+        "toNode",
+        "validateSiteRecord",
+        "OBJECTIVE_CONVOY_REFUND",
+        "OBJECTIVE_CONVOY_CANCELLED",
+        "DELIVERY_INTERDICTED",
+        "DELIVERY_COMPLETED",
+        "DELIVERY_CANCELLED",
+    ),
 )
 
 contract(
@@ -344,8 +387,16 @@ contract(
 contract(
     semantic["EW and AA"],
     "dro2026/functions/directors/fn_airDefenceDirector.sqf",
-    ("trackingChannels", "AA_MISSILE_LAUNCHED", "AA_EMISSION_CHANGED"),
+    (
+        "trackingChannels",
+        "AA_MISSILE_LAUNCHED",
+        "AA_EMISSION_CHANGED",
+        "AA_LAUNCH_REJECTED",
+        'getText (_ammoCfg >> "simulation")',
+        "deleteVehicle _projectile",
+    ),
 )
+
 contract(
     semantic["support ROE"],
     "dro2026/functions/core/fn_getAirWindow.sqf",
@@ -354,9 +405,28 @@ contract(
 contract(
     semantic["support ROE"],
     "dro2026/functions/support/fn_requestAirSupport.sqf",
-    ("getAirWindow", "AA_ACTIVE", "TARGET_LOST", "CIVILIAN_RISK", "FRIENDLIES_CLOSE"),
+    (
+        "getAirWindow",
+        "AA_ACTIVE",
+        "TARGET_LOST",
+        "CIVILIAN_RISK",
+        "FRIENDLIES_CLOSE",
+        "_refundTail",
+        "TARGETS_LOST_BEFORE_LAUNCH",
+        "AIR_WINDOW_CLOSED_BEFORE_LAUNCH",
+    ),
 )
 
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/support/fn_launchFPVStrike.sqf",
+    ("FPV_LAUNCH_REFUND", "_reservationNodeId", "enemyDroneStock"),
+)
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/directors/fn_enemyFPVDirector.sqf",
+    ("FPV_SALVO_ABORT", "_unlaunched", "DRO2026_fnc_launchFPVStrike"),
+)
 contract(
     semantic["resource accounting"],
     "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
@@ -365,23 +435,39 @@ contract(
 contract(
     semantic["resource accounting"],
     "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
-    ("LONG_RANGE_SALVO_ABORT", "_isLiveStrategicContact"),
+    (
+        "LONG_RANGE_SALVO_ABORT",
+        "DRO2026_fnc_isLiveContactSubject",
+        '"CANCELLED"',
+    ),
+    ("private _isLiveStrategicContact",),
 )
 contract(
     semantic["resource accounting"],
     "dro2026/functions/support/fn_launchISR.sqf",
     ("_refundReservation", "DRO2026_lastISRRequest = -999"),
 )
-
-wiki_process = subprocess.run(
-    [sys.executable, str(ROOT / "tools" / "validate_arma_wiki_contracts.py")],
-    cwd=ROOT,
-    text=True,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.STDOUT,
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/support/fn_requestFPV.sqf",
+    ("FPV salvo aborted", "_unlaunched", "friendlyFPVStock"),
 )
-if wiki_process.returncode != 0:
-    semantic["Arma Wiki contracts"].append(wiki_process.stdout[-12000:])
+
+contract_validator_results = [
+    run_contract_validator(filename)
+    for filename in (
+        "validate_source_manifest.py",
+        "validate_arma_wiki_contracts.py",
+        "validate_side_contracts.py",
+        "validate_orientation_contracts.py",
+        "validate_runtime_transactions.py",
+    )
+]
+for result in contract_validator_results:
+    if result["exit_code"] != 0:
+        semantic["source-backed contracts"].append(
+            f"{result['validator']}:\n{result['output']}"
+        )
 
 rpt_patterns = {
     "undefined variable": re.compile(
@@ -415,7 +501,7 @@ for raw in args.rpt:
 hemtt, hemtt_failed = run_optional_hemtt(args.require_hemtt)
 
 report = {
-    "version": "rc6-arma-wiki-audit",
+    "version": "rc6-source-backed-audit",
     "expanded_entry_files": len(entry_files),
     "include_fragments": len(all_files) - len(entry_files),
     "registered_count": len(registered),
@@ -424,8 +510,8 @@ report = {
     "functions": function_errors,
     "critical_findings": critical,
     "semantic_errors": semantic,
+    "contract_validators": contract_validator_results,
     "rpt_regressions": rpt,
-    "arma_wiki_validator_output": wiki_process.stdout if wiki_process.returncode != 0 else "",
     "hemtt": hemtt,
 }
 print(json.dumps(report, ensure_ascii=False, indent=2))
