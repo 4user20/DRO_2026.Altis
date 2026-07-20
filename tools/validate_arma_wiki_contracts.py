@@ -41,7 +41,10 @@ def check_fly_contract(path: Path, source: str, errors: list[str]) -> None:
         window = source[match.start() : match.start() + 1100]
         crew_candidates = [
             value
-            for value in (window.find("createVehicleCrew"), window.find("BIS_fnc_spawnVehicle"))
+            for value in (
+                window.find("createVehicleCrew"),
+                window.find("BIS_fnc_spawnVehicle"),
+            )
             if value >= 0
         ]
         if not crew_candidates:
@@ -49,7 +52,11 @@ def check_fly_contract(path: Path, source: str, errors: list[str]) -> None:
         crew_at = min(crew_candidates)
         set_position_candidates = [
             value
-            for value in (window.find("setPosATL"), window.find("setPosASL"), window.find("setPosWorld"))
+            for value in (
+                window.find("setPosATL"),
+                window.find("setPosASL"),
+                window.find("setPosWorld"),
+            )
             if value >= 0
         ]
         if not set_position_candidates or min(set_position_candidates) > crew_at:
@@ -87,7 +94,11 @@ def main() -> int:
     else:
         try:
             manifest = json.loads(SOURCE_MANIFEST.read_text(encoding="utf-8"))
-            source_ids = {item.get("id") for item in manifest.get("sources", []) if isinstance(item, dict)}
+            source_ids = {
+                item.get("id")
+                for item in manifest.get("sources", [])
+                if isinstance(item, dict)
+            }
             for required_source in (
                 "bohemia-community-wiki",
                 "acemod-arma3-wiki",
@@ -135,7 +146,7 @@ def main() -> int:
         "dro2026/functions/core/fn_getSideRoleClass.sqf",
         required=(
             "DRO2026_assetRegistry getOrDefault",
-            "getNumber (_cfg >> \"side\")",
+            'getNumber (_cfg >> "side")',
             "selectRandom _valid",
         ),
     )
@@ -187,6 +198,58 @@ def main() -> int:
     )
     require(
         errors,
+        "dro2026/functions/core/fn_getAirWindow.sqf",
+        required=(
+            '"DESTROYED", "DISABLED", "CANCELLED"',
+            'isKindOf "VirtualMan_F"',
+            '"friendliesClose"',
+            '"civiliansClose"',
+        ),
+    )
+    require(
+        errors,
+        "dro2026/functions/core/fn_getJammingAtPosition.sqf",
+        required=(
+            '"DESTROYED", "DISABLED", "CANCELLED"',
+            "terrainIntersectASL",
+            "jammingRadius",
+        ),
+    )
+    require(
+        errors,
+        "dro2026/functions/core/fn_evaluateOperationPhase.sqf",
+        required=(
+            "if (count _node == 0)",
+            'case "CANCELLED"',
+            '"PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"',
+        ),
+    )
+    require(
+        errors,
+        "dro2026/functions/core/fn_selectObjectiveOpportunity.sqf",
+        required=(
+            "_excludedTypes",
+            'missionNamespace setVariable ["DRO2026_selectedOpportunity", createHashMap]',
+            '"DESTROYED", "DISABLED", "CANCELLED"',
+            '"deterministic active-node fallback"',
+            '"deterministic vanilla materialization fallback"',
+            '"NO_OBJECTIVE_OPPORTUNITY"',
+        ),
+    )
+    require(
+        errors,
+        "dro2026/functions/objectives/fn_selectObjective.sqf",
+        required=(
+            "_attemptedTypes",
+            "DRO2026_usedObjectiveTypes pushBackUnique _type",
+            "DRO2026_usedObjectiveNodes pushBackUnique _nodeId",
+            '"OBJECTIVE_MATERIALIZATION_FAILED"',
+            '"OBJECTIVE_SELECTION_EXHAUSTED"',
+        ),
+        forbidden=('_selectedType = "CUT_REAR"',),
+    )
+    require(
+        errors,
         "dro2026/functions/directors/fn_enemyAirDirector.sqf",
         required=(
             "ENEMY_CAS_AIR",
@@ -211,12 +274,28 @@ def main() -> int:
     )
     require(
         errors,
+        "dro2026/functions/support/fn_requestISR.sqf",
+        required=(
+            '"FRIENDLY_DRONE_SITE"',
+            '"DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"',
+            'getOrDefault ["id", ""]',
+            "materialization",
+        ),
+    )
+    require(
+        errors,
         "dro2026/functions/support/fn_launchISR.sqf",
         required=(
             "_selectionValid",
             'getNumber (_classCfg >> "side")',
             "setPosATL _spawn",
             "_refundReservation",
+            "_siteOperational",
+            '"DRONE_RECOVERED"',
+            '"DRONE_LOST"',
+            'DRO2026_resources set ["friendlyISRStock"',
+            "_returnDeadline",
+            "_recoveryRadius",
             "deleteVehicleCrew",
             "deleteGroup",
         ),
@@ -307,10 +386,57 @@ def main() -> int:
             "_canUseFP5",
         ),
     )
+    require(
+        errors,
+        "dro2026/functions/directors/fn_operationDirector.sqf",
+        required=(
+            "DRO2026_fnc_isLiveContactSubject",
+            '"DESTROYED", "DISABLED", "CANCELLED"',
+        ),
+    )
+    require(
+        errors,
+        "dro2026/functions/directors/fn_airDefenceDirector.sqf",
+        required=(
+            'getText (_ammoCfg >> "simulation")',
+            '"shotmissile"',
+            '"shotrocket"',
+            "deleteVehicle _projectile",
+            '"AA_LAUNCH_REJECTED"',
+            '"DESTROYED", "DISABLED", "CANCELLED"',
+        ),
+    )
+    require(
+        errors,
+        "dro2026/functions/directors/fn_relocateDroneTeam.sqf",
+        required=(
+            'isKindOf "VirtualMan_F"',
+            '"DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"',
+            'getOrDefault ["assistant", objNull]',
+            '"physicalRefs", _objects',
+        ),
+    )
+    require(
+        errors,
+        "dro2026/functions/directors/fn_reactionDirector.sqf",
+        required=(
+            "DRO2026_fnc_isLiveContactSubject",
+            "_hqStatus",
+            '"DESTROYED", "DISABLED", "CANCELLED"',
+        ),
+    )
+    require(
+        errors,
+        "dro2026/functions/directors/fn_civilianIntelDirector.sqf",
+        required=(
+            'isKindOf "VirtualMan_F"',
+            '"DESTROYED", "DISABLED", "CANCELLED"',
+            '"falseProbability"',
+        ),
+    )
     for relative in (
         "dro2026/functions/directors/fn_sensorDirector.sqf",
         "dro2026/functions/objectives/fn_objectiveISRRecon.sqf",
-        "dro2026/functions/directors/fn_relocateDroneTeam.sqf",
     ):
         require(errors, relative, required=('isKindOf "VirtualMan_F"',))
     require(
