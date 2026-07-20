@@ -166,7 +166,6 @@ if (count _spawn2D < 2) then {_spawn2D = _origin};
 
 private _spawnASL = AGLToASL _spawn2D;
 _spawnASL set [2, (getTerrainHeightASL _spawn2D) + 130 + random 70];
-private _initialBearing = _spawn2D getDir _targetPos;
 private _drone = objNull;
 private _crewGroup = grpNull;
 private _isProjectile = _ammoClass != "";
@@ -180,7 +179,7 @@ if (_isProjectile) then {
 } else {
     _drone = createVehicle [_vehicleClass, ASLToAGL _spawnASL, [], 0, "FLY"];
     if (!isNull _drone) then {
-        _drone setDir _initialBearing;
+        // Orientation is controlled only through setVectorDirAndUp below.
         _drone setPosASL _spawnASL;
         _crewGroup = _side createVehicleCrew _drone;
         if (isNull _crewGroup || {isNull (driver _drone)}) then {
