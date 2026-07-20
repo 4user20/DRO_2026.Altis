@@ -66,7 +66,7 @@ private _available = if (_exactClass != "") then {
     {isClass _cfg} &&
     {_exactClass isKindOf "Air"} &&
     {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}} &&
-{[_mode,_exactClass] call DRO2026_fnc_supportCatalogContains}
+    {[_mode,_exactClass] call DRO2026_fnc_supportCatalogContains}
 } else {
     switch _requestUpper do {
         case "FP1": {[_fp1LauncherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};
@@ -120,7 +120,10 @@ private _siteId = _site getOrDefault ["id", ""];
 private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
 
-private _baseContact = ["PLAYER", objNull, _position, 0.76, "НАЗНАЧЕННАЯ_ТОЧКА", "PLAYER_DESIGNATION", 120] call DRO2026_fnc_createContactRecord;
+private _baseContact = [
+    "PLAYER",objNull,_position,0.76,"НАЗНАЧЕННАЯ_ТОЧКА","","PLAYER_DESIGNATION",120,"",0,-1,
+    createHashMapFromArray [["positionSpace","ASL"]]
+] call DRO2026_fnc_createContactRecord;
 if (count _baseContact == 0) exitWith {
     ["Штаб: не удалось сформировать запись назначенной цели. Ресурс не списан.", _requester] call DRO2026_fnc_supportMessage;
 };
@@ -128,8 +131,9 @@ private _contacts = DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence", 0]) >= 0.45} &&
     {(time - (_x getOrDefault ["lastSeen", 0])) < 360} &&
+    {!((toUpperANSI (_x getOrDefault ["state","ACTIVE"])) in ["LOST","DESTROYED","INVALID","EXPIRED"])} &&
     {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} &&
-    {((_x getOrDefault ["positionMean", _x getOrDefault ["position", [0,0,0]]]) distance2D _position) < 550} && {
+    {((_x getOrDefault ["positionASL",_x getOrDefault ["positionMean", [0,0,0]]]) distance2D _position) < 550} && {
         private _subjectId = _x getOrDefault ["subjectId", ""];
         _subjectId == "" || {[_x] call DRO2026_fnc_isLiveContactSubject}
     }
@@ -140,10 +144,10 @@ if (count _contacts > 0) then {
 };
 private _siteContacts = DRO2026_sites select {
     private _sitePosition = _x getOrDefault ["position", []];
-    private _status = _x getOrDefault ["status", "ACTIVE"];
+    private _status = toUpperANSI (_x getOrDefault ["status", "ACTIVE"]);
     count _sitePosition > 1 &&
     {_sitePosition distance2D _position < 650} &&
-    {!(_status in ["DESTROYED", "DISABLED", "CANCELLED", "COMPLETED", "RELOCATING"])} &&
+    {!(_status in ["DESTROYED", "DISABLED", "CANCELED", "CANCELLED", "COMPLETED", "RELOCATING"])} &&
     {(_x getOrDefault ["type", ""]) in [
         "ENEMY_HQ", "STRATEGIC_DRONE_SITE", "FPV_TEAM", "ARTILLERY_SITE", "EW_SITE",
         "AIR_DEFENCE_SITE", "ENEMY_LAYERED_AA", "CONVOY", "LOGISTICS_RUN", "LOGISTICS_HUB"
@@ -153,9 +157,9 @@ if (count _siteContacts > 0) then {
     private _record = _siteContacts select 0;
     private _subjectId = _record getOrDefault ["networkNodeId", _record getOrDefault ["id", ""]];
     _baseContact = [
-        "PLAYER", _record getOrDefault ["object", objNull], _record getOrDefault ["position", _position],
-        0.92, _record getOrDefault ["type", "ЦЕЛЬ"], "PLAYER_DESIGNATION", 90,
-        _subjectId
+        "PLAYER",_record getOrDefault ["object",objNull],_record getOrDefault ["position",_position],
+        0.92,_record getOrDefault ["type","ЦЕЛЬ"],"","PLAYER_DESIGNATION",90,"",0,-1,
+        createHashMapFromArray [["positionSpace","ATL"],["stableSubjectId",_subjectId]]
     ] call DRO2026_fnc_createContactRecord;
 };
 if (count _baseContact == 0) exitWith {
@@ -175,7 +179,8 @@ DRO2026_resources set [_costPool, (_stock - _launchCount) max 0];
         private _target = _baseContact getOrDefault ["target", objNull];
         private _subjectId = _baseContact getOrDefault ["subjectId", ""];
         private _contactInvalid =
-            (_baseContact getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"] ||
+            (toUpperANSI (_baseContact getOrDefault ["state","ACTIVE"])) in ["LOST","DESTROYED","INVALID","EXPIRED"] ||
+            {(_baseContact getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"]} ||
             {!isNull _target && {!alive _target}} ||
             {_subjectId != "" && {!([_baseContact] call DRO2026_fnc_isLiveContactSubject)}};
         private _abort =
@@ -190,10 +195,14 @@ DRO2026_resources set [_costPool, (_stock - _launchCount) max 0];
         };
         private _contact = createHashMap;
         {_contact set [_x, _baseContact get _x]} forEach keys _baseContact;
-        private _basePosition = _baseContact getOrDefault ["positionMean", _baseContact getOrDefault ["position", [0,0,0]]];
+        private _basePositionASL = _baseContact getOrDefault ["positionASL",_baseContact getOrDefault ["positionMean",[0,0,0]]];
         if (_count > 1 && {isNull (_baseContact getOrDefault ["target", objNull])}) then {
-            _contact set ["position", _basePosition getPos [40 + random 260, random 360]];
-            _contact set ["positionMean", _contact get "position"];
+            private _salvoPositionASL = _basePositionASL getPos [40 + random 260, random 360];
+            _contact set ["positionSpace","ASL"];
+            _contact set ["positionASL",_salvoPositionASL];
+            _contact set ["position",_salvoPositionASL];
+            _contact set ["positionMean",_salvoPositionASL];
+            _contact set ["lastKnownPosition",_salvoPositionASL];
         };
         [_origin, _contact, _requestSide, _type == "FP5", _operator, _type, _decoy, _index, _count, true, "", _siteId] spawn DRO2026_fnc_launchLongRangeStrike;
         sleep (2.5 + random 3.5);
