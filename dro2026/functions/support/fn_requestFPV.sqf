@@ -63,6 +63,14 @@ DRO2026_lastFPVRequest = time;
 [_origin, _contact, _operator, _manualControl, _launchCount, _requestSide, _requester, _requestedClass] spawn {
     params ["_origin", "_contact", "_operator", "_manualControl", "_count", "_requestSide", "_requester", "_requestedClass"];
     for "_index" from 0 to (_count - 1) do {
+        private _abort =
+            (missionNamespace getVariable ["DRO2026_missionEnding", false]) ||
+            {!isNull _operator && {!alive _operator}};
+        if (_abort) exitWith {
+            private _unlaunched = _count - _index;
+            DRO2026_resources set ["friendlyFPVStock", (DRO2026_resources getOrDefault ["friendlyFPVStock", 0]) + _unlaunched];
+            [format ["FPV salvo aborted before %1 remaining launches", _unlaunched]] call DRO2026_fnc_log;
+        };
         private _launchOrigin = _origin getPos [4 + random 10, random 360];
         [_launchOrigin, _contact, _requestSide, _operator, _manualControl, _requester, _requestedClass] spawn DRO2026_fnc_launchFPVStrike;
         sleep (1.8 + random 2.4);
