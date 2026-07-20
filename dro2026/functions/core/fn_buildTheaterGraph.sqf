@@ -77,7 +77,8 @@ private _strategicMappings = [
     ["ENEMY_EW","EARLY_WARNING_RADAR"],
     ["ENEMY_HQ","COMMAND_LOGISTICS_COMPOUND"],
     ["ENEMY_DRONE_FORWARD","SPECIAL_FORCES"],
-    ["ENEMY_TACTICAL_REAR","BALLISTIC_MISSILE_SITE"]
+    ["ENEMY_TACTICAL_REAR","BALLISTIC_MISSILE_SITE"],
+    ["ENEMY_FARP","FARP"]
 ];
 {
     _x params ["_layoutKey","_planType"];
@@ -94,6 +95,7 @@ private _strategicMappings = [
 ["ENEMY_LOGISTICS",7600,11800,_axis + 8,40,true] call _makeLayoutNode;
 ["ENEMY_EW",4500,7200,_axis + 45,50,false] call _makeLayoutNode;
 ["ENEMY_HQ",9200,12800,_axis - 10,28,false] call _makeLayoutNode;
+["ENEMY_FARP",6800,10800,_axis + 35,38,true] call _makeLayoutNode;
 
 ["FRIENDLY_FORWARD",2600,4300,_axis + 180,45,true] call _makeLayoutNode;
 ["FRIENDLY_REAR",6500,10400,_axis + 180,45,true] call _makeLayoutNode;
