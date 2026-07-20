@@ -27,20 +27,21 @@ private _stock = createVehicle ["Land_Cargo20_military_green_F", _pos getPos [26
 private _generator = createVehicle ["Land_PortableGenerator_01_F", _pos getPos [18, 310], [], 0, "CAN_COLLIDE"];
 if (!isNull _control) then {DRO2026_managedVehicles pushBackUnique _control};
 private _guardGroup = [_pos, 3, 5, 120] call DRO2026_fnc_spawnGuard;
-private _critical = [_operator, _assistant, _antenna, _tent, _control, _stock, _generator] select {!isNull _x};
+private _siteObjects = [_operator, _assistant, _antenna, _tent, _control, _stock, _generator] select {!isNull _x};
+private _objectiveCritical = [_operator, _antenna, _control, _stock, _generator] select {!isNull _x};
 private _siteObject = if (!isNull _control) then {_control} else {_operator};
 private _extra = createHashMapFromArray [
     ["operator", _operator], ["group", _teamGroup], ["team", _team],
     ["guardGroup", _guardGroup], ["background", false]
 ];
-private _site = ["STRATEGIC_DRONE_SITE", _pos, _siteObject, _critical, _extra] call DRO2026_fnc_createSiteRecord;
+private _site = ["STRATEGIC_DRONE_SITE", _pos, _siteObject, _siteObjects, _extra] call DRO2026_fnc_createSiteRecord;
 private _rollback = {
     {
         if (!isNull _x) then {
-            if (_x isKindOf "AllVehicles") then {deleteVehicleCrew _x};
+            if !(_x isKindOf "Man") then {deleteVehicleCrew _x};
             deleteVehicle _x;
         };
-    } forEach _critical;
+    } forEach _siteObjects;
     {
         if (!isNull _x) then {
             {if (!isNull _x) then {deleteVehicle _x}} forEach units _x;
@@ -57,13 +58,13 @@ DRO2026_sites pushBack _site;
 
 private _title = "Вывести из строя тыловую площадку БПЛА";
 private _desc = "На конкретной площадке находятся операторская группа, антенна, машина управления, генератор и запас аппаратов. Доступные ударные аппараты запускаются директором только при наличии живого оператора и подтверждённой цели. Уничтожьте оператора и не менее двух элементов инфраструктуры.";
-private _meta = createHashMapFromArray [["type", "DRONE_SITE"], ["critical", _critical], ["operator", _operator], ["siteId", _site get "id"]];
+private _meta = createHashMapFromArray [["type", "DRONE_SITE"], ["critical", _siteObjects], ["operator", _operator], ["siteId", _site get "id"]];
 [_taskName, _desc, _title, _marker, "destroy", _pos, 0.9, [], _meta] call DRO2026_fnc_createObjectiveRecord;
-[_taskName, _critical, _operator, _site] spawn {
-    params ["_task", "_critical", "_operator", "_site"];
+[_taskName, _objectiveCritical, _operator, _site] spawn {
+    params ["_task", "_objectiveCritical", "_operator", "_site"];
     waitUntil {
         sleep 3;
-        (!alive _operator && {({!isNull _x && {alive _x}} count _critical) <= 2}) ||
+        (!alive _operator && {({!isNull _x && {alive _x}} count _objectiveCritical) <= 2}) ||
         {missionNamespace getVariable ["DRO2026_missionEnding", false]}
     };
     if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {
