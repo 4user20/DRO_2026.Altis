@@ -26,8 +26,9 @@ private _appendFiltered = {
     DRO2026_assetRegistry set [_x, []];
 } forEach ["PLAYER_ISR_UAV", "ENEMY_ISR_UAV", "ENEMY_CAS_AIR", "PLAYER_ARTILLERY_MORTAR", "PLAYER_ARTILLERY_SPG", "PLAYER_ARTILLERY_MLRS", "PLAYER_CAS_AIR", "PLAYER_LOGISTICS"];
 
-private _enemyArtyRole = if (enemySide == west) then {"ARTILLERY_WEST"} else {"ARTILLERY_EAST"};
-private _enemyLogRole = if (enemySide == west) then {"LOGISTICS_WEST"} else {"LOGISTICS_EAST"};
+private _enemySuffix = [enemySide] call DRO2026_fnc_getSideSuffix;
+private _enemyArtyRole = format ["ARTILLERY_%1", _enemySuffix];
+private _enemyLogRole = format ["LOGISTICS_%1", _enemySuffix];
 if (!isNil "eArtyClasses") then {[_enemyArtyRole, eArtyClasses, true, _enemySideNumber] call _appendFiltered};
 if (!isNil "eMortarClasses") then {[_enemyArtyRole, eMortarClasses, true, _enemySideNumber] call _appendFiltered};
 if (!isNil "eAmmoClasses") then {[_enemyLogRole, eAmmoClasses, false, _enemySideNumber] call _appendFiltered};
@@ -52,8 +53,6 @@ if (!isNil "pArtyClasses") then {
 if (!isNil "pPlaneClasses") then {["PLAYER_CAS_AIR", pPlaneClasses, false, _playerSideNumber, true] call _appendFiltered};
 if (!isNil "pHeliClasses") then {["PLAYER_CAS_AIR", pHeliClasses, false, _playerSideNumber, true] call _appendFiltered};
 
-// Explicit modern ISR classes remain available only when their config side exactly
-// matches the selected side. A generic faction name does not justify cross-side use.
 private _explicitPlayerISR = switch (playersSide) do {
     case west: {["rksla3_uav_rq7shadow_01_blufor", "HE_MQ4A_Blufor", "B_UAV_02_dynamicLoadout_F"]};
     case resistance: {["I_UAV_02_dynamicLoadout_F"]};
