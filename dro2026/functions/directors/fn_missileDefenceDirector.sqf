@@ -6,8 +6,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
     {
         private _record = _x;
         private _munition = _record getOrDefault ["object",objNull];
-        private _state = toUpperANSI (_record getOrDefault ["state","INBOUND"]);
-        if (!isNull _munition && {_state == "INBOUND"} && {!(_record getOrDefault ["intercepted",false])}) then {
+        if (!isNull _munition && {toUpperANSI (_record getOrDefault ["state","INBOUND"]) == "INBOUND"} && {!(_record getOrDefault ["intercepted",false])}) then {
             private _launchSide = _record getOrDefault ["launchSide",enemySide];
             private _defenderSide = _record getOrDefault ["targetSide",if (_launchSide == enemySide) then {playersSide} else {enemySide}];
             private _nodeId = if (_defenderSide == playersSide) then {"NODE_FRIENDLY_AA_LONG"} else {"NODE_AA_LONG_01"};
@@ -16,7 +15,13 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
             private _stocks = _node getOrDefault ["stocks",createHashMap];
             private _missiles = _stocks getOrDefault ["AA_MISSILES",0];
             private _nodeATL = _node getOrDefault ["position",[]];
-            if (count _node > 0 && {!(_status in ["DESTROYED","DISABLED","CANCELLED"])} && {_missiles > 0} && {count _nodeATL >= 2}) then {
+            private _physicalLaunchers = (_node getOrDefault ["physicalRefs",[]]) select {
+                if (isNull _x || {!alive _x} || {!local _x} || {!canFire _x}) exitWith {false};
+                private _role = [typeOf _x] call DRO2026_fnc_getAssetPrimaryRole;
+                _role in ["SAM_LONG_RANGE","SAM_MEDIUM_RANGE","SAM_SHORT_RANGE","SHORAD"]
+            };
+            if (count _node > 0 && {!(_status in ["DESTROYED","DISABLED","CANCELLED"])} && {_missiles > 0} && {count _nodeATL >= 2} && {count _physicalLaunchers > 0}) then {
+                private _launcher = ([_physicalLaunchers,[],{_x distance2D _munition},"ASCEND"] call BIS_fnc_sortBy) select 0;
                 private _nodeASL = [_nodeATL,"ATL",objNull] call DRO2026_fnc_normalizePositionASL;
                 private _munitionASL = getPosASL _munition;
                 private _distance = _nodeASL distance2D _munitionASL;
@@ -25,7 +30,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                 private _commandFactor = _effects getOrDefault ["commandFactor",0.35];
                 private _profile = toUpperANSI (_record getOrDefault ["profile","CRUISE"]);
                 private _range = if (_profile in ["ISKANDER","BALLISTIC"]) then {18000} else {14500};
-                if (_distance <= _range) then {
+                if (_distance <= _range && {_radarFactor > 0.05}) then {
                     private _lastDetection = _record getOrDefault ["lastDetectionCheck",-999];
                     if (!(_record getOrDefault ["detected",false]) && {(time - _lastDetection) >= 2.5}) then {
                         _record set ["lastDetectionCheck",time];
@@ -34,7 +39,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                         private _altitudeFactor = linearConversion [20,900,_altitudeAGL,0.45,1,true];
                         private _rangeFactor = linearConversion [_range,2500,_distance,0.35,1,true];
                         private _profileFactor = if (_profile in ["ISKANDER","BALLISTIC"]) then {0.72} else {if (_profile in ["FP5","FLAMINGO"]) then {0.88} else {1}};
-                        private _detectChance = (0.12 + (0.58 * _radarFactor * _commandFactor * _rangeFactor * _altitudeFactor * _profileFactor * (_rcs min 1.2))) min 0.94;
+                        private _detectChance = (0.82 * _radarFactor * _commandFactor * _rangeFactor * _altitudeFactor * _profileFactor * (_rcs min 1.2)) max 0 min 0.94;
                         if (random 1 < _detectChance) then {
                             _record set ["detected",true];
                             private _detectedBy = _record getOrDefault ["detectedBy",[]];
@@ -51,20 +56,17 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                     private _engagements = _record getOrDefault ["engagements",0];
                     private _lastEngagement = _record getOrDefault ["lastEngagementAt",-999];
                     if (_record getOrDefault ["detected",false] && {_engagements < 2} && {(time - _lastEngagement) > 7} && {_distance <= (_range * 0.88)}) then {
-                        private _interceptorAmmo = "";
-                        private _launchers = (_node getOrDefault ["physicalRefs",[]]) select {!isNull _x && {alive _x} && {local _x}};
-                        private _launcher = if (count _launchers > 0) then {([_launchers,[],{_x distance2D _munition},"ASCEND"] call BIS_fnc_sortBy) select 0} else {objNull};
-                        if (!isNull _launcher) then {_interceptorAmmo = [typeOf _launcher] call DRO2026_fnc_resolveLauncherAmmo};
+                        private _interceptorAmmo = [typeOf _launcher] call DRO2026_fnc_resolveLauncherAmmo;
                         if (_interceptorAmmo == "" || {!isClass (configFile >> "CfgAmmo" >> _interceptorAmmo)}) then {
                             if (isClass (configFile >> "CfgAmmo" >> "M_Titan_AA")) then {_interceptorAmmo = "M_Titan_AA"};
                         };
                         if (_interceptorAmmo != "") then {
-                            [_nodeId,"AA_MISSILES",-1,"STRATEGIC_INTERCEPT_LAUNCH"] call DRO2026_fnc_changeNetworkNodeStock;
-                            _record set ["engagements",_engagements + 1];
-                            _record set ["lastEngagementAt",time];
-                            private _launchASL = if (!isNull _launcher) then {getPosASL _launcher vectorAdd [0,0,4]} else {_nodeASL vectorAdd [0,0,18]};
+                            private _launchASL = getPosASL _launcher vectorAdd [0,0,4];
                             private _interceptor = createVehicle [_interceptorAmmo,ASLToAGL _launchASL,[],0,"CAN_COLLIDE"];
                             if (!isNull _interceptor) then {
+                                [_nodeId,"AA_MISSILES",-1,"STRATEGIC_INTERCEPT_LAUNCH"] call DRO2026_fnc_changeNetworkNodeStock;
+                                _record set ["engagements",_engagements + 1];
+                                _record set ["lastEngagementAt",time];
                                 _interceptor setPosASL _launchASL;
                                 private _speed = 420;
                                 private _rangeFactor = linearConversion [_range * 0.88,1800,_distance,0.55,1,true];
@@ -74,7 +76,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                                 private _missOffset = if (_willKill) then {[0,0,0]} else {[35 + random 95,-70 + random 140,-25 + random 80]};
                                 ["MISSILE_DEFENCE_ENGAGED",createHashMapFromArray [
                                     ["munitionId",_record getOrDefault ["id",""]],["nodeId",_nodeId],
-                                    ["interceptorAmmo",_interceptorAmmo],["pKill",_pKill],["engagement",_engagements + 1]
+                                    ["launcher",typeOf _launcher],["interceptorAmmo",_interceptorAmmo],
+                                    ["pKill",_pKill],["engagement",_engagements + 1]
                                 ],_record getOrDefault ["id",""]] call DRO2026_fnc_emitEvent;
                                 [_interceptor,_munition,_record,_nodeId,_speed,_willKill,_missOffset] spawn {
                                     params ["_interceptor","_munition","_record","_nodeId","_speed","_willKill","_missOffset"];
