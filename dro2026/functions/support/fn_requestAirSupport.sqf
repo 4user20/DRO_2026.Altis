@@ -57,6 +57,7 @@ DRO2026_resources set ["friendlyAirSorties",(_sorties - _quantity) max 0];
     params ["_missionId","_class","_target","_contactId","_quantity","_requester","_home","_farpId","_requestedPositionASL"];
     private _released = 0;
     private _refunded = 0;
+    private _noReleaseRefundCode = "AIR_NO_RELEASE_REFUND";
     private _refundTail = {
         params ["_remaining","_reason"];
         if (_remaining > 0) then {
@@ -104,7 +105,7 @@ DRO2026_resources set ["friendlyAirSorties",(_sorties - _quantity) max 0];
                     _released = _released + 1;
                 } else {
                     private _reason = _result getOrDefault ["code","NO_WEAPON_RELEASE"];
-                    [_farpId,"HELICOPTER_MUNITIONS",1,format ["AIR_NO_RELEASE_REFUND_%1",_reason]] call DRO2026_fnc_changeNetworkNodeStock;
+                    [_farpId,"HELICOPTER_MUNITIONS",1,format ["%1_%2",_noReleaseRefundCode,_reason]] call DRO2026_fnc_changeNetworkNodeStock;
                     _refunded = _refunded + 1;
                     if (_reason == "INGRESS_FAILED" && {isNull _target || {!alive _target}}) then {
                         ["AIR_MISSION_STATE_CHANGED",createHashMapFromArray [["missionId",_missionId],["state","ABORTED"],["reason","TARGET_LOST"]],_missionId] call DRO2026_fnc_emitEvent;
