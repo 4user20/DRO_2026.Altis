@@ -40,6 +40,14 @@ private _profile = switch (toUpperANSI _source) do {
     case "ELINT": {[0.74, 350, 0.0025, 9]};
     case "CIVILIAN": {[0.55, 280, 0.0100, 34]};
     case "COUNTERBATTERY": {[0.72, 420, 0.0120, 48]};
+    case "UAV_RECON": {[0.90, 70, 0.0042, 12]};
+    case "UAV_FPV": {[0.84, 95, 0.0060, 16]};
+    case "UAV_BOMBER": {[0.86, 85, 0.0055, 15]};
+    case "UAV_FIBEROPTIC_AP": {[0.88, 60, 0.0045, 11]};
+    case "UAV_FIBEROPTIC_AT": {[0.90, 55, 0.0042, 10]};
+    case "UAV_FIBEROPTIC_TI": {[0.94, 42, 0.0038, 8]};
+    case "INFOSHARE": {[0.66, 180, 0.0090, 26]};
+    case "GROUND_AI": {[0.72, 130, 0.0075, 20]};
     default {[0.76, 95, 0.0060, 15]};
 };
 _profile params ["_sourceQuality", "_defaultUncertainty", "_decayRate", "_uncertaintyGrowth"];
