@@ -23,8 +23,7 @@ private _validVehicle = {
     private _cfg = configFile >> "CfgVehicles" >> _class;
     if (!isClass _cfg || {getNumber (_cfg >> "scope") < 1}) exitWith {false};
     if (_mustFly && {!(_class isKindOf "Air")}) exitWith {false};
-    private _cfgSide = getNumber (_cfg >> "side");
-    if (_sideNumber >= 0 && {_cfgSide != _sideNumber}) exitWith {false};
+    if (_sideNumber >= 0 && {getNumber (_cfg >> "side") != _sideNumber}) exitWith {false};
     if (_selectedFactionOnly && {count _selectedFactions > 0}) then {
         private _faction = toUpperANSI getText (_cfg >> "faction");
         if !(_faction in _selectedFactions) exitWith {false};
