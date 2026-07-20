@@ -1,7 +1,8 @@
 params ["_position", ["_requestedType", "AUTO"], ["_decoy", false], ["_quantity", 1], ["_requester", objNull]];
 
 if (!isServer) exitWith {
-    [player, "LONG_RANGE", [_position, _requestedType, _decoy, _quantity]] remoteExecCall ["DRO2026_fnc_serverRequestSupport", 2, false];
+    private _assetClass = if ((toUpperANSI _requestedType find "CLASS:") == 0) then {_requestedType select [6]} else {""};
+    [createHashMapFromArray [["channel","LONG_RANGE_STRIKE"],["assetId",if (_decoy) then {"DECOY"} else {if (_assetClass == "") then {_requestedType} else {""}}],["assetClass",_assetClass],["count",_quantity],["targetMode","MAP_POINT"],["targetPositionASL",AGLToASL _position],["sourceMode","AUTO"],["controlMode","AUTO"]]] call DRO2026_fnc_submitSupportRequest
 };
 
 [] call DRO2026_fnc_initState;
@@ -65,11 +66,7 @@ private _available = if (_exactClass != "") then {
     {isClass _cfg} &&
     {_exactClass isKindOf "Air"} &&
     {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}} &&
-    {((missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {
-        (_x isEqualType []) &&
-        {(_x param [1, ""]) == _mode} &&
-        {(_x param [2, ""]) == _exactClass}
-    }) >= 0}
+{[_mode,_exactClass] call DRO2026_fnc_supportCatalogContains}
 } else {
     switch _requestUpper do {
         case "FP1": {[_fp1LauncherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};

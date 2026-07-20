@@ -33,7 +33,7 @@ _hint ctrlCommit 0;
 
 private _category = _display ctrlCreate ["RscCombo", 9405];
 _category ctrlSetPosition [safeZoneX + safeZoneW * 0.29, safeZoneY + safeZoneH * 0.265, safeZoneW * 0.42, safeZoneH * 0.042];
-private _availableCategories = (_catalog apply {_x param [0, ""]}) arrayIntersect (_catalog apply {_x param [0, ""]});
+private _availableCategories = (_catalog apply {_x getOrDefault ["category", ""]}) arrayIntersect (_catalog apply {_x getOrDefault ["category", ""]});
 private _categoryDefinitions = [
     ["Все доступные средства", "ALL"],
     ["БПЛА и беспилотные удары", "UAV"],
@@ -83,7 +83,12 @@ private _populate = {
     private _catalog = _display getVariable ["DRO2026_supportCatalog", []];
     private _shown = 0;
     {
-        _x params ["_category", "_mode", "_class", "_label", ["_tooltip", ""], ["_maxQuantity", 1]];
+        private _category = _x getOrDefault ["category", ""];
+        private _mode = _x getOrDefault ["mode", ""];
+        private _class = _x getOrDefault ["assetClass", ""];
+        private _label = _x getOrDefault ["label", _mode];
+        private _tooltip = _x getOrDefault ["tooltip", ""];
+        private _maxQuantity = _x getOrDefault ["maxQuantity", 1];
         if (_filter == "ALL" || {_category == _filter}) then {
             private _index = _list lbAdd _label;
             _list lbSetData [_index, _mode];

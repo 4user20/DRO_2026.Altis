@@ -11,8 +11,14 @@ private _objects = [_operator];
     private _object = _team getOrDefault [_x, objNull];
     if (!isNull _object) then {_objects pushBackUnique _object};
 } forEach ["assistant", "antenna", "tent"];
+private _template = [_type,_position,_side,random 360] call DRO2026_fnc_createSiteComponents;
+_objects append (_template getOrDefault ["objects",[]]);
+private _components = _template getOrDefault ["components",createHashMap];
+_components set ["crew",units _group];
+_components set ["guards",(units _group) - [_operator]];
+private _antenna = _team getOrDefault ["antenna",objNull]; if (!isNull _antenna) then {private _a=_components getOrDefault ["antennas",[]]; _a pushBackUnique _antenna; _components set ["antennas",_a]};
 private _extra = createHashMapFromArray [
-    ["operator", _operator], ["team", _team], ["virtual", false], ["background", true]
+    ["operator", _operator], ["team", _team], ["side",_side], ["components",_components], ["virtual", false], ["background", true]
 ];
 private _record = [_type, _position, _operator, _objects, _extra] call DRO2026_fnc_createSiteRecord;
 if !([_record, true, ["operator"]] call DRO2026_fnc_validateSiteRecord) exitWith {

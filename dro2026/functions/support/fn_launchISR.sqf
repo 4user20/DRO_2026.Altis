@@ -151,7 +151,9 @@ DRO2026_managedVehicles pushBackUnique _uav;
 _group setBehaviourStrong "CARELESS";
 _group setCombatMode "BLUE";
 _group setSpeedMode "NORMAL";
-["DRONE_LAUNCHED", createHashMapFromArray [["class", _class], ["role", "ISR"], ["source", _source], ["siteId", _siteId]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
+[_uav, "ARMA_AI", "ISR_WAYPOINT_ROUTE", "NONE"] call DRO2026_fnc_setFlightAuthority;
+[_group, _uav, getPosASL _uav, AGLToASL _position, "RECON", if (_isHALE) then {1600} else {if (_isMicro) then {260} else {700}}, _height] call DRO2026_fnc_buildWaypointFlightPlan;
+["DRONE_LAUNCHED", createHashMapFromArray [["class", _class], ["role", "ISR"], ["source", _source], ["siteId", _siteId], ["flightAuthority", "ARMA_AI"]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
 
 private _end = time + (if (_isMicro) then {360} else {if (_isHALE) then {720} else {520}});
 private _angle = random 360;
@@ -165,11 +167,7 @@ while {
     {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}
 } do {
     _angle = (_angle + 12 + random 16) mod 360;
-    private _baseRadius = if (_isMicro) then {240} else {if (_isHALE) then {1600} else {650}};
-    private _orbitRadius = (_baseRadius + (-80 + random 160)) max 160;
-    private _orbit = _position getPos [_orbitRadius, _angle];
-    _orbit set [2, _height + (-18 + random 36)];
-    if (!isNull (driver _uav)) then {(driver _uav) doMove _orbit};
+    // The engine LOITER waypoint owns macro movement; this loop only samples sensors and EW state.
 
     private _jamming = [getPosATL _uav, playersSide] call DRO2026_fnc_getJammingAtPosition;
     if (_jamming > 0.10 && {(time - _lastEWProvocation) > 55}) then {
@@ -251,7 +249,11 @@ if (
     {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} &&
     {!isNull (driver _uav)}
 ) then {
-    (driver _uav) doMove _origin;
+    private _returnWp = _group addWaypoint [_origin, -1];
+    _returnWp setWaypointType "MOVE";
+    _returnWp setWaypointBehaviour "CARELESS";
+    _returnWp setWaypointSpeed "FULL";
+    _group setCurrentWaypoint _returnWp;
     private _returnDeadline = time + (if (_isMicro) then {75} else {if (_isHALE) then {240} else {190}});
     private _recoveryRadius = if (_isMicro) then {120} else {350};
     waitUntil {
@@ -270,6 +272,7 @@ if (
 if (_returned) then {
     DRO2026_resources set ["friendlyISRStock", (DRO2026_resources getOrDefault ["friendlyISRStock", 0]) + 1];
 };
+[_uav, "NONE", "ISR_MISSION_COMPLETE", _uav getVariable ["DRO2026_flightAuthority", "NONE"]] call DRO2026_fnc_setFlightAuthority;
 private _activeIndex = DRO2026_activeDrones find _uav;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
 if (!isNull _uav) then {

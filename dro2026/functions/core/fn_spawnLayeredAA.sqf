@@ -59,9 +59,17 @@ private _objects = [];
 if (count _objects == 0) exitWith {[]};
 private _primary = if (_longRange in _objects) then {_longRange} else {if (_shortRange in _objects) then {_shortRange} else {_objects select 0}};
 private _recordPosition = if (_primary == _longRange) then {_longPosition} else {_shortPosition};
+private _template = [_siteType,_recordPosition,_side,random 360] call DRO2026_fnc_createSiteComponents;
+_objects append (_template getOrDefault ["objects",[]]);
+private _components = _template getOrDefault ["components",createHashMap];
+_components set ["launchers",([_longRange,_shortRange] select {!isNull _x && {_x in _objects}})];
+private _antennaComponents = +(_components getOrDefault ["antennas", []]);
+if (!isNull _radar && {_radar in _objects}) then {_antennaComponents pushBackUnique _radar};
+_components set ["antennas", _antennaComponents];
+private _crew = []; {{_crew pushBackUnique _x} forEach crew _x} forEach _objects; _components set ["crew",_crew];
 private _extra = createHashMapFromArray [
     ["radar", if (_radar in _objects) then {_radar} else {objNull}],
-    ["shorad", if (_shortRange in _objects) then {_shortRange} else {objNull}],
+    ["shorad", if (_shortRange in _objects) then {_shortRange} else {objNull}], ["side",_side], ["components",_components],
     ["background", _siteType != "AIR_DEFENCE_SITE"], ["networked", _withLongRange]
 ];
 private _record = [_siteType, _recordPosition, _primary, _objects, _extra] call DRO2026_fnc_createSiteRecord;
@@ -70,23 +78,4 @@ if !([_record, true] call DRO2026_fnc_validateSiteRecord) exitWith {
     []
 };
 DRO2026_sites pushBack _record;
-if (_longRange in _objects && {_radar in _objects}) then {
-    [_longRange, _radar] spawn {
-        params ["_launcher", "_radar"];
-        waitUntil {
-            sleep 3;
-            isNull _launcher || {!alive _launcher} || {isNull _radar} || {!alive _radar} ||
-            {missionNamespace getVariable ["DRO2026_missionEnding", false]}
-        };
-        if (!isNull _launcher && {alive _launcher} && {isNull _radar || {!alive _radar}}) then {
-            _launcher setVehicleReceiveRemoteTargets false;
-            _launcher setVehicleReportRemoteTargets false;
-            _launcher setVehicleReportOwnPosition false;
-            if (!isNull (gunner _launcher)) then {
-                (gunner _launcher) disableAI "AUTOTARGET";
-                (gunner _launcher) disableAI "TARGET";
-            };
-        };
-    };
-};
 _objects

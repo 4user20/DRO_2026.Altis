@@ -1,138 +1,65 @@
 if (!isServer) exitWith {};
-params ["_requester", "_kind", ["_payload", []]];
-
-if (isNull _requester || {!isPlayer _requester} || {_requester isKindOf "VirtualMan_F"}) exitWith {};
-if !(_kind isEqualType "") exitWith {};
-if !(_payload isEqualType []) exitWith {
-    ["Штаб: отклонён некорректный запрос поддержки.", _requester] call DRO2026_fnc_supportMessage;
+params [["_request", createHashMap, [createHashMap]]];
+[] call DRO2026_fnc_initState;
+private _normalizedResult = [_request] call DRO2026_fnc_normalizeSupportRequest;
+private _requestId = _normalizedResult getOrDefault ["requestId", _request getOrDefault ["requestId", ""]];
+private _sendResult = {
+    params ["_result", ["_requester", objNull]];
+    if (!isNull _requester) then {[_result] remoteExecCall ["DRO2026_fnc_receiveSupportResult", owner _requester, false]};
+    _result
 };
-
-private _requestOwner = owner _requester;
-private _remoteOwner = remoteExecutedOwner;
-private _trustedLocalHost = _remoteOwner == 0 && {!isDedicated} && {_requestOwner == 2};
-if (!_trustedLocalHost && {_remoteOwner != _requestOwner}) exitWith {
-    [format ["Отклонён spoofed support request: remote=%1 owner=%2 uid=%3", _remoteOwner, _requestOwner, getPlayerUID _requester]] call DRO2026_fnc_log;
+if !(_normalizedResult getOrDefault ["ok", false]) exitWith {[_normalizedResult, objNull] call _sendResult};
+private _normalized = _normalizedResult getOrDefault ["data", createHashMap];
+private _identity = [_normalized] call DRO2026_fnc_resolveRemoteRequester;
+_identity params ["_identityOk", "_identityCode", "_actualUid", "_requester", "_remoteOwner"];
+if (!_identityOk) exitWith {
+    private _result = [false, _identityCode, "Requester ownership validation failed", _requestId, createHashMapFromArray [["remoteOwner", _remoteOwner]]] call DRO2026_fnc_makeResult;
+    [_result, objNull] call _sendResult
 };
-// BI returns remoteExecutedOwner=0 for a Headless Client. Dedicated requests must
-// therefore originate from a normal client owner (>2), never from server/HC zero.
-if (isDedicated && {_remoteOwner <= 2}) exitWith {
-    [format ["Отклонён support request без доверенного client owner: remote=%1 uid=%2", _remoteOwner, getPlayerUID _requester]] call DRO2026_fnc_log;
-};
-
-private _rateKey = format ["DRO2026_supportRequest_%1", getPlayerUID _requester];
+_normalized set ["requesterUid", _actualUid];
+_normalized set ["requesterNetId", netId _requester];
+private _processed = missionNamespace getVariable ["DRO2026_processedSupportRequests", createHashMap];
+private _existing = _processed getOrDefault [_requestId, createHashMap];
+if (count _existing > 0) exitWith {[_existing, _requester] call _sendResult};
+private _rateKey = format ["DRO2026_supportRequest_%1", _actualUid];
 private _lastRequest = missionNamespace getVariable [_rateKey, -10];
 if ((diag_tickTime - _lastRequest) < 0.35) exitWith {
-    ["Штаб: запрос уже обрабатывается.", _requester] call DRO2026_fnc_supportMessage;
+    private _result = [false, "RATE_LIMITED", "Request is already being processed", _requestId, createHashMap] call DRO2026_fnc_makeResult;
+    [_result, _requester] call _sendResult
 };
 missionNamespace setVariable [_rateKey, diag_tickTime];
-
-private _validPosition = {
-    params ["_position"];
-    _position isEqualType [] &&
-    {count _position >= 2} &&
-    {(_position select 0) isEqualType 0} &&
-    {(_position select 1) isEqualType 0} &&
-    {(_position select 0) >= 0} &&
-    {(_position select 1) >= 0} &&
-    {(_position select 0) <= worldSize} &&
-    {(_position select 1) <= worldSize}
-};
-private _catalogContains = {
-    params ["_mode", ["_class", ""]];
-    private _catalog = missionNamespace getVariable ["DRO2026_supportCatalog", []];
-    if !(_catalog isEqualType []) exitWith {false};
-    (_catalog findIf {
-        (_x isEqualType []) &&
-        {(_x param [1, ""]) == _mode} &&
-        {_class == "" || {(_x param [2, ""]) == _class}}
-    }) >= 0
-};
-private _rejectMalformed = {
-    ["Штаб: отклонён некорректно сформированный запрос поддержки.", _requester] call DRO2026_fnc_supportMessage;
-};
-
-_kind = toUpperANSI _kind;
-switch _kind do {
-    case "FPV": {
-        private _position = _payload param [0, []];
-        private _manual = _payload param [1, false];
-        private _quantity = _payload param [2, 1];
-        private _class = _payload param [3, ""];
-        if !(_manual isEqualType true && {_quantity isEqualType 0} && {_class isEqualType ""}) exitWith {call _rejectMalformed};
-        if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка FPV.", _requester] call DRO2026_fnc_supportMessage};
-        private _classPublished = true;
-        if (_class != "") then {
-            private _modeTemplate = if (_manual) then {"FPV_CLASS_MANUAL:%1"} else {"FPV_CLASS_AUTO:%1"};
-            private _mode = format [_modeTemplate, _class];
-            _classPublished = [_mode, _class] call _catalogContains;
-        };
-        if (!_classPublished) exitWith {
-            [format ["Штаб: FPV-класс %1 не опубликован для выбранной стороны.", _class], _requester] call DRO2026_fnc_supportMessage;
-        };
-        [_position, _manual, _quantity, _requester, _class] call DRO2026_fnc_requestFPV;
-    };
+private _channel = _normalized getOrDefault ["channel", ""];
+private _result = switch _channel do {
+    case "FPV": {[_normalized, _requester] call DRO2026_fnc_requestFPV};
     case "ISR": {
-        private _position = _payload param [0, []];
-        private _type = _payload param [1, "AUTO"];
-        if !(_type isEqualType "") exitWith {call _rejectMalformed};
-        if !([_position] call _validPosition) exitWith {["Штаб: некорректный сектор разведки.", _requester] call DRO2026_fnc_supportMessage};
-        private _upperType = toUpperANSI _type;
-        private _classPublished = true;
-        private _class = "";
-        if ((_upperType find "CLASS:") == 0) then {
-            _class = _type select [6];
-            private _mode = format ["ISR_CLASS:%1", _class];
-            _classPublished = _class != "" && {[_mode, _class] call _catalogContains};
-        };
-        if (!_classPublished) exitWith {
-            [format ["Штаб: разведывательный БПЛА %1 не опубликован для выбранной стороны.", _class], _requester] call DRO2026_fnc_supportMessage;
-        };
-        [_position, _type, _requester] call DRO2026_fnc_requestISR;
+        private _assetClass = _normalized getOrDefault ["assetClass", ""];
+        private _type = if (_assetClass == "") then {_normalized getOrDefault ["assetId", "AUTO"]} else {format ["CLASS:%1", _assetClass]};
+        [_normalized getOrDefault ["targetPositionASL", []], _type, _requester] call DRO2026_fnc_requestISR;
+        [true, "ACCEPTED", "ISR request accepted for processing", _requestId, createHashMap] call DRO2026_fnc_makeResult
     };
-    case "LONG_RANGE": {
-        private _position = _payload param [0, []];
-        private _type = _payload param [1, "AUTO"];
-        private _decoy = _payload param [2, false];
-        private _quantity = _payload param [3, 1];
-        if !(_type isEqualType "" && {_decoy isEqualType true} && {_quantity isEqualType 0}) exitWith {call _rejectMalformed};
-        if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка дальнего удара.", _requester] call DRO2026_fnc_supportMessage};
-        private _upperType = toUpperANSI _type;
-        if (_decoy && {_upperType != "AUTO"}) exitWith {call _rejectMalformed};
-        private _catalogClass = if ((_upperType find "CLASS:") == 0) then {_type select [6]} else {""};
-        if (_catalogClass == "" && {(_upperType find "CLASS:") == 0}) exitWith {call _rejectMalformed};
-        private _catalogMode = if (_catalogClass != "") then {
-            format ["STRIKE_CLASS:%1", _catalogClass]
-        } else {
-            if (_decoy) then {"STRIKE_DECOY"} else {format ["STRIKE_%1", _upperType]}
-        };
-        if !([_catalogMode, _catalogClass] call _catalogContains) exitWith {
-            [format ["Штаб: профиль дальнего удара %1 не опубликован для выбранной стороны.", _type], _requester] call DRO2026_fnc_supportMessage;
-        };
-        [_position, _type, _decoy, _quantity, _requester] call DRO2026_fnc_requestLongRangeSupport;
+    case "LONG_RANGE_STRIKE": {
+        private _assetClass = _normalized getOrDefault ["assetClass", ""];
+        private _type = if (_assetClass == "") then {_normalized getOrDefault ["assetId", "AUTO"]} else {format ["CLASS:%1", _assetClass]};
+        private _decoy = toUpperANSI (_normalized getOrDefault ["assetId", ""]) == "DECOY";
+        [_normalized getOrDefault ["targetPositionASL", []], _type, _decoy, _normalized getOrDefault ["count", 1], _requester] call DRO2026_fnc_requestLongRangeSupport;
+        [true, "ACCEPTED", "Long-range strike request accepted for processing", _requestId, createHashMap] call DRO2026_fnc_makeResult
     };
     case "ARTILLERY": {
-        private _position = _payload param [0, []];
-        private _class = _payload param [1, ""];
-        private _rounds = _payload param [2, 3];
-        if !(_class isEqualType "" && {_rounds isEqualType 0}) exitWith {call _rejectMalformed};
-        if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка артиллерии.", _requester] call DRO2026_fnc_supportMessage};
-        if (_class == "" || {!([format ["ARTY:%1", _class], _class] call _catalogContains)}) exitWith {
-            [format ["Штаб: артсистема %1 не опубликована для выбранной стороны.", _class], _requester] call DRO2026_fnc_supportMessage;
-        };
-        [_position, _class, _rounds, _requester] call DRO2026_fnc_requestArtillery;
+        [_normalized getOrDefault ["targetPositionASL", []], _normalized getOrDefault ["assetClass", ""], _normalized getOrDefault ["count", 1], _requester] call DRO2026_fnc_requestArtillery;
+        [true, "ACCEPTED", "Artillery request accepted", _requestId, createHashMap] call DRO2026_fnc_makeResult
     };
-    case "AIR": {
-        private _position = _payload param [0, []];
-        private _class = _payload param [1, ""];
-        private _quantity = _payload param [2, 1];
-        if !(_class isEqualType "" && {_quantity isEqualType 0}) exitWith {call _rejectMalformed};
-        if !([_position] call _validPosition) exitWith {["Штаб: некорректная точка авиационной поддержки.", _requester] call DRO2026_fnc_supportMessage};
-        if (_class == "" || {!([format ["AIR:%1", _class], _class] call _catalogContains)}) exitWith {
-            [format ["Штаб: авиационный класс %1 не опубликован для выбранной стороны.", _class], _requester] call DRO2026_fnc_supportMessage;
-        };
-        [_position, _class, _quantity, _requester] call DRO2026_fnc_requestAirSupport;
+    case "CAS": {
+        [_normalized getOrDefault ["targetPositionASL", []], _normalized getOrDefault ["assetClass", ""], _normalized getOrDefault ["count", 1], _requester] call DRO2026_fnc_requestAirSupport;
+        [true, "ACCEPTED", "CAS request accepted", _requestId, createHashMap] call DRO2026_fnc_makeResult
     };
-    default {
-        [format ["Штаб: неизвестный тип поддержки %1.", _kind], _requester] call DRO2026_fnc_supportMessage;
-    };
+    case "INTERCEPTOR": {[_normalized, _requester] call DRO2026_fnc_requestInterceptor};
+    default {[false, "CHANNEL_NOT_IMPLEMENTED", format ["Channel %1 is not implemented", _channel], _requestId, createHashMap] call DRO2026_fnc_makeResult};
+};if !(_result isEqualType createHashMap) then {_result = [false, "INVALID_HANDLER_RESULT", "Support handler returned an invalid result", _requestId, createHashMap] call DRO2026_fnc_makeResult};
+_processed set [_requestId, _result];
+if (count _processed > 256) then {
+    private _keys = keys _processed;
+    for "_index" from 0 to ((count _keys) - 193) do {_processed deleteAt (_keys select _index)};
 };
+missionNamespace setVariable ["DRO2026_processedSupportRequests", _processed];
+["SUPPORT", if (_result getOrDefault ["ok", false]) then {"REQUEST_ACCEPTED"} else {"REQUEST_REJECTED"}, createHashMapFromArray [["requestId", _requestId], ["channel", _channel], ["code", _result getOrDefault ["code", ""]], ["requesterUid", _actualUid]], _requestId] call DRO2026_fnc_logStructured;
+[_result, _requester] call _sendResult

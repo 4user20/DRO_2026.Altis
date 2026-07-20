@@ -32,7 +32,7 @@ private _nodeHasDisabled = createHashMap;
 private _nodeHasDestroyed = createHashMap;
 
 {
-    private _site = _x;
+    private _site = [_x] call DRO2026_fnc_evaluateSiteComponents;
     private _type = _site getOrDefault ["type", "UNKNOWN"];
     private _position = _site getOrDefault ["position", []];
     private _id = _site getOrDefault ["id", ""];
@@ -40,7 +40,7 @@ private _nodeHasDestroyed = createHashMap;
         _id = format ["SITE_%1_%2_%3", _type, floor diag_tickTime, _forEachIndex];
         _site set ["id", _id];
     };
-    if (isNil {_site get "schema"}) then {_site set ["schema", 2]};
+    if (isNil {_site get "schema"}) then {_site set ["schema", 3]};
     if (isNil {_site get "createdAt"}) then {_site set ["createdAt", time]};
 
     private _refs = +(_site getOrDefault ["objects", []]);

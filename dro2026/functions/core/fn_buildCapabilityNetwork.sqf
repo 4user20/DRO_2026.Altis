@@ -57,6 +57,38 @@ private _map = {createHashMapFromArray _this};
     ["SHORAD", "POINT_DEFENCE"]
 ] call DRO2026_fnc_createNetworkNode;
 
+
+[
+    "NODE_FRIENDLY_HQ", "HQ", playersSide, ["FRIENDLY_HQ"] call _position,
+    [["command", 1], ["comms", 1]] call _map,
+    [["FUEL", 24], ["MEDICAL", 12]] call _map,
+    ["COMMAND", "ROUTE_CONTROL"]
+] call DRO2026_fnc_createNetworkNode;
+[
+    "NODE_FRIENDLY_LOGISTICS", "LOGISTICS_HUB", playersSide, ["FRIENDLY_LOGISTICS"] call _position,
+    [["warehouse", 1], ["fuelDepot", 1], ["dispatcher", 1]] call _map,
+    [["ARTILLERY_AMMO", 18], ["FPV_KITS", 12], ["LONG_RANGE_DRONES", 8], ["FUEL", 28], ["AA_MISSILES", 10], ["RADAR_PARTS", 3]] call _map,
+    ["SUPPLY_SOURCE", "DELIVERY_DISPATCH"]
+] call DRO2026_fnc_createNetworkNode;
+[
+    "NODE_FRIENDLY_FPV", "FPV_TEAM", playersSide, ["FRIENDLY_DRONE_FORWARD"] call _position,
+    [["operator", 1], ["antenna", 1], ["generator", 1]] call _map,
+    [["FPV_KITS", 8], ["BATTERIES", 8], ["FUEL", 4]] call _map,
+    ["FPV_ATTACK", "MICRO_ISR", "RELOCATE"]
+] call DRO2026_fnc_createNetworkNode;
+[
+    "NODE_FRIENDLY_DRONES", "STRATEGIC_DRONE_SITE", playersSide, ["FRIENDLY_DRONE_REAR"] call _position,
+    [["operator", 1], ["launcher", 1], ["antenna", 1]] call _map,
+    [["LONG_RANGE_DRONES", 6], ["FUEL", 10], ["BATTERIES", 6]] call _map,
+    ["LONG_RANGE_ATTACK", "TACTICAL_ISR"]
+] call DRO2026_fnc_createNetworkNode;
+[
+    "NODE_FRIENDLY_AA_LONG", "AA_LONG", playersSide, ["FRIENDLY_AA_LONG"] call _position,
+    [["radar", 1], ["launcher", 1], ["commandLink", 1]] call _map,
+    [["AA_MISSILES", 8], ["RADAR_PARTS", 2], ["FUEL", 8]] call _map,
+    ["LONG_RANGE_AA", "RADAR_TRACK", "INTERCEPT"]
+] call DRO2026_fnc_createNetworkNode;
+
 private _edge = {
     params ["_id", "_from", "_to", "_cargo", "_capacity", "_travel"];
     private _fromNode = DRO2026_networkNodes get _from;
@@ -71,7 +103,14 @@ private _edge = {
 ["EDGE_LOGISTICS_AA_LONG", "NODE_LOGISTICS_01", "NODE_AA_LONG_01", ["AA_MISSILES", "RADAR_PARTS", "FUEL"], 6, 760] call _edge;
 ["EDGE_LOGISTICS_SHORAD", "NODE_LOGISTICS_01", "NODE_AA_SHORAD_01", ["AA_MISSILES", "FUEL"], 5, 560] call _edge;
 
+
+["EDGE_FRIENDLY_HQ_LOGISTICS", "NODE_FRIENDLY_HQ", "NODE_FRIENDLY_LOGISTICS", ["FUEL", "MEDICAL"], 10, 420] call _edge;
+["EDGE_FRIENDLY_LOGISTICS_FPV", "NODE_FRIENDLY_LOGISTICS", "NODE_FRIENDLY_FPV", ["FPV_KITS", "BATTERIES", "FUEL"], 7, 420] call _edge;
+["EDGE_FRIENDLY_LOGISTICS_DRONES", "NODE_FRIENDLY_LOGISTICS", "NODE_FRIENDLY_DRONES", ["LONG_RANGE_DRONES", "BATTERIES", "FUEL"], 6, 650] call _edge;
+["EDGE_FRIENDLY_LOGISTICS_AA", "NODE_FRIENDLY_LOGISTICS", "NODE_FRIENDLY_AA_LONG", ["AA_MISSILES", "RADAR_PARTS", "FUEL"], 5, 650] call _edge;
+
 missionNamespace setVariable ["DRO2026_networkBuilt", true];
+[] call DRO2026_fnc_applyReserveMultiplier;
 ["NETWORK_BUILT", createHashMapFromArray [["nodes", count DRO2026_networkNodes], ["edges", count DRO2026_networkEdges]], "SYSTEM"] call DRO2026_fnc_emitEvent;
 [format ["Capability network создан: узлов %1, рёбер %2", count DRO2026_networkNodes, count DRO2026_networkEdges]] call DRO2026_fnc_log;
 DRO2026_networkNodes

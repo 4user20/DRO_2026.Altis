@@ -37,7 +37,13 @@ private _add = {
     private _key = format ["%1|%2|%3", _category, _mode, _class];
     if (_key in _seen) exitWith {};
     _seen pushBack _key;
-    _catalog pushBack [_category, _mode, _class, _label, _tooltip, _maxQuantity];
+    private _cfg = if (_class == "") then {configNull} else {configFile >> "CfgVehicles" >> _class};
+    if (_class != "" && {!isClass _cfg}) exitWith {};
+    _catalog pushBack createHashMapFromArray [
+        ["schema", 1], ["category", _category],
+        ["channel", switch _category do {case "ARTY": {"ARTILLERY"}; case "CAS": {"CAS"}; default {"UAV"}}],
+        ["mode", _mode], ["assetClass", _class], ["label", _label], ["tooltip", _tooltip], ["maxQuantity", (_maxQuantity max 1) min 10]
+    ];
 };
 private _roleClasses = {
     params ["_roles", ["_mustFly", false], ["_selectedFactionOnly", false]];
@@ -108,8 +114,18 @@ if ("CAS" in _categories) then {
     } forEach ([["PLAYER_CAS_AIR"], true, false] call _roleClasses);
 };
 
-missionNamespace setVariable ["DRO2026_supportCatalog", _catalog, true];
+private _validCatalog = _catalog select {
+    _x isEqualType createHashMap && {(_x getOrDefault ["category", ""]) != ""} && {(_x getOrDefault ["mode", ""]) != ""} && {(_x getOrDefault ["maxQuantity", 0]) isEqualType 0}
+};
+private _channels = (_validCatalog apply {_x getOrDefault ["channel", ""]}) select {_x != ""};
+_channels = _channels arrayIntersect _channels;
+private _signature = str [_sideSuffix, _selectedFactions, _categories, _validCatalog apply {_x getOrDefault ["mode", ""]}];
+private _currentSignature = missionNamespace getVariable ["DRO2026_supportCatalogSignature", ""];
+if ((missionNamespace getVariable ["DRO2026_supportCatalogReady", false]) && {_signature == _currentSignature}) exitWith {missionNamespace getVariable ["DRO2026_supportCatalog", []]};
+missionNamespace setVariable ["DRO2026_supportCatalog", _validCatalog, true];
+missionNamespace setVariable ["DRO2026_supportChannels", _channels, true];
+missionNamespace setVariable ["DRO2026_supportCatalogSignature", _signature, true];
 missionNamespace setVariable ["DRO2026_supportCatalogReady", true, true];
 missionNamespace setVariable ["DRO2026_supportCatalogVersion", (missionNamespace getVariable ["DRO2026_supportCatalogVersion", 0]) + 1, true];
-[format ["Каталог поддержки опубликован: записей %1, категории %2", count _catalog, _categories]] call DRO2026_fnc_log;
-_catalog
+["SUPPORT", "CATALOG_PUBLISHED", createHashMapFromArray [["entries", count _validCatalog], ["channels", _channels], ["version", missionNamespace getVariable ["DRO2026_supportCatalogVersion", 0]]], _signature] call DRO2026_fnc_logStructured;
+_validCatalog

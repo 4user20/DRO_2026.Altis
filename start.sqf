@@ -802,9 +802,9 @@ _scriptStartTime = time;
 // Get number of tasks
 _numObjs = 1;
 if (numObjectives == 0) then {
-	_numObjs = 3;
+	_numObjs = ((missionNamespace getVariable ["DRO2026_PrimaryObjectiveCount", 3]) max 1) min 5;
 } else {
-	_numObjs = numObjectives;
+	_numObjs = (numObjectives max 1) min 5;
 };
 diag_log format ["DRO: _numObjs = %1", _numObjs];
 

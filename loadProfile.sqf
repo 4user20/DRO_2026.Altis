@@ -37,3 +37,7 @@ publicVariable "customSupports";
 dynamicSim = profileNamespace getVariable ["DRO_dynamicSim", 0];
 publicVariable "dynamicSim";
 diag_log "DRO: variables loaded from profile";
+
+if !(customSupports isEqualType []) then {customSupports = []};
+customSupports = customSupports select {_x isEqualType "" && {_x != ""}};
+customSupports = customSupports arrayIntersect customSupports;

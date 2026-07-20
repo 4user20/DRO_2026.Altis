@@ -58,15 +58,19 @@ if (_index >= 0) then {
     private _newUncertainty = _prototype getOrDefault ["uncertaintyRadius", 120];
     private _fusedUncertainty = (((_oldUncertainty * _oldWeight) + (_newUncertainty * _newWeight)) / _totalWeight) max 5;
 
+    _contact set ["positionASL", +_fusedPos];
     _contact set ["position", +_fusedPos];
     _contact set ["positionMean", +_fusedPos];
     _contact set ["velocityEstimate", _velocity];
     _contact set ["uncertaintyRadius", _fusedUncertainty];
     _contact set ["confidence", _newConfidence];
+    _contact set ["lastSeenAt", time];
+    _contact set ["lastUpdatedAt", time];
     _contact set ["lastSeen", time];
     _contact set ["lastFusionAt", time];
+    _contact set ["subjectObject", _target];
     _contact set ["target", _target];
-    if (_subjectId != "") then {_contact set ["subjectId", _subjectId]};
+    if (_subjectId != "") then {_contact set ["subjectNetId", _subjectId]; _contact set ["subjectId", _subjectId]};
     if ((_confidence * _sourceQuality) >= (_oldConfidence * 0.72)) then {
         _contact set ["classification", _classification];
         _contact set ["kind", _classification];
@@ -76,7 +80,9 @@ if (_index >= 0) then {
     _contact set ["sources", _sources];
     _contact set ["sourceQuality", (_contact getOrDefault ["sourceQuality", 0]) max _sourceQuality];
     _contact set ["decayRate", (_contact getOrDefault ["decayRate", 0.006]) min (_prototype getOrDefault ["decayRate", 0.006])];
-    _contact set ["uncertaintyGrowth", ((_contact getOrDefault ["uncertaintyGrowth", 15]) + (_prototype getOrDefault ["uncertaintyGrowth", 15])) / 2];
+    private _growth = ((_contact getOrDefault ["uncertaintyGrowthPerMinute", _contact getOrDefault ["uncertaintyGrowth", 15]]) + (_prototype getOrDefault ["uncertaintyGrowthPerMinute", 15])) / 2;
+    _contact set ["uncertaintyGrowthPerMinute", _growth];
+    _contact set ["uncertaintyGrowth", _growth];
     _contact set ["falseContactProbability", ((_contact getOrDefault ["falseContactProbability", 0]) min (_prototype getOrDefault ["falseContactProbability", 0]))];
 } else {
     _contact = _prototype;
@@ -92,6 +98,8 @@ if (!isNull _target && {!alive _target}) then {
     if ((_contact getOrDefault ["confidence", 0]) >= 0.78 && {_bda == "DETECTED"}) then {_bda = "CONFIRMED"};
 };
 _contact set ["bdaState", _bda];
+_contact set ["state", switch _bda do {case "CONFIRMED_DESTROYED": {"DESTROYED"}; case "PROBABLY_DESTROYED": {"LOST"}; case "CONFIRMED": {"CONFIRMED"}; default {"DETECTED"}}];
+_contact set ["lastUpdatedAt", time];
 
 private _nodeId = _contact getOrDefault ["subjectId", ""];
 if (_owner == "PLAYER" && {_nodeId != ""} && {!isNil {DRO2026_networkNodes get _nodeId}}) then {

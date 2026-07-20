@@ -105,17 +105,18 @@ def main() -> int:
     )
     require(
         errors,
-        "dro2026/functions/core/fn_isLiveContactSubject.sqf",
-        ('"DESTROYED", "DISABLED", "CANCELLED", "COMPLETED"',),
+        "dro2026/functions/core/fn_resolveContactSubject.sqf",
+        ('"DESTROYED","DISABLED","CANCELLED","COMPLETED"', "objectFromNetId"),
     )
     require(
         errors,
         "dro2026/functions/directors/fn_logisticsDirector.sqf",
         (
-            "_setDeliverySiteStatus",
-            '"COMPLETED"',
+            "_setSiteState",
+            '"COMPLETE"',
             '"DESTROYED"',
             '"DISABLED"',
+            "DRO2026_fnc_transferLogisticsCargo",
         ),
     )
 

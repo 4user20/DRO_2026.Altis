@@ -3,6 +3,7 @@
 #include "sunday_system\dialogs\dialogsMainMenu.hpp"
 #include "sunday_system\dialogs\dialogsLobby.hpp"
 #include "dro2026\CfgFunctions.hpp"
+#include "dro2026\CfgRemoteExec.hpp"
 
 enableDebugConsole = 1;
 allowFunctionsLog = 0;

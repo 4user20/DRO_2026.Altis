@@ -53,6 +53,8 @@ _index = lbAdd [2106, "Случайно"];
 _index = lbAdd [2106, "1"];
 _index = lbAdd [2106, "2"];
 _index = lbAdd [2106, "3"];
+_index = lbAdd [2106, "4"];
+_index = lbAdd [2106, "5"];
 
 ["MAIN", 2020, false] call sun_switchButton;
 ["MAIN", 2030, false] call sun_switchButton;

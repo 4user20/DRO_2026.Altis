@@ -211,10 +211,10 @@ if (_isProjectile) then {
             _crewGroup setCombatMode "BLUE";
             _crewGroup setSpeedMode "FULL";
             private _driver = driver _drone;
-            _driver disableAI "MOVE";
-            _driver disableAI "PATH";
-            _driver disableAI "TARGET";
-            _driver disableAI "AUTOTARGET";
+            _driver enableAI "MOVE";
+            _driver enableAI "PATH";
+            _driver enableAI "TARGET";
+            _driver enableAI "AUTOTARGET";
             private _lower = toLowerANSI _vehicleClass;
             if ((_lower find "shahed") >= 0 || {(_lower find "geran") >= 0}) then {_speed = 52};
             if ((_lower find "bm35") >= 0) then {_speed = 64};
@@ -238,7 +238,7 @@ private _eventSubject = if (_reservationNodeId != "") then {_reservationNodeId} 
     ["role", "LONG_RANGE"], ["type", _requestedType], ["class", _launchClass], ["projectile", _isProjectile],
     ["side", str _side], ["contactId", _contact getOrDefault ["id", ""]], ["subjectId", _contact getOrDefault ["subjectId", ""]],
     ["siteId", _siteId], ["reservationNodeId", _reservationNodeId], ["decoy", _decoy],
-    ["salvoIndex", _salvoIndex], ["salvoSize", _salvoSize]
+    ["salvoIndex", _salvoIndex], ["salvoSize", _salvoSize], ["flightAuthority", if (_isProjectile) then {"FPV_TERMINAL"} else {"ARMA_AI"}]
 ], _eventSubject] call DRO2026_fnc_emitEvent;
 [_drone, _label, _side] spawn DRO2026_fnc_trackIncomingDrone;
 
@@ -276,35 +276,36 @@ private _applyFlightVector = {
     _object setVelocity (_flightDirection vectorMultiply _speed);
 };
 private _initialDelta = (AGLToASL _targetPos) vectorDiff _spawnASL;
-[_drone, _initialDelta, _speed] call _applyFlightVector;
-
+if (_isProjectile) then {
+    [_drone, "FPV_TERMINAL", "PROJECTILE_GUIDANCE_REQUIRED", "NONE"] call DRO2026_fnc_setFlightAuthority;
+    [_drone, _initialDelta, _speed] call _applyFlightVector;
+} else {
+    [_drone, "ARMA_AI", "WAYPOINT_MACRO_ROUTE", "NONE"] call DRO2026_fnc_setFlightAuthority;
+    private _initialLength = vectorMagnitude _initialDelta;
+    if (_initialLength > 0.01) then {_drone setVelocity ((_initialDelta vectorMultiply (1 / _initialLength)) vectorMultiply (_speed max 32))};
+    [_crewGroup, _drone, _spawnASL, AGLToASL _targetPos, if (_decoy) then {"SEARCH"} else {"STRIKE"}, 800 + random 500, 280 + random 160] call DRO2026_fnc_buildWaypointFlightPlan;
+};
 private _timeout = time + 760;
+private _terminalDeadline = -1;
 while {alive _drone && {time < _timeout} && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}} do {
     if (!isNull _target && {alive _target}) then {_targetPos = getPosATL _target};
     private _distance = _drone distance2D _targetPos;
-    private _clearance = if (_distance > 1200) then {95} else {if (_distance > 350) then {45} else {8}};
-    private _aimASL = [_drone, _targetPos, _clearance, [350, 750, 1300], 700, 18] call DRO2026_fnc_calculateTerrainAwareAim;
-    private _delta = _aimASL vectorDiff getPosASL _drone;
-    private _length = vectorMagnitude _delta;
-    if (_length > 0.1) then {
-        private _vector = _delta vectorMultiply (1 / _length);
-        private _pulse = 1 + ((sin ((diag_tickTime + _salvoIndex) * 38)) * 0.035);
-        [_drone, _vector, _speed * _pulse] call _applyFlightVector;
+    private _authority = _drone getVariable ["DRO2026_flightAuthority", "NONE"];
+    if (!_isProjectile && {_distance < 950} && {_authority == "ARMA_AI"}) then {
+        if ([_drone, "FPV_TERMINAL", "FINAL_INGRESS", "ARMA_AI"] call DRO2026_fnc_setFlightAuthority) then {_terminalDeadline = time + 45; if (!isNull (driver _drone)) then {(driver _drone) disableAI "PATH"}};
     };
-
-    if (_distance < 7) then {
-        if (_decoy) then {
-            if (_isProjectile) then {deleteVehicle _drone} else {_drone setDamage 1};
-        } else {
-            if (_isProjectile) then {
-                triggerAmmo _drone;
-            } else {
-                _drone setDamage 1;
-            };
-        };
+    private _terminalActive = _isProjectile || {(_drone getVariable ["DRO2026_flightAuthority", "NONE"]) == "FPV_TERMINAL"};
+    if (_terminalActive) then {
+        if (!_isProjectile && {_terminalDeadline > 0 && {time > _terminalDeadline}}) exitWith {};
+        private _clearance = if (_distance > 350) then {45} else {8};
+        private _aimASL = [_drone, _targetPos, _clearance, [350,750,1300], 700, 18] call DRO2026_fnc_calculateTerrainAwareAim;
+        private _delta = _aimASL vectorDiff getPosASL _drone; private _length = vectorMagnitude _delta;
+        if (_length > 0.1) then {private _vector = _delta vectorMultiply (1 / _length); private _pulse = 1 + ((sin ((diag_tickTime + _salvoIndex) * 38)) * 0.035); [_drone,_vector,_speed*_pulse] call _applyFlightVector};
     };
-    sleep (if (_distance > 2500) then {0.55} else {0.28});
+    if (_distance < 7) then {if (_decoy) then {if (_isProjectile) then {deleteVehicle _drone} else {_drone setDamage 1}} else {if (_isProjectile) then {triggerAmmo _drone} else {_drone setDamage 1}}};
+    sleep (if (_terminalActive) then {0.28} else {1.5});
 };
+[_drone, "NONE", "MISSION_COMPLETE", _drone getVariable ["DRO2026_flightAuthority", "NONE"]] call DRO2026_fnc_setFlightAuthority;
 private _activeIndex = DRO2026_activeDrones find _drone;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
 if (!isNull _drone) then {

@@ -1,7 +1,7 @@
 params ["_position", "_class", ["_quantity", 1], ["_requester", objNull]];
 
 if (!isServer) exitWith {
-    [player, "AIR", [_position, _class, _quantity]] remoteExecCall ["DRO2026_fnc_serverRequestSupport", 2, false];
+    [createHashMapFromArray [["channel","CAS"],["assetClass",_class],["count",_quantity],["targetMode","MAP_POINT"],["targetPositionASL",AGLToASL _position],["sourceMode","AUTO"],["controlMode","AUTO"]]] call DRO2026_fnc_submitSupportRequest
 };
 [] call DRO2026_fnc_initState;
 if (isNull _requester && {hasInterface}) then {_requester = player};

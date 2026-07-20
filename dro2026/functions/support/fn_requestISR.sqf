@@ -1,7 +1,8 @@
 params ["_position", ["_requestedType", "AUTO"], ["_requester", objNull]];
 
 if (!isServer) exitWith {
-    [player, "ISR", [_position, _requestedType]] remoteExecCall ["DRO2026_fnc_serverRequestSupport", 2, false];
+    private _assetClass = if ((toUpperANSI _requestedType find "CLASS:") == 0) then {_requestedType select [6]} else {""};
+    [createHashMapFromArray [["channel","ISR"],["assetId",if (_assetClass == "") then {_requestedType} else {""}],["assetClass",_assetClass],["count",1],["targetMode","MAP_POINT"],["targetPositionASL",AGLToASL _position],["sourceMode","AUTO"],["controlMode","AUTO"]]] call DRO2026_fnc_submitSupportRequest
 };
 
 [] call DRO2026_fnc_initState;
@@ -23,13 +24,7 @@ if (_exactClass == "" && {!(_upperType in _knownTypes)}) exitWith {
 private _classAllowed = true;
 if ((_upperType find "CLASS:") == 0) then {
     private _catalogMode = format ["ISR_CLASS:%1", _exactClass];
-    _classAllowed = _exactClass != "" && {
-        ((missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {
-            (_x isEqualType []) &&
-            {(_x param [1, ""]) == _catalogMode} &&
-            {(_x param [2, ""]) == _exactClass}
-        }) >= 0
-    };
+    _classAllowed = _exactClass != "" && {[_catalogMode,_exactClass] call DRO2026_fnc_supportCatalogContains};
 };
 if (!_classAllowed) exitWith {
     [format ["Штаб: разведывательный БПЛА %1 отсутствует в каталоге выбранной фракции.", _exactClass], _requester] call DRO2026_fnc_supportMessage;

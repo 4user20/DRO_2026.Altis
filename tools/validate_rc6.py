@@ -291,7 +291,7 @@ if "class createContactRecord {};" not in cfg:
     semantic["contact model"].append("CfgFunctions: createContactRecord is not registered")
 contract(
     semantic["contact model"],
-    "dro2026/functions/core/fn_isLiveContactSubject.sqf",
+    "dro2026/functions/core/fn_resolveContactSubject.sqf",
     (
         '"PROBABLY_DESTROYED"',
         '"CONFIRMED_DESTROYED"',
@@ -310,11 +310,11 @@ contract(
     semantic["support authority"],
     "dro2026/functions/support/fn_serverRequestSupport.sqf",
     (
-        "isPlayer _requester",
-        'isKindOf "VirtualMan_F"',
-        "remoteExecutedOwner",
+        "DRO2026_fnc_normalizeSupportRequest",
+        "DRO2026_fnc_resolveRemoteRequester",
+        "DRO2026_processedSupportRequests",
         "owner _requester",
-        "_catalogContains",
+        "DRO2026_fnc_makeResult",
     ),
 )
 for name in (
@@ -327,7 +327,7 @@ for name in (
     contract(
         semantic["support authority"],
         f"dro2026/functions/support/{name}",
-        ("if (!isServer)", "serverRequestSupport"),
+        ("if (!isServer)", "DRO2026_fnc_submitSupportRequest"),
     )
 
 contract(
@@ -351,15 +351,15 @@ contract(
     semantic["node logistics"],
     "dro2026/functions/directors/fn_logisticsDirector.sqf",
     (
-        "DELIVERY_STARTED",
+        "DELIVERY_RESERVED",
         "DELIVERY_MATERIALIZED",
         "DELIVERY_COMPLETED",
         "DELIVERY_INTERDICTED",
-        "DELIVERY_CANCELLED",
-        "_setActiveConvoyStatus",
-        "_setDeliverySiteStatus",
+        "DELIVERY_MATERIALIZATION_REFUND",
+        "_setSiteState",
         '"siteRecord"',
-        "_cleanupDeliveryVehicles",
+        "_cleanupJob",
+        "DRO2026_fnc_transferLogisticsCargo",
         "changeNetworkNodeStock",
     ),
 )

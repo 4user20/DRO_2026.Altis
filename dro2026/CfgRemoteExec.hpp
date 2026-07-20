@@ -1,0 +1,85 @@
+// Generated from literal remoteExec/remoteExecCall targets used by this mission.
+class CfgRemoteExec
+{
+    class Functions
+    {
+        mode = 1;
+        jip = 1;
+        class BIS_fnc_addCommMenuItem { allowedTargets = 0; jip = 1; };
+        class BIS_fnc_ambientAnim { allowedTargets = 0; jip = 1; };
+        class BIS_fnc_EXP_camp_playSubtitles { allowedTargets = 0; jip = 1; };
+        class bis_fnc_holdActionAdd { allowedTargets = 0; jip = 1; };
+        class bis_fnc_holdActionRemove { allowedTargets = 0; jip = 1; };
+        class BIS_fnc_taskSetState { allowedTargets = 0; jip = 1; };
+        class DRO2026_fnc_confirmUAVControl { allowedTargets = 2; jip = 1; };
+        class DRO2026_fnc_hqVoice { allowedTargets = 0; jip = 1; };
+        class DRO2026_fnc_offerFPVControl { allowedTargets = 1; jip = 1; };
+        class DRO2026_fnc_receiveSupportResult { allowedTargets = 1; jip = 1; };
+        class DRO2026_fnc_serverRequestSupport { allowedTargets = 2; jip = 1; };
+        class DRO2026_fnc_showStatus { allowedTargets = 0; jip = 1; };
+        class DRO2026_fnc_supportMessage { allowedTargets = 0; jip = 1; };
+        class DRO2026_fnc_syncContactMarker { allowedTargets = 1; jip = 1; };
+        class DRO2026_fnc_trackIncomingDrone { allowedTargets = 1; jip = 1; };
+        class dro_detectPosMP { allowedTargets = 0; jip = 1; };
+        class sun_addIntel { allowedTargets = 0; jip = 1; };
+        class sun_backpackFix { allowedTargets = 0; jip = 1; };
+        class sun_lobbyChangeLabel { allowedTargets = 0; jip = 1; };
+        class sun_newUnit { allowedTargets = 0; jip = 1; };
+        class sun_newUnits { allowedTargets = 0; jip = 1; };
+        class sun_playRadioRandom { allowedTargets = 0; jip = 1; };
+        class sun_playSubtitleRadio { allowedTargets = 0; jip = 1; };
+        class sun_randomTime { allowedTargets = 0; jip = 1; };
+        class sun_setNameMP { allowedTargets = 0; jip = 1; };
+    };
+    class Commands
+    {
+        mode = 1;
+        jip = 1;
+        class action { allowedTargets = 0; jip = 1; };
+        class addAction { allowedTargets = 0; jip = 1; };
+        class addEventHandler { allowedTargets = 0; jip = 1; };
+        class addRating { allowedTargets = 0; jip = 1; };
+        class allowDamage { allowedTargets = 0; jip = 1; };
+        class allowFleeing { allowedTargets = 0; jip = 1; };
+        class ctrlSetText { allowedTargets = 0; jip = 1; };
+        class cutText { allowedTargets = 0; jip = 1; };
+        class diag_log { allowedTargets = 0; jip = 1; };
+        class disableAI { allowedTargets = 0; jip = 1; };
+        class enableAI { allowedTargets = 0; jip = 1; };
+        class execVM { allowedTargets = 0; jip = 1; };
+        class fadeSound { allowedTargets = 0; jip = 1; };
+        class fadeSpeech { allowedTargets = 0; jip = 1; };
+        class groupChat { allowedTargets = 0; jip = 1; };
+        class hideObject { allowedTargets = 0; jip = 1; };
+        class hint { allowedTargets = 0; jip = 1; };
+        class moveInCargo { allowedTargets = 0; jip = 1; };
+        class moveInCommander { allowedTargets = 0; jip = 1; };
+        class moveInDriver { allowedTargets = 0; jip = 1; };
+        class moveInGunner { allowedTargets = 0; jip = 1; };
+        class playMoveNow { allowedTargets = 0; jip = 1; };
+        class playMusic { allowedTargets = 0; jip = 1; };
+        class playSound { allowedTargets = 0; jip = 1; };
+        class removeAllActions { allowedTargets = 0; jip = 1; };
+        class removeAllItems { allowedTargets = 0; jip = 1; };
+        class removeAllWeapons { allowedTargets = 0; jip = 1; };
+        class removeMagazine { allowedTargets = 0; jip = 1; };
+        class reveal { allowedTargets = 0; jip = 1; };
+        class selectPlayer { allowedTargets = 0; jip = 1; };
+        class setCaptive { allowedTargets = 0; jip = 1; };
+        class setDate { allowedTargets = 0; jip = 1; };
+        class setDir { allowedTargets = 0; jip = 1; };
+        class setFormDir { allowedTargets = 0; jip = 1; };
+        class setGroupIconsVisible { allowedTargets = 0; jip = 1; };
+        class setHitIndex { allowedTargets = 0; jip = 1; };
+        class setNameSound { allowedTargets = 0; jip = 1; };
+        class setOvercast { allowedTargets = 0; jip = 1; };
+        class setPlayerRespawnTime { allowedTargets = 0; jip = 1; };
+        class setRandomLip { allowedTargets = 0; jip = 1; };
+        class setUnitTrait { allowedTargets = 0; jip = 1; };
+        class setVehicleLock { allowedTargets = 0; jip = 1; };
+        class setVehicleVarName { allowedTargets = 0; jip = 1; };
+        class sideChat { allowedTargets = 0; jip = 1; };
+        class stop { allowedTargets = 0; jip = 1; };
+        class switchMove { allowedTargets = 0; jip = 1; };
+    };
+};

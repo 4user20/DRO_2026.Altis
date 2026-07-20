@@ -9,6 +9,17 @@ DRO2026_contacts = [];
 DRO2026_sites = [];
 DRO2026_friendlyPositions = [];
 DRO2026_activeDrones = [];
+DRO2026_droneRegistry = createHashMap;
+DRO2026_droneClassMetadata = createHashMap;
+DRO2026_droneRegistryInitialized = false;
+DRO2026_droneAdapterReady = false;
+DRO2026_ddtConfigured = false;
+DRO2026_ddtDeploySides = [];
+DRO2026_droneWarfareDirectorStarted = false;
+DRO2026_lastDroneAssignmentPass = -999;
+DRO2026_lastDroneIntelPass = -999;
+DRO2026_lastDroneInfosharePass = -999;
+DRO2026_lastDroneUnassignedPass = -999;
 DRO2026_activeConvoys = [];
 DRO2026_supplyLanes = [];
 DRO2026_supplyEvents = [];
@@ -18,6 +29,18 @@ DRO2026_objectiveQueue = [];
 DRO2026_operationPackageName = "";
 DRO2026_objectiveMeta = createHashMap;
 DRO2026_reservedObjectivePositions = [];
+DRO2026_processedSupportRequests = createHashMap;
+DRO2026_contactQuarantine = createHashMap;
+DRO2026_logDedupeCounters = createHashMap;
+DRO2026_assetDescriptors = createHashMap;
+DRO2026_assetRegistryInitialized = false;
+DRO2026_assetRegistryInvalidated = false;
+DRO2026_supportCatalogSignature = "";
+DRO2026_supportChannels = [];
+DRO2026_dynamicTasks = [];
+DRO2026_logisticsJobs = [];
+DRO2026_reserveMultiplierApplied = false;
+DRO2026_dynamicObjectiveDirectorStarted = false;
 
 DRO2026_theaterNodes = createHashMap;
 DRO2026_theaterLayout = createHashMap;
@@ -79,7 +102,7 @@ DRO2026_resources = createHashMapFromArray [
     ["enemySupply", 100], ["enemyArtilleryAmmo", 80], ["enemyDroneStock", 48],
     ["enemyLongRangeStock", 12], ["enemyReinforcement", 78], ["enemyEW", 65],
     ["enemyAirDefence", 70], ["friendlySupply", 80], ["friendlyFPVStock", 18],
-    ["friendlyISRStock", 8], ["friendlyLongRangeStock", 20], ["friendlyFP5Stock", 2],
+    ["friendlyISRStock", 8], ["smallQuadISR", 4], ["tacticalISR", 3], ["longRangeISR", 2], ["MALE_HALE_ISR", 1], ["reusableISR", 6], ["expendableISR", 4], ["friendlyLongRangeStock", 20], ["friendlyFP5Stock", 2],
     ["friendlyDecoyStock", 6], ["friendlyArtilleryStock", 18], ["friendlyAirSorties", 4]
 ];
 

@@ -56,6 +56,25 @@ class CfgFunctions
             class createStrategicInfrastructure {};
             class calculateTerrainAwareAim {};
             class resolveLauncherAmmo {};
+            class makeResult {};
+            class logStructured {};
+            class normalizeSupportRequest {};
+            class resolveRemoteRequester {};
+            class quarantineContact {};
+            class resolveContactSubject {};
+            class setFlightAuthority {};
+            class supportCatalogContains {};
+            class applyReserveMultiplier {};
+            class getISRPoolKey {};
+            class hasUAVTerminal {};
+            class invalidateAssetRegistry {};
+            class buildWaypointFlightPlan {};
+            class buildAssetDescriptors {};
+            class dumpAssetClass {};
+            class findRoadAwarePosition {};
+            class createSiteComponents {};
+            class evaluateSiteComponents {};
+            class transferLogisticsCargo {};
             class clientInit {postInit = 1;};
         };
         class Directors
@@ -78,6 +97,24 @@ class CfgFunctions
             class enemyAirDirector {};
             class reactionDirector {};
             class orderEncirclement {};
+            class dynamicObjectiveDirector {};
+        };
+        class Drone
+        {
+            file = "dro2026\functions\drone";
+            class hasDDT {};
+            class waitDDTReady {};
+            class initializeDroneRegistry {};
+            class configureDDT {};
+            class assignDroneLoadout {};
+            class dispatchDDTDrones {};
+            class dispatchUnassignedDDT {};
+            class isFiberOpticDrone {};
+            class isExternallyControlledUAV {};
+            class collectDroneIntel {};
+            class shareDroneIntel {};
+            class fpvAttackController {};
+            class droneWarfareDirector {};
         };
         class Objectives
         {
@@ -113,6 +150,10 @@ class CfgFunctions
             class requestAirSupport {};
             class launchISR {};
             class showStatus {};
+            class submitSupportRequest {};
+            class receiveSupportResult {};
+            class confirmUAVControl {};
+            class requestInterceptor {};
         };
     };
 };

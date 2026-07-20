@@ -1,3 +1,4 @@
+if (missionNamespace getVariable ["DRO2026_assetRegistryInitialized", false] && {!(missionNamespace getVariable ["DRO2026_assetRegistryInvalidated", false])}) exitWith {DRO2026_assetRegistry};
 private _enemySideNumber = switch (enemySide) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
 private _playerSideNumber = switch (playersSide) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
 private _appendFiltered = {
@@ -75,5 +76,10 @@ private _explicitEnemyAir = switch (enemySide) do {
 };
 ["ENEMY_CAS_AIR", _explicitEnemyAir, false, _enemySideNumber, true] call _appendFiltered;
 
+DRO2026_assetRegistryInitialized = true;
+DRO2026_assetRegistryInvalidated = false;
+[] call DRO2026_fnc_buildAssetDescriptors;
+if (DRO2026_DEBUG) then {["P1SUN"] call DRO2026_fnc_dumpAssetClass; ["STING"] call DRO2026_fnc_dumpAssetClass};
 [format ["Реестр техники обновлён: %1 ролей; player artillery=%2/%3/%4, CAS=%5, ISR=%6, logistics=%7; enemy ISR=%8, CAS=%9", count DRO2026_assetRegistry, count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MORTAR", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_SPG", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ARTILLERY_MLRS", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_CAS_AIR", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_ISR_UAV", []]), count (DRO2026_assetRegistry getOrDefault ["PLAYER_LOGISTICS", []]), count (DRO2026_assetRegistry getOrDefault ["ENEMY_ISR_UAV", []]), count (DRO2026_assetRegistry getOrDefault ["ENEMY_CAS_AIR", []])]] call DRO2026_fnc_log;
 if (isServer) then {[] call DRO2026_fnc_publishSupportCatalog};
+DRO2026_assetRegistry

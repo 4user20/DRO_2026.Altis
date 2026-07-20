@@ -39,8 +39,8 @@ private _objects = [];
 } forEach _classes;
 if (count _objects == 0) exitWith {createHashMap};
 
-private _cargo = createVehicle ["Land_Pallet_MilBoxes_F", _position getPos [8, 220], [], 0, "CAN_COLLIDE"];
-private _tent = createVehicle ["Land_TentA_F", _position getPos [14, 300], [], 0, "CAN_COLLIDE"];
+private _cargo = createVehicle ["Land_Pallet_MilBoxes_F", _position getPos [8, 220], [], 0, "NONE"];
+private _tent = createVehicle ["Land_TentA_F", _position getPos [14, 300], [], 0, "NONE"];
 if (!isNull _cargo) then {_objects pushBack _cargo};
 if (!isNull _tent) then {_objects pushBack _tent};
 
@@ -74,7 +74,13 @@ if (!isNull _group) then {
     };
 };
 
-private _extra = createHashMapFromArray [["group", _group], ["background", true], ["cargoType", "MIXED_SUPPLY"]];
+private _template = ["LOGISTICS_HUB",_position,playersSide,random 360] call DRO2026_fnc_createSiteComponents;
+_objects append (_template getOrDefault ["objects",[]]);
+private _components = _template getOrDefault ["components",createHashMap];
+_components set ["crew",if (isNull _group) then {[]} else {units _group}];
+_components set ["guards",if (isNull _group) then {[]} else {units _group}];
+_components set ["transports",_objects select {_x isKindOf "LandVehicle"}];
+private _extra = createHashMapFromArray [["group", _group], ["side",playersSide], ["networkNodeId","NODE_FRIENDLY_LOGISTICS"], ["components",_components], ["background", true], ["cargoType", "MIXED_SUPPLY"]];
 private _record = ["FRIENDLY_LOGISTICS", _position, _objects select 0, _objects, _extra] call DRO2026_fnc_createSiteRecord;
 if !([_record, true] call DRO2026_fnc_validateSiteRecord) exitWith {
     {if (!isNull _x) then {deleteVehicle _x}} forEach _objects;

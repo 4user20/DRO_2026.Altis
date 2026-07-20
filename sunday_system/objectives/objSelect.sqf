@@ -145,7 +145,6 @@ _AOPreferredDisarmStyles = [];
 		};
 		//_forestPositions
 		if (count ((_x select 2) select 6) > 0) then {
-			(_AOPOWStyles select _forEachIndex) pushBackUnique "OUTSIDE";
 			(_AOStyles select _forEachIndex) pushBackUnique "CLEARLZ";
 			(_AODestroyStyles select _forEachIndex) pushBackUnique "CACHE";
 		};
@@ -154,7 +153,6 @@ _AOPreferredDisarmStyles = [];
 			(_AOStyles select _forEachIndex) pushBackUnique "CACHEBUILDING";
 			(_AOStyles select _forEachIndex) pushBackUnique "INTEL";
 			(_AOHVTStyles select _forEachIndex) pushBackUnique "INSIDE";
-			(_AOPOWStyles select _forEachIndex) pushBackUnique "INSIDE";
 		};
 		//_helipads
 		if (count ((_x select 2) select 8) > 0) then {	
@@ -167,9 +165,6 @@ _AOPreferredDisarmStyles = [];
 		};
 		if (count (_AODestroyStyles select _forEachIndex) > 0) then {
 			(_AOStyles select _forEachIndex) pushBackUnique "DESTROY";
-		};
-		if (count (_AOPOWStyles select _forEachIndex) > 0) then {
-			(_AOStyles select _forEachIndex) pushBackUnique "POW";
 		};
 	};
 	
@@ -281,9 +276,6 @@ switch (_select select 1) do {
 			};
 		};
 	};	
-	case "POW": {
-		_scriptHandle = [(_select select 0), (_AOPOWStyles select (_select select 0))] execVM "sunday_system\objectives\pow.sqf";			
-	};
 	case "VEHICLE": {
 		_scriptHandle = [(_select select 0)] execVM "sunday_system\objectives\vehicle.sqf";			
 	};

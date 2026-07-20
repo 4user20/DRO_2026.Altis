@@ -131,14 +131,14 @@ def main() -> int:
 
     require(
         errors,
-        "dro2026/functions/support/fn_serverRequestSupport.sqf",
+        "dro2026/functions/core/fn_resolveRemoteRequester.sqf",
         required=(
-            "isPlayer _requester",
+            "isPlayer _x",
             'isKindOf "VirtualMan_F"',
             "remoteExecutedOwner",
             "isDedicated",
             "_remoteOwner <= 2",
-            "owner _requester",
+            "owner _x",
         ),
     )
     require(
@@ -187,7 +187,7 @@ def main() -> int:
         )
     require(
         errors,
-        "dro2026/functions/core/fn_isLiveContactSubject.sqf",
+        "dro2026/functions/core/fn_resolveContactSubject.sqf",
         required=(
             '"PROBABLY_DESTROYED"',
             '"CONFIRMED_DESTROYED"',
@@ -443,17 +443,17 @@ def main() -> int:
         errors,
         "dro2026/functions/directors/fn_logisticsDirector.sqf",
         required=(
-            'isKindOf "VirtualMan_F"',
-            "_setActiveConvoyStatus",
-            "_setDeliverySiteStatus",
+            "DRO2026_MAX_ACTIVE_LOGISTICS_JOBS_PER_SIDE",
+            "_setSiteState",
             '"siteRecord"',
-            '"INTERDICTED"',
-            '"DELIVERED"',
-            '"CANCELLED"',
-            '"COMPLETED"',
+            '"DELIVERY_INTERDICTED"',
+            '"DELIVERY_COMPLETED"',
+            '"CANCELED"',
+            '"COMPLETE"',
             '"DESTROYED"',
             '"DISABLED"',
-            "_cleanupDeliveryVehicles",
+            "_cleanupJob",
+            "DRO2026_fnc_transferLogisticsCargo",
         ),
     )
     require(

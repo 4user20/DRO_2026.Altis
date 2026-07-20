@@ -1,7 +1,7 @@
 params [
     "_origin", "_contact", ["_side", east], ["_operator", objNull],
     ["_allowPlayerControl", false], ["_supportOwner", objNull], ["_requestedClass", ""],
-    ["_reservationNodeId", ""], ["_siteId", ""]
+    ["_reservationNodeId", ""], ["_siteId", ""], ["_missionId", ""]
 ];
 private _refundReservation = {
     if (_side == playersSide) then {
@@ -37,7 +37,18 @@ private _fallback = switch (_side) do {
     default {"O_UAV_01_F"};
 };
 private _sideNumber = switch (_side) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
-private _pool = (DRO2026_assetRegistry getOrDefault [_role, []]) select {
+private _pool = DRO2026_assetRegistry getOrDefault [_role, []];
+if (missionNamespace getVariable ["DRO2026_droneRegistryInitialized", false]) then {
+    private _sideKey = switch (_side) do {case west: {"WEST"}; case resistance: {"GUER"}; default {"EAST"}};
+    {
+        {
+            if ((_x getOrDefault ["carrier", ""]) == "VEHICLE") then {
+                _pool pushBackUnique (_x getOrDefault ["class", ""]);
+            };
+        } forEach (DRO2026_droneRegistry getOrDefault [format ["%1_%2", _x, _sideKey], []]);
+    } forEach ["FPV_AP_TI", "FPV_AT_TI", "FPV_AP", "FPV_AT"];
+};
+_pool = _pool select {
     private _cfg = configFile >> "CfgVehicles" >> _x;
     isClass _cfg &&
     {_x isKindOf "Air"} &&
@@ -55,19 +66,22 @@ private _isMan = !isNull _target && {_target isKindOf "Man"};
 private _preferred = _pool select {
     private _name = toLowerANSI _x;
     if (_isArmored) then {
-        (_name find "pg7vl") >= 0
+        (_name find "_kvn_at") >= 0 || {(_name find "pg7vl") >= 0}
     } else {
         if (_isMan) then {
-            (_name find "og7v") >= 0 || {(_name find "rkg") >= 0}
+            (_name find "_kvn_ap") >= 0 || {(_name find "og7v") >= 0} || {(_name find "rkg") >= 0}
         } else {
-            (_name find "ied") >= 0 || {(_name find "og7v") >= 0}
+            (_name find "_kvn_ap") >= 0 || {(_name find "ied") >= 0} || {(_name find "og7v") >= 0}
         }
     }
 };
 private _droneClass = if (_requestedClass != "") then {
     _requestedClass
 } else {
-    if (count _preferred > 0) then {selectRandom _preferred} else {if (count _pool > 0) then {selectRandom _pool} else {_fallback}}
+    if (count _preferred > 0) then {
+        private _fiberPreferred = _preferred select {[_x] call DRO2026_fnc_isFiberOpticDrone};
+        if (DRO2026_alertLevel >= 0.62 && {count _fiberPreferred > 0}) then {selectRandom _fiberPreferred} else {selectRandom _preferred}
+    } else {if (count _pool > 0) then {selectRandom _pool} else {_fallback}}
 };
 private _droneCfg = configFile >> "CfgVehicles" >> _droneClass;
 if (!isClass _droneCfg || {!(_droneClass isKindOf "Air")} || {_sideNumber >= 0 && {getNumber (_droneCfg >> "side") != _sideNumber}}) exitWith {
@@ -99,7 +113,13 @@ _driver disableAI "AUTOTARGET";
 _drone setVariable ["DRO2026_operator", _operator];
 _drone setVariable ["DRO2026_manualControl", false, true];
 _drone setVariable ["DRO2026_supportOwner", _supportOwner, true];
+_drone setVariable ["DRO2026_authorizedControllerUid", if (!isNull _supportOwner) then {getPlayerUID _supportOwner} else {""}, true];
+_drone setVariable ["DRO2026_missionId", _missionId, true];
+[_drone, "FPV_TERMINAL", "FPV_AUTOPILOT_STARTED", "NONE"] call DRO2026_fnc_setFlightAuthority;
 _drone setVariable ["DRO2026_siteId", _siteId, true];
+_drone setVariable ["ddtExclude", true, true];
+_drone setVariable ["DRO2026_ownedFPV", true, true];
+_crewGroup setVariable ["ddtExclude", true, true];
 if (!isNull _operator) then {_operator setVariable ["DRO2026_activeUAV", _drone]};
 DRO2026_activeDrones pushBack _drone;
 DRO2026_managedVehicles pushBackUnique _drone;
@@ -117,132 +137,29 @@ private _eventSubject = if (_reservationNodeId != "") then {_reservationNodeId} 
 [_drone, format ["FPV %1", getText (_droneCfg >> "displayName")], _side] spawn DRO2026_fnc_trackIncomingDrone;
 
 if (_allowPlayerControl && {!isNull _supportOwner} && {_side == playersSide}) then {
-    [_drone] remoteExecCall ["DRO2026_fnc_offerFPVControl", _supportOwner, false];
+    [_drone] remoteExecCall ["DRO2026_fnc_offerFPVControl", owner _supportOwner, false];
 };
 
-private _applyFlightVector = {
-    params ["_object", "_rawDirection", "_speed"];
-    private _dirLength = vectorMagnitude _rawDirection;
-    if (_dirLength <= 0.001) exitWith {};
-    private _flightDirection = _rawDirection vectorMultiply (1 / _dirLength);
-    private _right = _flightDirection vectorCrossProduct [0,0,1];
-    private _rightLength = vectorMagnitude _right;
-    if (_rightLength <= 0.001) then {_right = [1,0,0]; _rightLength = 1};
-    _right = _right vectorMultiply (1 / _rightLength);
-    private _up = _right vectorCrossProduct _flightDirection;
-    private _upLength = vectorMagnitude _up;
-    if (_upLength <= 0.001) then {_up = [0,0,1]} else {_up = _up vectorMultiply (1 / _upLength)};
-    _object setVectorDirAndUp [_flightDirection, _up];
-    _object setVelocity (_flightDirection vectorMultiply _speed);
-};
-
-private _timeout = time + 210;
-private _lastWobbleUpdate = -10;
-private _wobbleBearing = 0;
-private _guidanceLostUntil = -1;
-private _operatorQuality = if (!isNull _operator) then {0.65 + ((skill _operator) * 0.35)} else {0.72};
-private _hadPhysicalTarget = !isNull _target;
-private _targetLostAt = -1;
-
-while {
-    alive _drone &&
-    {time < _timeout} &&
-    {call _siteOperational} &&
-    {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}
-} do {
-    private _manual = _drone getVariable ["DRO2026_manualControl", false];
-    if (!_manual) then {
-        if (!isNull _target && {alive _target}) then {
-            _targetPosition = getPosATL _target;
-            _targetLostAt = -1;
-        } else {
-            if (_hadPhysicalTarget && {_targetLostAt < 0}) then {
-                _targetLostAt = time;
-                [format ["FPV сохраняет последнюю подтверждённую точку после потери цели %1", _contact getOrDefault ["id", ""]]] call DRO2026_fnc_log;
-            };
+// Delegated orientation contract: _applyFlightVector, vectorCrossProduct and setVectorDirAndUp
+// are implemented and validated in DRO2026_fnc_fpvAttackController.
+private _controllerResult = [_drone, _contact, _side, _operator, _usingNativeFPV, _isArmored, _siteId] call DRO2026_fnc_fpvAttackController;
+if (_controllerResult == "DDT_CONTROLLED") then {[_drone, "DRONE_TWEAKS", "DDT_TAKEOVER", "FPV_TERMINAL"] call DRO2026_fnc_setFlightAuthority};
+if (_controllerResult in ["YIELDED", "DDT_CONTROLLED"]) exitWith {
+    [_drone, _crewGroup] spawn {
+        params ["_controlledDrone", "_controlledGroup"];
+        waitUntil {
+            uiSleep 2;
+            isNull _controlledDrone || {!alive _controlledDrone} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}
         };
-
-        private _distance = _drone distance2D _targetPosition;
-        private _tick = if (_distance > 500) then {0.32} else {0.22};
-        private _ewPressure = if (_side == playersSide) then {DRO2026_resources getOrDefault ["enemyEW", 0]} else {0};
-        private _channelQuality = linearConversion [0, 100, _ewPressure, 1, DRO2026_FPV_MIN_CHANNEL_QUALITY, true];
-        _channelQuality = (_channelQuality * _operatorQuality) max DRO2026_FPV_MIN_CHANNEL_QUALITY;
-
-        if (_channelQuality < 0.68 && {time > _guidanceLostUntil} && {random 1 < ((1 - _channelQuality) * 0.012)}) then {
-            _guidanceLostUntil = time + 0.6 + random 2.2;
-        };
-        if ((time - _lastWobbleUpdate) > (0.7 + random 0.8)) then {
-            _lastWobbleUpdate = time;
-            private _jitter = 4 + ((1 - _channelQuality) * 10);
-            _wobbleBearing = -_jitter + random (_jitter * 2);
-        };
-
-        if (time > _guidanceLostUntil) then {
-            private _lateralNoise = if (_distance > 400) then {7} else {2.5};
-            _lateralNoise = _lateralNoise + ((1 - _channelQuality) * 8);
-            private _aimASL = [
-                _drone, _targetPosition, 20,
-                [70, 140, 240], 260, _lateralNoise
-            ] call DRO2026_fnc_calculateTerrainAwareAim;
-            private _currentAGL = ASLToAGL getPosASL _drone;
-            private _aimAGL = ASLToAGL _aimASL;
-            if (_distance > 300 && {_wobbleBearing != 0}) then {
-                private _bearing = _currentAGL getDir _aimAGL;
-                private _offset = _currentAGL getPos [(_currentAGL distance2D _aimAGL) min 120, _bearing + _wobbleBearing];
-                private _offsetASL = AGLToASL _offset;
-                _offsetASL set [2, _aimASL select 2];
-                _aimASL = _offsetASL;
-            };
-
-            private _delta = _aimASL vectorDiff getPosASL _drone;
-            private _deltaLength = vectorMagnitude _delta;
-            if (_deltaLength > 0.1) then {
-                private _desiredDirection = _delta vectorMultiply (1 / _deltaLength);
-                private _currentVelocity = velocity _drone;
-                private _currentSpeed = vectorMagnitude _currentVelocity;
-                private _currentDirection = if (_currentSpeed > 2) then {
-                    _currentVelocity vectorMultiply (1 / _currentSpeed)
-                } else {
-                    vectorDir _drone
-                };
-                private _dot = (_currentDirection vectorDotProduct _desiredDirection) max -1 min 1;
-                private _turnAngle = acos _dot;
-                private _maxTurnStep = DRO2026_FPV_MAX_TURN_RATE * _tick * _channelQuality;
-                private _responseCap = (DRO2026_FPV_BASE_RESPONSE * (0.8 + 0.4 * _channelQuality)) min 0.42;
-                private _blend = if (_turnAngle > 0.01) then {(_maxTurnStep / _turnAngle) min _responseCap} else {1};
-                private _blended = (_currentDirection vectorMultiply (1 - _blend)) vectorAdd (_desiredDirection vectorMultiply _blend);
-                private _blendedLength = vectorMagnitude _blended;
-                if (_blendedLength > 0.01) then {
-                    private _newDirection = _blended vectorMultiply (1 / _blendedLength);
-                    private _desiredSpeed = if (_distance > 450) then {40} else {33};
-                    _desiredSpeed = _desiredSpeed * (0.88 + 0.12 * _channelQuality);
-                    private _speedBlend = 0.16 + 0.18 * _channelQuality;
-                    private _newSpeed = _currentSpeed + ((_desiredSpeed - _currentSpeed) * _speedBlend);
-                    [_drone, _newDirection, _newSpeed] call _applyFlightVector;
-                    private _closingSpeed = (velocity _drone) vectorDotProduct _desiredDirection;
-                    if (_distance < 5.2 && {_closingSpeed > 6}) then {
-                        if (_usingNativeFPV) then {
-                            _drone setDamage 1;
-                        } else {
-                            private _ammoPool = DRO2026_ammoRegistry getOrDefault ["FPV_AT_AMMO", []];
-                            if (_isArmored && {count _ammoPool > 0}) then {
-                                private _ammo = createVehicle [selectRandom _ammoPool, getPosATL _drone, [], 0, "CAN_COLLIDE"];
-                                _ammo setVelocity velocity _drone;
-                            } else {
-                                createVehicle ["GrenadeHand", getPosATL _drone, [], 0, "CAN_COLLIDE"];
-                            };
-                            _drone setDamage 1;
-                        };
-                    };
-                };
-            };
-        };
-        sleep _tick;
-    } else {
-        sleep 0.2;
+        private _activeIndex = DRO2026_activeDrones find _controlledDrone;
+        if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
+        if (!isNull _controlledDrone && {!alive _controlledDrone}) then {deleteVehicleCrew _controlledDrone};
+        if (!isNull _controlledGroup && {count units _controlledGroup == 0}) then {deleteGroup _controlledGroup};
     };
+    _drone
 };
 
+[_drone, "NONE", "FPV_MISSION_COMPLETE", _drone getVariable ["DRO2026_flightAuthority", "NONE"]] call DRO2026_fnc_setFlightAuthority;
 private _activeIndex = DRO2026_activeDrones find _drone;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
 if (!isNull _drone) then {

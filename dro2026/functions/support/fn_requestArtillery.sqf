@@ -1,7 +1,7 @@
 params ["_position", "_class", ["_rounds", 3], ["_requester", objNull]];
 
 if (!isServer) exitWith {
-    [player, "ARTILLERY", [_position, _class, _rounds]] remoteExecCall ["DRO2026_fnc_serverRequestSupport", 2, false];
+    [createHashMapFromArray [["channel","ARTILLERY"],["assetClass",_class],["count",_rounds],["targetMode","MAP_POINT"],["targetPositionASL",AGLToASL _position],["sourceMode","AUTO"],["controlMode","AUTO"]]] call DRO2026_fnc_submitSupportRequest
 };
 [] call DRO2026_fnc_initState;
 if (isNull _requester && {hasInterface}) then {_requester = player};

@@ -22,7 +22,7 @@ private _positions = [["FRIENDLY_FORWARD"] call DRO2026_fnc_getTheaterNode, ["FR
     _marker setMarkerText (if (_forEachIndex == 0) then {" Союзная передовая позиция"} else {" Союзный тыловой пункт"});
     private _objects = [];
     {
-        private _obj = createVehicle [_x select 0, _pos getPos [_x select 1, _x select 2], [], 0, "CAN_COLLIDE"];
+        private _obj = createVehicle [_x select 0, _pos getPos [_x select 1, _x select 2], [], 0, "NONE"];
         if (!isNull _obj) then {
             _obj setDir ((_x select 2) + 180);
             _objects pushBack _obj;

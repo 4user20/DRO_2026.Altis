@@ -5,6 +5,7 @@ enableDynamicSimulationSystem true;
 "EmptyVehicle" setDynamicSimulationDistance 700;
 "Prop" setDynamicSimulationDistance DRO2026_PROP_ACTIVATION_DISTANCE;
 "IsMoving" setDynamicSimulationDistanceCoef 1.5;
+private _lastTelemetryAt = -999;
 
 while {!DRO2026_missionEnding} do {
     private _fps = diag_fps;
@@ -64,6 +65,16 @@ while {!DRO2026_missionEnding} do {
             "Vehicle" setDynamicSimulationDistance DRO2026_VEHICLE_ACTIVATION_DISTANCE;
             "Prop" setDynamicSimulationDistance DRO2026_PROP_ACTIVATION_DISTANCE;
         };
+    };
+
+    if ((missionNamespace getVariable ["DRO2026_PERF_TELEMETRY",false]) && {(time - _lastTelemetryAt) >= 60}) then {
+        _lastTelemetryAt = time;
+        ["PERF","SNAPSHOT",createHashMapFromArray [
+            ["fps",diag_fps],["fpsMin",diag_fpsMin],["activeScripts",diag_activeSQFScripts],
+            ["allUnits",count allUnits],["vehicles",count vehicles],["groups",count allGroups],
+            ["contacts",count DRO2026_contacts],["droneMissions",count DRO2026_activeDrones],
+            ["logisticsJobs",count DRO2026_logisticsJobs],["dynamicTasks",count DRO2026_dynamicTasks]
+        ]] call DRO2026_fnc_logStructured;
     };
     sleep 10;
 };

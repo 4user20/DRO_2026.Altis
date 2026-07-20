@@ -70,10 +70,9 @@ if (hostileCivsEnabled) then {
 	};
 	diag_log format ["DRO: IED triggerman spawnPos = %1", _spawnPos];
 	if (count _spawnPos > 0 && !(_spawnPos isEqualTo [0,0,0])) then {	
-		_civType = selectRandom civClasses;
-		_group = createGroup civilian;
+		_civType = if (count eInfClasses > 0) then {selectRandom eInfClasses} else {"O_G_Soldier_F"};
+		_group = createGroup enemySide;
 		_triggerMan = _group createUnit [_civType, _spawnPos, [], 0, "NONE"];			
-		_triggerMan setVariable ["ISHOSTILE", true, true];
 		
 		_triggerMan setUnitPos "MIDDLE";
 		//_triggerMan disableAI "PATH";
@@ -81,7 +80,6 @@ if (hostileCivsEnabled) then {
 		_triggerMan allowFleeing 0;
 		_triggerMan setVariable ["attachedIED", _IED, true];
 		_triggerMan setVariable ["IEDTask", _subTaskName, true];
-		[_triggerMan] execVM "sunday_system\civilians\hostileCivilians.sqf";
 		_triggerMan addEventHandler ["killed", {diag_log ((_this select 0) getVariable 'IEDTask'); [((_this select 0) getVariable 'IEDTask'), 'SUCCEEDED', true] spawn BIS_fnc_taskSetState;}];
 		//_triggerMan setSkill ["courage", 1];
 		

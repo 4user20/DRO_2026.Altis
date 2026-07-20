@@ -20,8 +20,12 @@ for "_index" from 1 to 2 do {
     private _alternate = [_position, 350, 900, 8, 0, 0.3, 0, [], [_position, _position]] call BIS_fnc_findSafePos;
     if !(_alternate isEqualTo [0,0,0]) then {_positions pushBack _alternate};
 };
-private _extra = createHashMapFromArray [["positions", _positions], ["background", true]];
-private _record = ["ARTILLERY_SITE", _position, _artillery, [_artillery], _extra] call DRO2026_fnc_createSiteRecord;
+private _template = ["ARTILLERY_SITE",_position,_side,direction _artillery] call DRO2026_fnc_createSiteComponents;
+private _objects = [_artillery] + (_template getOrDefault ["objects",[]]);
+private _components = _template getOrDefault ["components",createHashMap];
+_components set ["launchers",[_artillery]]; _components set ["crew",crew _artillery];
+private _extra = createHashMapFromArray [["positions", _positions], ["side",_side], ["components",_components], ["background", true]];
+private _record = ["ARTILLERY_SITE", _position, _artillery, _objects, _extra] call DRO2026_fnc_createSiteRecord;
 if ([_record, true] call DRO2026_fnc_validateSiteRecord) then {
     DRO2026_sites pushBack _record;
     [_artillery, _positions, "", ""] spawn DRO2026_fnc_artilleryLoop;
