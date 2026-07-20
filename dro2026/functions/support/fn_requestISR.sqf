@@ -43,8 +43,11 @@ if ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) <= 0) exitWith {
 };
 private _sites = DRO2026_sites select {
     (_x getOrDefault ["type", ""]) == "FRIENDLY_DRONE_SITE" && {
-        private _siteId = _x getOrDefault ["id", ""];
-        _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
+        private _status = _x getOrDefault ["status", "ACTIVE"];
+        !(_status in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING", "COMPLETED"]) && {
+            private _siteId = _x getOrDefault ["id", ""];
+            _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
+        }
     }
 };
 if (count _sites == 0) exitWith {
