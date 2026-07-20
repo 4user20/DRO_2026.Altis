@@ -55,6 +55,11 @@ def main() -> int:
         "DDT_fnc_GetTargetsAT", "DDT_fnc_GetSoftTargets", "DDT_fnc_GetTargetsBomber",
         "serverTime", "ddtCooldown", "simulationEnabled"
     ), ("allUnitsUAV", "spawn DDT_fnc_"))
+    require(errors, "dro2026/functions/drone/fn_dispatchUnassignedDDT.sqf", (
+        "isServer", "DRO2026_DDT_ENABLE_UNASSIGNED", "allUnitsUAV", "ddtTasked",
+        "ddtExclude", "DRO2026_ownedFPV", "dro2026_fpvInitialized",
+        "DRO2026_fnc_isExternallyControlledUAV", "AI_Unassigned.sqf", "execVM"
+    ))
     require(errors, "dro2026/functions/drone/fn_assignDroneLoadout.sqf", (
         "isServer", "isPlayer", "DRO2026_MAX_DDT_EQUIPPED_GROUPS",
         "DRO2026_ALLOW_MILITIA_DRONES", "DRO2026_contacts", "FPV_AT_TI",
@@ -90,8 +95,8 @@ def main() -> int:
         source = path.read_text(encoding="utf-8", errors="replace")
         if stale.search(source):
             errors.append(f"{path.relative_to(ROOT)}: stale RC path")
-        if "DrongosDroneTweaks\\Scripts" in source:
-            errors.append(f"{path.relative_to(ROOT)}: copied/called DDT internal source")
+        if "DrongosDroneTweaks\\Scripts" in source and path.name != "fn_dispatchUnassignedDDT.sqf":
+            errors.append(f"{path.relative_to(ROOT)}: unexpected direct DDT script path")
 
     if errors:
         print("Drone Warfare adapter validation failed:")
