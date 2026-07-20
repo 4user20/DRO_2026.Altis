@@ -79,6 +79,22 @@ class CfgFunctions
             class reactionDirector {};
             class orderEncirclement {};
         };
+        class Drone
+        {
+            file = "dro2026\functions\drone";
+            class hasDDT {};
+            class waitDDTReady {};
+            class initializeDroneRegistry {};
+            class configureDDT {};
+            class assignDroneLoadout {};
+            class dispatchDDTDrones {};
+            class isFiberOpticDrone {};
+            class isExternallyControlledUAV {};
+            class collectDroneIntel {};
+            class shareDroneIntel {};
+            class fpvAttackController {};
+            class droneWarfareDirector {};
+        };
         class Objectives
         {
             file = "dro2026\functions\objectives";
