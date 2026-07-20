@@ -41,5 +41,11 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         DRO2026_lastDroneInfosharePass = _now;
         [missionNamespace getVariable ["DRO2026_DRONE_INFOSHARE_RANGE", 1800], 24] call DRO2026_fnc_shareDroneIntel;
     };
+
+    if (_ddtReady && {missionNamespace getVariable ["DRO2026_DDT_ENABLE_UNASSIGNED", false]} &&
+        {(_now - DRO2026_lastDroneUnassignedPass) >= (missionNamespace getVariable ["DRO2026_DDT_UNASSIGNED_CYCLE", 60])}) then {
+        DRO2026_lastDroneUnassignedPass = _now;
+        [2] call DRO2026_fnc_dispatchUnassignedDDT;
+    };
     uiSleep 5;
 };
