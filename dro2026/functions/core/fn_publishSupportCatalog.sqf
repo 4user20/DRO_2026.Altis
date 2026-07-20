@@ -23,8 +23,7 @@ private _validVehicle = {
     private _cfg = configFile >> "CfgVehicles" >> _class;
     if (!isClass _cfg || {getNumber (_cfg >> "scope") < 1}) exitWith {false};
     if (_mustFly && {!(_class isKindOf "Air")}) exitWith {false};
-    private _cfgSide = getNumber (_cfg >> "side");
-    if (_sideNumber >= 0 && {!(_cfgSide in [_sideNumber, 2])}) exitWith {false};
+    if (_sideNumber >= 0 && {getNumber (_cfg >> "side") != _sideNumber}) exitWith {false};
     if (_selectedFactionOnly && {count _selectedFactions > 0}) then {
         private _faction = toUpperANSI getText (_cfg >> "faction");
         if !(_faction in _selectedFactions) exitWith {false};
@@ -65,10 +64,7 @@ if ("UAV" in _categories) then {
         ["UAV", format ["FPV_CLASS_MANUAL:%1", _x], _x, format ["FPV — %1 (ручное управление)", _name], "После запуска появится действие подключения к UAV Terminal.", 1] call _add;
     } forEach ([[_fpvRole], true, false] call _roleClasses);
 
-    // PLAYER_ISR_UAV is already rebuilt from selected player pools. Do not repeat a
-    // strict config faction check here: many compatible mods place their airframe
-    // under a generic utility faction while still exposing it through the selected
-    // faction's vehicle pool.
+    // Generic faction names are allowed, but config side must match exactly.
     private _isrClasses = [["PLAYER_ISR_UAV"], true, false] call _roleClasses;
     _isrClasses append ([[format ["ISR_MICRO_%1", _sideSuffix], format ["ISR_TACTICAL_%1", _sideSuffix], format ["ISR_HALE_%1", _sideSuffix]], true, false] call _roleClasses);
     _isrClasses = _isrClasses arrayIntersect _isrClasses;

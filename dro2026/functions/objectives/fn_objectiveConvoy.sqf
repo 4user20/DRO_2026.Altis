@@ -52,15 +52,15 @@ private _deliveryId = format ["DELIVERY_TASK_%1_%2", floor diag_tickTime, floor 
 private _markerPrefix = format ["D26_CONVOY_ROUTE_%1", floor random 1000000];
 private _color = if (isNil "markerColorEnemy") then {"ColorOPFOR"} else {markerColorEnemy};
 private _routeMarkers = [_markerPrefix, _source, _destination, _color, "Источник поставки", "Узел-получатель"] call DRO2026_fnc_createRouteMarkers;
-private _taskMarker = _routeMarkers select 0;
+private _taskMarker = _routeMarkers param [0, ""];
 
-private _sideSuffix = switch (enemySide) do {case west: {"WEST"}; case resistance: {"GUER"}; default {"EAST"}};
+private _sideSuffix = [enemySide] call DRO2026_fnc_getSideSuffix;
 private _cargoFallback = switch (enemySide) do {case west: {"B_Truck_01_transport_F"}; case resistance: {"I_Truck_02_transport_F"}; default {"O_Truck_03_transport_F"}};
 private _escortFallback = switch (enemySide) do {case west: {"B_MRAP_01_hmg_F"}; case resistance: {"I_MRAP_03_hmg_F"}; default {"O_MRAP_02_hmg_F"}};
-private _cargoClass = [format ["CONVOY_CARGO_%1", _sideSuffix], _cargoFallback] call DRO2026_fnc_getRoleClass;
-private _escortClass = [format ["CONVOY_ESCORT_%1", _sideSuffix], _escortFallback] call DRO2026_fnc_getRoleClass;
-if (!isClass (configFile >> "CfgVehicles" >> _cargoClass)) then {_cargoClass = _cargoFallback};
-if (!isClass (configFile >> "CfgVehicles" >> _escortClass)) then {_escortClass = _cargoClass};
+private _cargoClass = [format ["CONVOY_CARGO_%1", _sideSuffix], _cargoFallback, enemySide] call DRO2026_fnc_getSideRoleClass;
+private _escortClass = [format ["CONVOY_ESCORT_%1", _sideSuffix], _escortFallback, enemySide] call DRO2026_fnc_getSideRoleClass;
+if (_cargoClass == "") then {_cargoClass = _cargoFallback};
+if (_escortClass == "") then {_escortClass = _cargoClass};
 private _risk = _edge getOrDefault ["risk", 0.12];
 private _classes = if (_risk > 0.48) then {[_escortClass, _cargoClass, _cargoClass, _escortClass, _escortClass]} else {[_escortClass, _cargoClass, _cargoClass, _escortClass]};
 private _vehicles = [];
@@ -74,19 +74,24 @@ private _direction = _source getDir _destination;
     if (!isNull _vehicle) then {
         _vehicle setDir _direction;
         private _crewGroup = enemySide createVehicleCrew _vehicle;
-        if (!isNull _crewGroup && {!isNull driver _vehicle}) then {
+        if (!isNull _crewGroup && {!isNull (driver _vehicle)}) then {
             _vehicles pushBack _vehicle;
             if (_x == _cargoClass) then {_cargoVehicles pushBack _vehicle};
             DRO2026_managedVehicles pushBackUnique _vehicle;
             _vehicle forceFollowRoad true;
             _vehicle setConvoySeparation 32;
-            if (isNull _convoyGroup) then {_convoyGroup = _crewGroup} else {
-                if (_crewGroup != _convoyGroup) then {(units _crewGroup) joinSilent _convoyGroup; if (count units _crewGroup == 0) then {deleteGroup _crewGroup}};
+            if (isNull _convoyGroup) then {
+                _convoyGroup = _crewGroup
+            } else {
+                if (_crewGroup != _convoyGroup) then {
+                    (units _crewGroup) joinSilent _convoyGroup;
+                    if (count units _crewGroup == 0) then {deleteGroup _crewGroup};
+                };
             };
             _convoyGroup addVehicle _vehicle;
             _vehicle addEventHandler ["Hit", {
                 params ["_vehicle"];
-                private _group = if (isNull driver _vehicle) then {grpNull} else {group driver _vehicle};
+                private _group = if (isNull (driver _vehicle)) then {grpNull} else {group (driver _vehicle)};
                 if (!isNull _group) then {_group setBehaviourStrong "AWARE"; _group setCombatMode "YELLOW"; _group setSpeedMode "NORMAL"};
                 DRO2026_alertLevel = (DRO2026_alertLevel + 0.12) min 1;
             }];
@@ -98,9 +103,14 @@ private _direction = _source getDir _destination;
     };
 } forEach _classes;
 
-if (count _cargoVehicles == 0 || {isNull _convoyGroup}) exitWith {
-    {deleteVehicleCrew _x; deleteVehicle _x} forEach _vehicles;
+private _rollbackMaterialization = {
+    {if (!isNull _x) then {deleteVehicleCrew _x; deleteVehicle _x}} forEach _vehicles;
+    if (!isNull _convoyGroup) then {deleteGroup _convoyGroup};
+    {if (_x != "") then {deleteMarker _x}} forEach _routeMarkers;
     ["NODE_LOGISTICS_01", _cargoType, _amount, "OBJECTIVE_CONVOY_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
+};
+if (count _cargoVehicles == 0 || {isNull _convoyGroup}) exitWith {
+    call _rollbackMaterialization;
     [_AOIndex] call DRO2026_fnc_objectiveLogisticsRun
 };
 [_convoyGroup, false] call DRO2026_fnc_registerManagedGroup;
@@ -108,7 +118,7 @@ _convoyGroup setBehaviourStrong "SAFE";
 _convoyGroup setCombatMode "YELLOW";
 _convoyGroup setSpeedMode "LIMITED";
 _convoyGroup setFormation "COLUMN";
-{if (!isNull driver _x) then {(driver _x) disableAI "PATH"; doStop driver _x}} forEach _vehicles;
+{if (!isNull (driver _x)) then {(driver _x) disableAI "PATH"; doStop (driver _x)}} forEach _vehicles;
 
 private _distance = _source distance2D _destination;
 private _eta = time + ((_distance / 9) max 180);
@@ -119,14 +129,21 @@ private _delivery = createHashMapFromArray [
     ["vehicles", _vehicles], ["cargoVehicles", _cargoVehicles], ["cargoVehicle", _cargoVehicles select 0], ["group", _convoyGroup],
     ["createdAt", time], ["eta", _eta], ["task", _taskName], ["processed", false]
 ];
-DRO2026_supplyLanes pushBack _delivery;
-private _convoy = createHashMapFromArray [["schema", 2], ["id", _deliveryId], ["type", "SUPPLY_CONVOY"], ["status", "IN_TRANSIT"], ["vehicles", _vehicles], ["group", _convoyGroup], ["delivery", _delivery], ["task", _taskName]];
-DRO2026_activeConvoys pushBack _convoy;
+private _convoy = createHashMapFromArray [
+    ["schema", 2], ["id", _deliveryId], ["type", "SUPPLY_CONVOY"], ["status", "IN_TRANSIT"],
+    ["vehicles", _vehicles], ["group", _convoyGroup], ["delivery", _delivery], ["task", _taskName]
+];
 private _siteExtra = createHashMapFromArray [
     ["deliveryId", _deliveryId], ["edgeId", _edgeId], ["networkNodeId", _toNodeId], ["cargoType", _cargoType],
     ["amount", _amount], ["cargo", _cargoVehicles], ["group", _convoyGroup], ["task", _taskName], ["virtual", false]
 ];
 private _siteRecord = ["CONVOY", _source, _vehicles select 0, _vehicles, _siteExtra] call DRO2026_fnc_createSiteRecord;
+if !([_siteRecord, true] call DRO2026_fnc_validateSiteRecord) exitWith {
+    call _rollbackMaterialization;
+    [_AOIndex] call DRO2026_fnc_objectiveLogisticsRun
+};
+DRO2026_supplyLanes pushBack _delivery;
+DRO2026_activeConvoys pushBack _convoy;
 DRO2026_sites pushBack _siteRecord;
 ["DELIVERY_MATERIALIZED", createHashMapFromArray [["deliveryId", _deliveryId], ["edgeId", _edgeId], ["cargoType", _cargoType], ["amount", _amount]], _deliveryId] call DRO2026_fnc_emitEvent;
 
@@ -144,11 +161,44 @@ private _meta = createHashMapFromArray [
 
 [_taskName, _vehicles, _cargoVehicles, _convoyGroup, _destination, _routeMarkers, _convoy, _delivery, _siteRecord, _edgeId, _toNodeId, _cargoType, _amount] spawn {
     params ["_task", "_vehicles", "_cargo", "_group", "_destination", "_markers", "_convoy", "_delivery", "_siteRecord", "_edgeId", "_toNodeId", "_cargoType", "_amount"];
+    private _cleanup = {
+        {
+            if (!isNull _x) then {
+                deleteVehicleCrew _x;
+                if (alive _x) then {deleteVehicle _x};
+            };
+        } forEach _vehicles;
+        if (!isNull _group) then {deleteGroup _group};
+        {if (_x != "") then {deleteMarker _x}} forEach _markers;
+    };
+    private _cancel = {
+        if !(_delivery getOrDefault ["processed", false]) then {
+            ["NODE_LOGISTICS_01", _cargoType, _amount, "OBJECTIVE_CONVOY_CANCELLED"] call DRO2026_fnc_changeNetworkNodeStock;
+            _delivery set ["processed", true];
+        };
+        _delivery set ["status", "CANCELLED"];
+        _delivery set ["physicalState", "DISABLED"];
+        _delivery set ["completedAt", time];
+        _convoy set ["status", "CANCELLED"];
+        _siteRecord set ["status", "DISABLED"];
+        _siteRecord set ["disabledAt", time];
+        ["DELIVERY_CANCELLED", createHashMapFromArray [["deliveryId", _delivery get "id"], ["edgeId", _edgeId], ["cargoType", _cargoType], ["amount", _amount]], _delivery get "id"] call DRO2026_fnc_emitEvent;
+        call _cleanup;
+    };
+
     private _readyDeadline = time + 180;
-    waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {time > _readyDeadline} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
-    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {};
-    sleep (12 + random 20);
-    {if (alive _x && {!isNull driver _x}) then {(driver _x) enableAI "PATH"; (driver _x) doFollow leader _group}} forEach _vehicles;
+    waitUntil {
+        sleep 1;
+        missionNamespace getVariable ["playersReady", 0] == 1 ||
+        {time > _readyDeadline} ||
+        {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+    };
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {call _cancel};
+    private _departureAt = time + 12 + random 20;
+    waitUntil {sleep 1; time >= _departureAt || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {call _cancel};
+
+    {if (alive _x && {!isNull (driver _x)}) then {(driver _x) enableAI "PATH"; (driver _x) doFollow leader _group}} forEach _vehicles;
     private _waypoint = _group addWaypoint [_destination, 20];
     _waypoint setWaypointType "MOVE";
     _waypoint setWaypointSpeed "LIMITED";
@@ -161,7 +211,7 @@ private _meta = createHashMapFromArray [
         sleep 5;
         private _aliveCargo = _cargo select {alive _x && {canMove _x}};
         private _aliveVehicles = _vehicles select {alive _x && {canMove _x}};
-        if (count _aliveCargo == 0) then {
+        if (count _aliveCargo == 0 || {count _aliveVehicles == 0}) then {
             _delivery set ["status", "INTERDICTED"];
             _delivery set ["completedAt", time];
             _delivery set ["physicalState", "DESTROYED"];
@@ -178,38 +228,39 @@ private _meta = createHashMapFromArray [
             [_task, "CONVOY_DESTROYED", []] call DRO2026_fnc_completeObjective;
             _finished = true;
         } else {
-            if (count _aliveVehicles == 0) then {
-                _delivery set ["status", "INTERDICTED"];
+            private _lead = _aliveVehicles select 0;
+            if (count _lastLeadPosition > 1 && {_lead distance2D _lastLeadPosition < 5} && {speed _lead < 3}) then {_stuckTime = _stuckTime + 5} else {_stuckTime = 0};
+            _lastLeadPosition = getPosATL _lead;
+            if (_stuckTime > 35 && {!isNull (driver _lead)}) then {
+                (group (driver _lead)) move _destination;
+                {if (alive _x && {!isNull (driver _x)}) then {(driver _x) doMove _destination}} forEach _aliveVehicles;
+                _stuckTime = 0;
+            };
+            if (_lead distance2D _destination < 120) then {
+                _delivery set ["status", "DELIVERED"];
                 _delivery set ["completedAt", time];
-                _siteRecord set ["status", "DESTROYED"];
-                ["DELIVERY_INTERDICTED", createHashMapFromArray [["deliveryId", _delivery get "id"], ["edgeId", _edgeId], ["cargoType", _cargoType], ["amount", _amount]], _delivery get "id"] call DRO2026_fnc_emitEvent;
-                [_task, "CONVOY_DESTROYED", []] call DRO2026_fnc_completeObjective;
+                _delivery set ["physicalState", "COMPLETED"];
+                _siteRecord set ["status", "COMPLETED"];
+                [_toNodeId, _cargoType, _amount, "OBJECTIVE_CONVOY_DELIVERED"] call DRO2026_fnc_changeNetworkNodeStock;
+                _delivery set ["processed", true];
+                ["DELIVERY_COMPLETED", createHashMapFromArray [["deliveryId", _delivery get "id"], ["edgeId", _edgeId], ["toNode", _toNodeId], ["cargoType", _cargoType], ["amount", _amount]], _delivery get "id"] call DRO2026_fnc_emitEvent;
+                [_task, "FAILED", true] spawn BIS_fnc_taskSetState;
+                missionNamespace setVariable [format ["%1Completed", _task], -1, true];
                 _finished = true;
-            } else {
-                private _lead = _aliveVehicles select 0;
-                if (count _lastLeadPosition > 1 && {_lead distance2D _lastLeadPosition < 5} && {speed _lead < 3}) then {_stuckTime = _stuckTime + 5} else {_stuckTime = 0};
-                _lastLeadPosition = getPosATL _lead;
-                if (_stuckTime > 35 && {!isNull driver _lead}) then {
-                    (group driver _lead) move _destination;
-                    {if (alive _x && {!isNull driver _x}) then {(driver _x) doMove _destination}} forEach _aliveVehicles;
-                    _stuckTime = 0;
-                };
-                if (_lead distance2D _destination < 120) then {
-                    _delivery set ["status", "DELIVERED"];
-                    _delivery set ["completedAt", time];
-                    _siteRecord set ["status", "COMPLETED"];
-                    [_toNodeId, _cargoType, _amount, "OBJECTIVE_CONVOY_DELIVERED"] call DRO2026_fnc_changeNetworkNodeStock;
-                    _delivery set ["processed", true];
-                    ["DELIVERY_COMPLETED", createHashMapFromArray [["deliveryId", _delivery get "id"], ["edgeId", _edgeId], ["toNode", _toNodeId], ["cargoType", _cargoType], ["amount", _amount]], _delivery get "id"] call DRO2026_fnc_emitEvent;
-                    [_task, "FAILED", true] spawn BIS_fnc_taskSetState;
-                    missionNamespace setVariable [format ["%1Completed", _task], -1, true];
-                    _finished = true;
-                };
             };
         };
     };
+
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {call _cancel};
     _convoy set ["status", _delivery getOrDefault ["status", "COMPLETED"]];
     {if (_x != "") then {deleteMarker _x}} forEach _markers;
+    private _cleanupAt = time + (if ((_delivery getOrDefault ["status", ""]) == "DELIVERED") then {20} else {90});
+    waitUntil {sleep 2; time >= _cleanupAt || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
+    call _cleanup;
 };
-[] spawn {private _deadline = time + 190; waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {time > _deadline}}; sleep 8; ["CONVOY_TASK"] call DRO2026_fnc_hqVoice};
+[] spawn {
+    private _deadline = time + 190;
+    waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {time > _deadline} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
+    if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {sleep 8; ["CONVOY_TASK"] call DRO2026_fnc_hqVoice};
+};
 _taskName

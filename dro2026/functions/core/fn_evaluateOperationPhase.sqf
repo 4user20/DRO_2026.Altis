@@ -10,18 +10,23 @@ private _degraded = 0;
 private _destroyed = 0;
 {
     private _node = DRO2026_networkNodes getOrDefault [_x, createHashMap];
-    switch (_node getOrDefault ["status", "ACTIVE"]) do {
-        case "DESTROYED": {_destroyed = _destroyed + 1};
-        case "DISABLED": {_destroyed = _destroyed + 1};
-        case "DEGRADED": {_degraded = _degraded + 1};
-        default {_active = _active + 1};
+    if (count _node == 0) then {
+        _destroyed = _destroyed + 1;
+    } else {
+        switch (_node getOrDefault ["status", "ACTIVE"]) do {
+            case "DESTROYED": {_destroyed = _destroyed + 1};
+            case "DISABLED": {_destroyed = _destroyed + 1};
+            case "CANCELLED": {_destroyed = _destroyed + 1};
+            case "DEGRADED": {_degraded = _degraded + 1};
+            default {_active = _active + 1};
+        };
     };
 } forEach _keyNodes;
 
 private _confirmedIntel = count (DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence", 0]) >= 0.58} &&
-    {(_x getOrDefault ["bdaState", "DETECTED"]) != "CONFIRMED_DESTROYED"}
+    {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])}
 });
 private _interdictions = count (DRO2026_eventLog select {(_x getOrDefault ["type", ""]) in ["DELIVERY_INTERDICTED", "SITE_DESTROYED", "NETWORK_NODE_DESTROYED"]});
 private _networkHealth = linearConversion [0, count _keyNodes, _active + (_degraded * 0.5), 0, 1, true];

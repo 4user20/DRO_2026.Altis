@@ -43,22 +43,30 @@ if ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) <= 0) exitWith {
 };
 private _sites = DRO2026_sites select {
     (_x getOrDefault ["type", ""]) == "FRIENDLY_DRONE_SITE" && {
-        private _operator = _x getOrDefault ["operator", objNull];
-        !isNull _operator && {alive _operator}
+        private _status = _x getOrDefault ["status", "ACTIVE"];
+        !(_status in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING", "COMPLETED"]) && {
+            private _siteId = _x getOrDefault ["id", ""];
+            _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
+        }
     }
 };
 if (count _sites == 0) exitWith {
-    ["Штаб: Союзный расчёт БПЛА не отвечает.", _requester] call DRO2026_fnc_supportMessage;
+    ["Штаб: Союзный расчёт БПЛА не отвечает или площадка недоступна.", _requester] call DRO2026_fnc_supportMessage;
 };
 private _site = _sites select 0;
+private _siteId = _site getOrDefault ["id", ""];
 private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
 DRO2026_resources set ["friendlyISRStock", ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) - 1) max 0];
 DRO2026_lastISRRequest = time;
-[_position, _origin, _operator, _requestedType] spawn DRO2026_fnc_launchISR;
+["DRONE_LAUNCH_RESERVED", createHashMapFromArray [
+    ["role", "ISR"], ["count", 1], ["requestedType", _requestedType],
+    ["siteId", _siteId], ["position", +_position]
+], _siteId] call DRO2026_fnc_emitEvent;
+[_position, _origin, _operator, _requestedType, _siteId] spawn DRO2026_fnc_launchISR;
 private _profileLabel = if (_exactClass != "") then {_exactClass} else {_requestedType};
 [
     "ACK",
-    format ["Штаб: Разведывательный БПЛА (%1) направлен в сектор.", _profileLabel],
+    format ["Штаб: запрос на разведывательный БПЛА (%1) принят; расчёт выполняет materialization и выход в сектор.", _profileLabel],
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;

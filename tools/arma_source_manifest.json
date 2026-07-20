@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-07-20",
+  "policy": {
+    "engineCommandSemantics": [
+      "bohemia-community-wiki",
+      "acemod-arma3-wiki"
+    ],
+    "missionScriptingGuidance": [
+      "stokys-scripting-guide"
+    ],
+    "offlineValidation": true,
+    "notes": "Static validators must stay deterministic and must not require network access. Source URLs are reviewed when contracts change; runtime behavior still requires Arma/RPT verification."
+  },
+  "sources": [
+    {
+      "id": "bohemia-community-wiki",
+      "name": "Bohemia Interactive Community Wiki",
+      "url": "https://community.bohemia.net/wiki/Category:Scripting_Commands_Arma_3",
+      "authority": "primary",
+      "scope": [
+        "engine-command",
+        "multiplayer-locality",
+        "network-execution"
+      ]
+    },
+    {
+      "id": "acemod-arma3-wiki",
+      "name": "ACE Mod Arma 3 Wiki command data",
+      "url": "https://github.com/acemod/arma3-wiki",
+      "authority": "machine-readable-mirror",
+      "dataBranch": "dist",
+      "scope": [
+        "engine-command",
+        "command-signature",
+        "parsed-command-data"
+      ]
+    },
+    {
+      "id": "stokys-scripting-guide",
+      "name": "Arma 3 Scripting Guide by David Stocek",
+      "url": "https://stokys.github.io/web/",
+      "authority": "secondary-guide",
+      "scope": [
+        "mission-structure",
+        "event-scripts",
+        "teaching-examples"
+      ],
+      "mustNotOverride": [
+        "engine-command-semantics",
+        "multiplayer-locality",
+        "return-types",
+        "network-execution"
+      ]
+    },
+    {
+      "id": "context7-hemtt",
+      "name": "Context7 HEMTT index",
+      "url": "https://context7.com/brettmayson/hemtt",
+      "authority": "tooling-reference",
+      "scope": [
+        "sqf-parser",
+        "static-analysis",
+        "build-tooling"
+      ]
+    }
+  ],
+  "contracts": [
+    {
+      "id": "air-materialization",
+      "kind": "engine-command",
+      "sources": [
+        "bohemia-community-wiki",
+        "acemod-arma3-wiki"
+      ],
+      "validators": [
+        "tools/validate_arma_wiki_contracts.py",
+        "tools/validate_runtime_transactions.py"
+      ]
+    },
+    {
+      "id": "orientation-vector-frame",
+      "kind": "engine-command",
+      "sources": [
+        "bohemia-community-wiki",
+        "acemod-arma3-wiki"
+      ],
+      "validators": [
+        "tools/validate_orientation_contracts.py",
+        "tools/validate_arma_wiki_contracts.py"
+      ]
+    },
+    {
+      "id": "player-and-headless-client-selection",
+      "kind": "multiplayer-locality",
+      "sources": [
+        "bohemia-community-wiki",
+        "acemod-arma3-wiki"
+      ],
+      "validators": [
+        "tools/validate_arma_wiki_contracts.py"
+      ]
+    },
+    {
+      "id": "crew-and-group-lifecycle",
+      "kind": "engine-command",
+      "sources": [
+        "bohemia-community-wiki",
+        "acemod-arma3-wiki"
+      ],
+      "validators": [
+        "tools/validate_runtime_transactions.py",
+        "tools/validate_arma_wiki_contracts.py",
+        "tools/validate_group_lifecycle_contracts.py"
+      ]
+    },
+    {
+      "id": "site-and-objective-lifecycle",
+      "kind": "mission-structure",
+      "sources": [
+        "bohemia-community-wiki",
+        "stokys-scripting-guide"
+      ],
+      "validators": [
+        "tools/validate_site_lifecycle_contracts.py",
+        "tools/validate_runtime_transactions.py",
+        "tools/validate_rc6.py"
+      ]
+    },
+    {
+      "id": "status-aar-and-query-authority",
+      "kind": "network-execution",
+      "sources": [
+        "bohemia-community-wiki",
+        "acemod-arma3-wiki",
+        "stokys-scripting-guide"
+      ],
+      "validators": [
+        "tools/validate_status_contracts.py",
+        "tools/validate_runtime_transactions.py",
+        "tools/validate_arma_wiki_contracts.py"
+      ]
+    },
+    {
+      "id": "remote-support-authority",
+      "kind": "network-execution",
+      "sources": [
+        "bohemia-community-wiki",
+        "acemod-arma3-wiki"
+      ],
+      "validators": [
+        "tools/validate_arma_wiki_contracts.py",
+        "tools/validate_rc6_rpt_stabilization.py"
+      ]
+    },
+    {
+      "id": "mission-script-organization",
+      "kind": "mission-structure",
+      "sources": [
+        "stokys-scripting-guide",
+        "bohemia-community-wiki"
+      ],
+      "validators": [
+        "tools/validate_rc6.py"
+      ]
+    },
+    {
+      "id": "sqf-static-analysis",
+      "kind": "tooling",
+      "sources": [
+        "context7-hemtt"
+      ],
+      "validators": [
+        "tools/validate_rc6.py"
+      ]
+    }
+  ]
+}

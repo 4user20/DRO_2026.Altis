@@ -1,12 +1,18 @@
 params ["_arty", "_positions", ["_taskName", ""], ["_marker", ""]];
 if (!isServer || {isNull _arty}) exitWith {};
-waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {!alive _arty}};
-if (!alive _arty) exitWith {};
+waitUntil {
+    sleep 1;
+    missionNamespace getVariable ["playersReady", 0] == 1 ||
+    {!alive _arty} ||
+    {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+};
+if (!alive _arty || {missionNamespace getVariable ["DRO2026_missionEnding", false]}) exitWith {};
 private _shotsAtPosition = 0;
 private _firstMission = true;
 
 while {
-    alive _arty && {
+    alive _arty &&
+    {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} && {
         (_taskName == "") || {(missionNamespace getVariable [format ["%1Completed", _taskName], 0]) == 0}
     }
 } do {
@@ -16,7 +22,7 @@ while {
     };
     sleep _delay;
     _firstMission = false;
-    if (!alive _arty) exitWith {};
+    if (!alive _arty || {missionNamespace getVariable ["DRO2026_missionEnding", false]}) exitWith {};
 
     private _intent = missionNamespace getVariable ["DRO2026_currentIntent", createHashMap];
     private _intentAction = _intent getOrDefault ["action", ""];
@@ -57,7 +63,6 @@ while {
             };
         } forEach _enemyContacts;
 
-        // Doctrine area denial is allowed only during a red counterattack and never uses the live player position.
         private _phase = DRO2026_operationState getOrDefault ["phase", "RECON"];
         private _alert = DRO2026_operationState getOrDefault ["alertState", "GREEN"];
         if (count _targetCandidates == 0 && {_phase == "COUNTERATTACK"} && {_alert == "RED"}) then {
@@ -126,9 +131,15 @@ while {
             _wp setWaypointBehaviour "AWARE";
             ["NODE_ARTILLERY_01", "FUEL", -1, "SHOOT_AND_SCOOT"] call DRO2026_fnc_changeNetworkNodeStock;
             private _moveDeadline = time + 210;
-            waitUntil {sleep 3; !alive _arty || {!canMove _arty} || {_arty distance2D _next < 45} || {time > _moveDeadline}};
+            waitUntil {
+                sleep 3;
+                !alive _arty || {!canMove _arty} || {_arty distance2D _next < 45} ||
+                {time > _moveDeadline} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+            };
             _shotsAtPosition = 0;
-            ["SITE_RELOCATED", createHashMapFromArray [["nodeId", "NODE_ARTILLERY_01"], ["position", getPosATL _arty]], "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
+            if (!isNull _arty) then {
+                ["SITE_RELOCATED", createHashMapFromArray [["nodeId", "NODE_ARTILLERY_01"], ["position", getPosATL _arty]], "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
+            };
         };
     };
 };

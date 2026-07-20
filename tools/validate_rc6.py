@@ -4,26 +4,28 @@ from argparse import ArgumentParser
 from pathlib import Path
 import json
 import re
+import shutil
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-EXTENSIONS = {'.sqf', '.inc', '.hpp', '.ext', '.sqm'}
+SOURCE_EXTENSIONS = {".sqf", ".inc", ".hpp", ".ext", ".sqm"}
 INCLUDE_RE = re.compile(r'^\s*#include\s+"([^"]+)"', re.MULTILINE)
 
 
-def text(path: Path) -> str:
-    return path.read_text(encoding='utf-8', errors='replace')
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def relative(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
 
 
 def include_target(owner: Path, raw: str) -> Path | None:
-    """Resolve includes exactly from the file containing #include.
-
-    Arma's preprocessor does not retry a missing nested include from the mission
-    root. A permissive ROOT fallback previously hid broken paths in nested .inc
-    files and allowed a release-blocking error into RC6.
-    """
-    normalized = Path(raw.replace('\\', '/'))
-    candidate = (owner.parent / normalized).resolve()
+    candidate = (owner.parent / Path(raw.replace("\\", "/"))).resolve()
     if candidate.is_file() and (candidate == ROOT or ROOT in candidate.parents):
         return candidate
     return None
@@ -32,218 +34,494 @@ def include_target(owner: Path, raw: str) -> Path | None:
 def expand(path: Path, stack: tuple[Path, ...] = ()) -> tuple[str, list[str]]:
     path = path.resolve()
     if path in stack:
-        cycle = ' -> '.join(str(item.relative_to(ROOT)) for item in (*stack, path))
-        return '', [f'include cycle: {cycle}']
-    source = text(path)
+        cycle = " -> ".join(relative(item) for item in (*stack, path))
+        return "", [f"include cycle: {cycle}"]
+
+    source = read(path)
     errors: list[str] = []
 
     def replace(match: re.Match[str]) -> str:
         target = include_target(path, match.group(1))
         if target is None:
-            errors.append(f'{path.relative_to(ROOT)}: missing include {match.group(1)}')
-            return ''
+            errors.append(f"{relative(path)}: missing include {match.group(1)}")
+            return ""
         nested, nested_errors = expand(target, (*stack, path))
         errors.extend(nested_errors)
-        return f'\n// INCLUDED {target.relative_to(ROOT)}\n{nested}\n'
+        return f"\n// INCLUDED {relative(target)}\n{nested}\n"
 
     return INCLUDE_RE.sub(replace, source), errors
 
 
 def clean(source: str) -> tuple[str, str]:
-    out: list[str] = []
-    i = 0
-    state = 'code'
-    quote = ''
-    while i < len(source):
-        if state == 'code':
-            if source.startswith('//', i):
-                state = 'line'; out.extend('  '); i += 2
-            elif source.startswith('/*', i):
-                state = 'block'; out.extend('  '); i += 2
-            elif source[i] in {'"', "'"}:
-                state = 'string'; quote = source[i]; out.append(' '); i += 1
+    output: list[str] = []
+    index = 0
+    state = "code"
+    quote = ""
+
+    while index < len(source):
+        if state == "code":
+            if source.startswith("//", index):
+                state = "line"
+                output.extend("  ")
+                index += 2
+            elif source.startswith("/*", index):
+                state = "block"
+                output.extend("  ")
+                index += 2
+            elif source[index] in {'"', "'"}:
+                state = "string"
+                quote = source[index]
+                output.append(" ")
+                index += 1
             else:
-                out.append(source[i]); i += 1
-        elif state == 'line':
-            if source[i] == '\n': state = 'code'; out.append('\n')
-            else: out.append(' ')
-            i += 1
-        elif state == 'block':
-            if source.startswith('*/', i): state = 'code'; out.extend('  '); i += 2
-            else: out.append('\n' if source[i] == '\n' else ' '); i += 1
+                output.append(source[index])
+                index += 1
+        elif state == "line":
+            if source[index] == "\n":
+                state = "code"
+                output.append("\n")
+            else:
+                output.append(" ")
+            index += 1
+        elif state == "block":
+            if source.startswith("*/", index):
+                state = "code"
+                output.extend("  ")
+                index += 2
+            else:
+                output.append("\n" if source[index] == "\n" else " ")
+                index += 1
         else:
-            if source[i] == quote:
-                if i + 1 < len(source) and source[i + 1] == quote:
-                    out.extend('  '); i += 2
+            if source[index] == quote:
+                if index + 1 < len(source) and source[index + 1] == quote:
+                    output.extend("  ")
+                    index += 2
                 else:
-                    state = 'code'; quote = ''; out.append(' '); i += 1
+                    state = "code"
+                    quote = ""
+                    output.append(" ")
+                    index += 1
             else:
-                out.append('\n' if source[i] == '\n' else ' '); i += 1
-    if state == 'line': state = 'code'
-    return ''.join(out), state
+                output.append("\n" if source[index] == "\n" else " ")
+                index += 1
+
+    if state == "line":
+        state = "code"
+    return "".join(output), state
 
 
-def delimiters(label: str, source: str) -> list[str]:
+def delimiter_errors(label: str, source: str) -> list[str]:
     source, state = clean(source)
-    pairs = {')': '(', ']': '[', '}': '{'}
+    pairs = {")": "(", "]": "[", "}": "{"}
     stack: list[tuple[str, int]] = []
     errors: list[str] = []
     line = 1
+
     for char in source:
-        if char == '\n': line += 1
-        elif char in '([{': stack.append((char, line))
-        elif char in ')]}':
+        if char == "\n":
+            line += 1
+        elif char in "([{":
+            stack.append((char, line))
+        elif char in ")]}" :
             if not stack or stack[-1][0] != pairs[char]:
-                errors.append(f'{label}:{line}: mismatched {char}')
+                errors.append(f"{label}:{line}: mismatched {char}")
                 break
             stack.pop()
-    if stack: errors.append(f'{label}: unclosed {stack[-1]}')
-    if state != 'code': errors.append(f'{label}: unclosed {state}')
+
+    if stack:
+        errors.append(f"{label}: unclosed {stack[-1]}")
+    if state != "code":
+        errors.append(f"{label}: unclosed {state}")
     return errors
 
 
-def locate(path: Path, source: str, pattern: re.Pattern[str]) -> list[str]:
-    return [
-        f'{path.relative_to(ROOT)}:{source.count(chr(10), 0, match.start()) + 1}'
-        for match in pattern.finditer(source)
-    ]
-
-
-def contract(bucket: list[str], raw: str, required: tuple[str, ...], forbidden: tuple[str, ...] = ()) -> None:
-    path = ROOT / raw
+def contract(
+    errors: list[str],
+    relative_path: str,
+    required: tuple[str, ...],
+    forbidden: tuple[str, ...] = (),
+) -> None:
+    path = ROOT / relative_path
     if not path.is_file():
-        bucket.append(f'{raw}: missing file')
+        errors.append(f"{relative_path}: missing file")
         return
-    source = text(path)
+    source = read(path)
     missing = [token for token in required if token not in source]
     blocked = [token for token in forbidden if token in source]
-    if missing: bucket.append(f"{raw}: missing {', '.join(missing)}")
-    if blocked: bucket.append(f"{raw}: forbidden {', '.join(blocked)}")
+    if missing:
+        errors.append(f"{relative_path}: missing {', '.join(missing)}")
+    if blocked:
+        errors.append(f"{relative_path}: forbidden {', '.join(blocked)}")
 
 
-parser = ArgumentParser(description='DRO 2026 RC6 static and semantic validator')
-parser.add_argument('--rpt', action='append', default=[])
+def run_optional_hemtt(require_hemtt: bool) -> tuple[dict[str, object], bool]:
+    executable = shutil.which("hemtt")
+    configured = (ROOT / ".hemtt" / "project.toml").is_file()
+    result: dict[str, object] = {
+        "available": executable is not None,
+        "configured": configured,
+        "exit_code": None,
+        "output": "",
+    }
+
+    if executable is None or not configured:
+        return result, require_hemtt
+
+    process = subprocess.run(
+        [executable, "check"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=180,
+    )
+    result["exit_code"] = process.returncode
+    result["output"] = process.stdout[-12000:]
+    return result, process.returncode != 0
+
+
+def run_contract_validator(filename: str) -> dict[str, object]:
+    path = ROOT / "tools" / filename
+    if not path.is_file():
+        return {"validator": filename, "exit_code": 1, "output": "missing validator"}
+    process = subprocess.run(
+        [sys.executable, str(path)],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    return {
+        "validator": filename,
+        "exit_code": process.returncode,
+        "output": process.stdout[-12000:] if process.returncode != 0 else "",
+    }
+
+
+parser = ArgumentParser(description="DRO 2026 RC6 static and semantic validator")
+parser.add_argument("--rpt", action="append", default=[])
+parser.add_argument("--require-hemtt", action="store_true")
 args = parser.parse_args()
 
-files = sorted(
-    path for path in ROOT.rglob('*')
-    if path.is_file() and path.suffix.lower() in EXTENSIONS
-    and 'graphify-out' not in path.parts and '.git' not in path.parts
+all_files = sorted(
+    path
+    for path in ROOT.rglob("*")
+    if path.is_file()
+    and path.suffix.lower() in SOURCE_EXTENSIONS
+    and ".git" not in path.parts
+    and "graphify-out" not in path.parts
 )
-expanded: dict[Path, str] = {}
-stripped: dict[Path, str] = {}
+entry_files = [path for path in all_files if path.suffix.lower() != ".inc"]
+
 syntax_errors: list[str] = []
-for path in files:
+expanded: dict[Path, str] = {}
+raw_cleaned = {path: clean(read(path))[0] for path in all_files}
+for path in entry_files:
     source, include_errors = expand(path)
     syntax_errors.extend(include_errors)
-    syntax_errors.extend(delimiters(f'{path.relative_to(ROOT)} [expanded]', source))
+    syntax_errors.extend(delimiter_errors(f"{relative(path)} [expanded]", source))
     expanded[path] = source
-    stripped[path] = clean(source)[0]
 
-cfg = text(ROOT / 'dro2026/CfgFunctions.hpp')
-registered = set(re.findall(r'\bclass\s+(\w+)\s*\{(?:\s*(?:preInit|postInit)\s*=\s*1\s*;)?\s*\};', cfg))
-function_files = {path.stem[3:] for path in (ROOT / 'dro2026/functions').rglob('fn_*.sqf')}
-calls = set().union(*(set(re.findall(r'DRO2026_fnc_(\w+)', source)) for source in expanded.values()))
+cfg = read(ROOT / "dro2026" / "CfgFunctions.hpp")
+registered = set(
+    re.findall(
+        r"\bclass\s+(\w+)\s*\{(?:\s*(?:preInit|postInit)\s*=\s*1\s*;)?\s*\};",
+        cfg,
+    )
+)
+function_files = {
+    path.stem[3:] for path in (ROOT / "dro2026" / "functions").rglob("fn_*.sqf")
+}
+calls = set().union(
+    *(set(re.findall(r"DRO2026_fnc_(\w+)", source)) for source in raw_cleaned.values())
+)
 function_errors = {
-    'unregistered_files': sorted(function_files - registered),
-    'missing_files': sorted(registered - function_files),
-    'unregistered_calls': sorted(calls - registered - {'log'}),
+    "unregistered_files": sorted(function_files - registered),
+    "missing_files": sorted(registered - function_files),
+    "unregistered_calls": sorted(calls - registered - {"log"}),
 }
 
-patterns = {
-    'Bo_Mk82': re.compile(r'\bBo_Mk82\b', re.I),
-    'Titan injection': re.compile(r'\bM_Titan_(?:AT|AP)\b', re.I),
-    'Pook direct create': re.compile(r'createVehicle\s*\[\s*["\'][^"\']*pook', re.I),
-    'object checkVisibility': re.compile(r'\b_[A-Za-z0-9_]+\s+checkVisibility\s*\[', re.I),
-    'single fireAtTarget': re.compile(r'fireAtTarget\s*\[\s*[^,\]\n]+\s*\]', re.I),
-    'unsupported orderBy': re.compile(r'\borderBy\b', re.I),
-    'chained HashMap get': re.compile(r'DRO2026_networkNodes\s+get\s+_[A-Za-z0-9_]+\s+getOrDefault', re.I),
+critical_patterns = {
+    "Bo_Mk82 injection": re.compile(r"\bBo_Mk82\b", re.I),
+    "Titan injection": re.compile(r"\bM_Titan_(?:AT|AP)\b", re.I),
+    "unsupported orderBy": re.compile(r"\borderBy\b", re.I),
+    "object checkVisibility": re.compile(
+        r"\b_[A-Za-z0-9_]+\s+checkVisibility\s*\[",
+        re.I,
+    ),
+    "chained HashMap get": re.compile(
+        r"DRO2026_networkNodes\s+get\s+_[A-Za-z0-9_]+\s+getOrDefault",
+        re.I,
+    ),
 }
-critical = {name: [] for name in patterns}
-for path, source in stripped.items():
-    if 'dro2026' in path.parts or path.name in {'defineFactionClasses.sqf', 'initPlayerLocal.sqf'}:
-        for name, pattern in patterns.items(): critical[name].extend(locate(path, source, pattern))
+critical = {name: [] for name in critical_patterns}
+for path, source in raw_cleaned.items():
+    if "dro2026" not in path.parts:
+        continue
+    for name, pattern in critical_patterns.items():
+        for match in pattern.finditer(source):
+            critical[name].append(
+                f"{relative(path)}:{source.count(chr(10), 0, match.start()) + 1}"
+            )
 
-semantic = {name: [] for name in (
-    'faction safety', 'support authority', 'respawn sentinel', 'world state',
-    'persistent history', 'contact v2', 'state objectives', 'artillery causality',
-    'node logistics', 'EW and AA', 'support ROE'
-)}
-warnings = {name: [] for name in ('unused constants', 'server player', 'large files', 'legacy enemy resources')}
+semantic: dict[str, list[str]] = {
+    "contact model": [],
+    "support authority": [],
+    "state objectives": [],
+    "node logistics": [],
+    "EW and AA": [],
+    "support ROE": [],
+    "resource accounting": [],
+    "source-backed contracts": [],
+}
 
-alias = re.compile(r'(?<!_)(?:pInfClassesUnarmedForWeights|pInfClassUnarmedWeights|eInfClassesUnarmedForWeights|eInfClassUnarmedWeights)\b')
-broad_pook = re.compile(r'["\']pook_["\']\s*[,\]}]|find\s+["\']pook_["\']\s*\)?\s*==\s*0', re.I)
-for path, source in stripped.items(): semantic['faction safety'].extend(locate(path, source, alias))
-for path, source in expanded.items(): semantic['faction safety'].extend(locate(path, source, broad_pook))
+contract(
+    semantic["contact model"],
+    "dro2026/functions/core/fn_createContactRecord.sqf",
+    (
+        "positionMean",
+        "uncertaintyRadius",
+        "sources",
+        "velocityEstimate",
+        "bdaState",
+        "falseContactProbability",
+    ),
+)
+if "class createContactRecord {};" not in cfg:
+    semantic["contact model"].append("CfgFunctions: createContactRecord is not registered")
+contract(
+    semantic["contact model"],
+    "dro2026/functions/core/fn_isLiveContactSubject.sqf",
+    (
+        '"PROBABLY_DESTROYED"',
+        '"CONFIRMED_DESTROYED"',
+        '"CANCELLED"',
+        'isKindOf "VirtualMan_F"',
+        "objectFromNetId",
+    ),
+)
+contract(
+    semantic["contact model"],
+    "dro2026/functions/directors/fn_sensorDirector.sqf",
+    ("PROBABLY_DESTROYED", "CONFIRMED_DESTROYED", "BDA_UPDATED"),
+)
 
-for raw in ('fn_requestFPV.sqf', 'fn_requestISR.sqf', 'fn_requestLongRangeSupport.sqf', 'fn_requestArtillery.sqf', 'fn_requestAirSupport.sqf'):
-    contract(semantic['support authority'], f'dro2026/functions/support/{raw}', ('if (!isServer)', 'serverRequestSupport'))
-contract(semantic['support authority'], 'dro2026/functions/support/fn_showStatus.sqf', ('remoteExecCall',))
+contract(
+    semantic["support authority"],
+    "dro2026/functions/support/fn_serverRequestSupport.sqf",
+    (
+        "isPlayer _requester",
+        'isKindOf "VirtualMan_F"',
+        "remoteExecutedOwner",
+        "owner _requester",
+        "_catalogContains",
+    ),
+)
+for name in (
+    "fn_requestFPV.sqf",
+    "fn_requestISR.sqf",
+    "fn_requestLongRangeSupport.sqf",
+    "fn_requestArtillery.sqf",
+    "fn_requestAirSupport.sqf",
+):
+    contract(
+        semantic["support authority"],
+        f"dro2026/functions/support/{name}",
+        ("if (!isServer)", "serverRequestSupport"),
+    )
 
-start = text(ROOT / 'start.sqf')
-server_init = text(ROOT / 'initServer.sqf')
-if re.search(r'case\s+3\s*:\s*\{\s*nil\s*\}', start) and not ('DRO2026_respawnDisabled' in server_init and 'respawnTime = -1' in server_init):
-    semantic['respawn sentinel'].append('start.sqf nil mode lacks initServer sentinel')
+contract(
+    semantic["state objectives"],
+    "dro2026/functions/objectives/fn_selectObjective.sqf",
+    ("selectObjectiveOpportunity", "OBJECTIVE_EXPOSED", "OBJECTIVE_MATERIALIZATION_FAILED"),
+    ("selectRandom DRO2026_OPERATION_PACKAGES",),
+)
+contract(
+    semantic["state objectives"],
+    "dro2026/functions/core/fn_selectObjectiveOpportunity.sqf",
+    ("activeOpportunities", "DRO2026_networkNodes", "DRO2026_selectedOpportunity"),
+)
+contract(
+    semantic["state objectives"],
+    "dro2026/functions/objectives/fn_objectiveISRRecon.sqf",
+    ("ISR_RELAY", "Land_TTowerSmall_1_F", 'isKindOf "VirtualMan_F"'),
+)
 
-for raw, tokens in {
-    'dro2026/functions/core/fn_initState.sqf': ('DRO2026_networkNodes', 'DRO2026_networkEdges', 'DRO2026_eventLog', 'DRO2026_operationState'),
-    'dro2026/functions/core/fn_buildCapabilityNetwork.sqf': ('NODE_LOGISTICS_01', 'NODE_ARTILLERY_01', 'EDGE_LOGISTICS_ARTILLERY'),
-    'dro2026/functions/directors/fn_operationDirector.sqf': ('DRO2026_currentIntent', 'INTENT_PROPOSED', 'doctrine'),
-}.items(): contract(semantic['world state'], raw, tokens)
+contract(
+    semantic["node logistics"],
+    "dro2026/functions/directors/fn_logisticsDirector.sqf",
+    (
+        "DELIVERY_STARTED",
+        "DELIVERY_MATERIALIZED",
+        "DELIVERY_COMPLETED",
+        "DELIVERY_INTERDICTED",
+        "DELIVERY_CANCELLED",
+        "_setActiveConvoyStatus",
+        "_setDeliverySiteStatus",
+        '"siteRecord"',
+        "_cleanupDeliveryVehicles",
+        "changeNetworkNodeStock",
+    ),
+)
+contract(
+    semantic["node logistics"],
+    "dro2026/functions/objectives/fn_objectiveConvoy.sqf",
+    (
+        "edgeId",
+        "cargoType",
+        "toNode",
+        "validateSiteRecord",
+        "OBJECTIVE_CONVOY_REFUND",
+        "OBJECTIVE_CONVOY_CANCELLED",
+        "DELIVERY_INTERDICTED",
+        "DELIVERY_COMPLETED",
+        "DELIVERY_CANCELLED",
+    ),
+)
 
-contract(semantic['persistent history'], 'dro2026/functions/directors/fn_performanceGovernor.sqf', ('syncNetworkState', 'lastCompactedAt'), ('DRO2026_sites = DRO2026_sites select', 'DRO2026_sites deleteAt'))
-contract(semantic['persistent history'], 'dro2026/functions/core/fn_syncNetworkState.sqf', ('SITE_DESTROYED', 'NETWORK_NODE_DESTROYED', 'destroyedAt'))
-contract(semantic['contact v2'], 'dro2026/functions/core/fn_createContactRecord.sqf', ('positionMean', 'uncertaintyRadius', 'sources', 'velocityEstimate', 'bdaState', 'falseContactProbability'))
-contract(semantic['contact v2'], 'dro2026/functions/directors/fn_sensorDirector.sqf', ('PROBABLY_DESTROYED', 'CONFIRMED_DESTROYED', 'BDA_UPDATED'))
-contract(semantic['contact v2'], 'dro2026/functions/core/fn_syncContactMarker.sqf', ('ELLIPSE', '_uncertaintyRadius', '_bdaState'))
-contract(semantic['state objectives'], 'dro2026/functions/objectives/fn_selectObjective.sqf', ('selectObjectiveOpportunity', 'OBJECTIVE_EXPOSED'), ('selectRandom DRO2026_OPERATION_PACKAGES',))
-contract(semantic['state objectives'], 'dro2026/functions/core/fn_selectObjectiveOpportunity.sqf', ('activeOpportunities', 'DRO2026_networkNodes', '_phase'))
-contract(semantic['artillery causality'], 'dro2026/functions/objectives/fn_artilleryLoop.sqf', ('ARTILLERY_FIRE', 'observerContact', 'COUNTERBATTERY'), ('getPosATL player', 'getPos player'))
-contract(semantic['artillery causality'], 'dro2026/functions/support/fn_requestArtillery.sqf', ('uncertaintyRadius', '_friendlyRisk', '_civilianRisk'))
-contract(semantic['node logistics'], 'dro2026/functions/directors/fn_logisticsDirector.sqf', ('DELIVERY_STARTED', 'DELIVERY_MATERIALIZED', 'DELIVERY_COMPLETED', 'DELIVERY_INTERDICTED', 'virtualPosition', 'changeNetworkNodeStock'))
-contract(semantic['node logistics'], 'dro2026/functions/objectives/fn_objectiveConvoy.sqf', ('edgeId', 'cargoType', 'toNode', 'DELIVERY_INTERDICTED'), ('["enemySupply", -28]', '["enemyDroneStock", -7]'))
-contract(semantic['EW and AA'], 'dro2026/functions/core/fn_getJammingAtPosition.sqf', ('emissionState', 'terrainIntersectASL', 'jammingRadius'))
-contract(semantic['EW and AA'], 'dro2026/functions/directors/fn_airDefenceDirector.sqf', ('trackingChannels', 'AA_MISSILE_LAUNCHED', 'AA_EMISSION_CHANGED'))
-contract(semantic['EW and AA'], 'dro2026/functions/support/fn_launchISR.sqf', ('EMISSION_DETECTED', 'BURST', '_lastFalseContact', 'getJammingAtPosition'))
-contract(semantic['support ROE'], 'dro2026/functions/core/fn_getAirWindow.sqf', ('PERMISSIVE', 'CONTESTED', 'CLOSED', 'civiliansClose', 'friendliesClose'))
-contract(semantic['support ROE'], 'dro2026/functions/support/fn_requestAirSupport.sqf', ('getAirWindow', 'AA_ACTIVE', 'TARGET_LOST', 'CIVILIAN_RISK', 'FRIENDLIES_CLOSE'))
+contract(
+    semantic["EW and AA"],
+    "dro2026/functions/core/fn_getJammingAtPosition.sqf",
+    ("emissionState", "terrainIntersectASL", "jammingRadius"),
+)
+contract(
+    semantic["EW and AA"],
+    "dro2026/functions/directors/fn_airDefenceDirector.sqf",
+    (
+        "trackingChannels",
+        "AA_MISSILE_LAUNCHED",
+        "AA_EMISSION_CHANGED",
+        "AA_LAUNCH_REJECTED",
+        'getText (_ammoCfg >> "simulation")',
+        "deleteVehicle _projectile",
+    ),
+)
 
-preinit = text(ROOT / 'dro2026/functions/core/fn_preInit.sqf')
-constants = set(re.findall(r'^\s*(DRO2026_[A-Z0-9_]+)\s*=', preinit, re.MULTILINE))
-all_source = '\n'.join(stripped.values())
-for name in sorted(constants):
-    if len(re.findall(rf'\b{re.escape(name)}\b', all_source)) <= 1: warnings['unused constants'].append(name)
-for path, source in stripped.items():
-    if re.search(r'if\s*\(\s*!isServer\s*\)\s*exitWith', source[:700]) and re.search(r'\bplayer\b', source): warnings['server player'].append(str(path.relative_to(ROOT)))
-    if path.suffix.lower() == '.sqf' and text(path).count('\n') + 1 > 1000: warnings['large files'].append(f'{path.relative_to(ROOT)}:{text(path).count(chr(10)) + 1}')
-    if 'dro2026' in path.parts and re.search(r'DRO2026_resources\s+set\s*\[\s*["\']enemy', source) and path.name not in {'fn_logisticsDirector.sqf', 'fn_enemyFPVDirector.sqf', 'fn_longRangeDroneDirector.sqf', 'fn_reactionDirector.sqf'}: warnings['legacy enemy resources'].append(str(path.relative_to(ROOT)))
+contract(
+    semantic["support ROE"],
+    "dro2026/functions/core/fn_getAirWindow.sqf",
+    ("PERMISSIVE", "CONTESTED", "CLOSED", "civiliansClose", "friendliesClose"),
+)
+contract(
+    semantic["support ROE"],
+    "dro2026/functions/support/fn_requestAirSupport.sqf",
+    (
+        "getAirWindow",
+        "AA_ACTIVE",
+        "TARGET_LOST",
+        "CIVILIAN_RISK",
+        "FRIENDLIES_CLOSE",
+        "_refundTail",
+        "TARGETS_LOST_BEFORE_LAUNCH",
+        "AIR_WINDOW_CLOSED_BEFORE_LAUNCH",
+    ),
+)
+
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/support/fn_launchFPVStrike.sqf",
+    ("FPV_LAUNCH_REFUND", "_reservationNodeId", "enemyDroneStock"),
+)
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/directors/fn_enemyFPVDirector.sqf",
+    ("FPV_SALVO_ABORT", "_unlaunched", "DRO2026_fnc_launchFPVStrike"),
+)
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
+    ("LONG_RANGE_LAUNCH_REFUND", "friendlyFP5Stock", "enemyLongRangeStock"),
+)
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
+    (
+        "LONG_RANGE_SALVO_ABORT",
+        "DRO2026_fnc_isLiveContactSubject",
+        '"CANCELLED"',
+    ),
+    ("private _isLiveStrategicContact",),
+)
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/support/fn_launchISR.sqf",
+    ("_refundReservation", "DRO2026_lastISRRequest = -999"),
+)
+contract(
+    semantic["resource accounting"],
+    "dro2026/functions/support/fn_requestFPV.sqf",
+    ("FPV salvo aborted", "_unlaunched", "friendlyFPVStock"),
+)
+
+contract_validator_results = [
+    run_contract_validator(filename)
+    for filename in (
+        "validate_source_manifest.py",
+        "validate_arma_wiki_contracts.py",
+        "validate_side_contracts.py",
+        "validate_orientation_contracts.py",
+        "validate_runtime_transactions.py",
+    )
+]
+for result in contract_validator_results:
+    if result["exit_code"] != 0:
+        semantic["source-backed contracts"].append(
+            f"{result['validator']}:\n{result['output']}"
+        )
 
 rpt_patterns = {
-    'undefined variable': re.compile(r'Undefined variable(?: in expression)?:?\s*([^\r\n]*)', re.I),
-    'expression error': re.compile(r'(?:Error in expression|Generic error in expression)', re.I),
-    'network regression': re.compile(r'(?:DRO2026_networkNodes|DRO2026_networkEdges|DRO2026_operationState|DRO2026_currentIntent|DRO2026_eventLog|DRO2026_supplyLanes)', re.I),
+    "undefined variable": re.compile(
+        r"Undefined variable(?: in expression)?:?\s*([^\r\n]*)",
+        re.I,
+    ),
+    "expression error": re.compile(
+        r"(?:Error in expression|Generic error in expression)",
+        re.I,
+    ),
+    "network regression": re.compile(
+        r"(?:DRO2026_networkNodes|DRO2026_networkEdges|DRO2026_operationState|"
+        r"DRO2026_currentIntent|DRO2026_eventLog|DRO2026_supplyLanes)",
+        re.I,
+    ),
+    "watchdog freeze": re.compile(r"No alive in \d+ ms", re.I),
 }
 rpt = {name: [] for name in rpt_patterns}
 for raw in args.rpt:
     path = Path(raw).expanduser().resolve()
     if not path.is_file():
-        rpt.setdefault('missing file', []).append(str(path)); continue
-    source = text(path)
+        rpt.setdefault("missing file", []).append(str(path))
+        continue
+    source = read(path)
     for name, pattern in rpt_patterns.items():
-        rpt[name].extend(f'{path}:{source.count(chr(10), 0, match.start()) + 1}' for match in pattern.finditer(source))
+        rpt[name].extend(
+            f"{path}:{source.count(chr(10), 0, match.start()) + 1}"
+            for match in pattern.finditer(source)
+        )
+
+hemtt, hemtt_failed = run_optional_hemtt(args.require_hemtt)
 
 report = {
-    'version': 'rc6-capability-network',
-    'expanded_entry_files': len(files),
-    'registered_count': len(registered),
-    'function_file_count': len(function_files),
-    'delimiter_or_include_errors': syntax_errors,
-    'functions': function_errors,
-    'critical_findings': critical,
-    'semantic_errors': semantic,
-    'semantic_warnings': warnings,
-    'rpt_regressions': rpt,
+    "version": "rc6-source-backed-audit",
+    "expanded_entry_files": len(entry_files),
+    "include_fragments": len(all_files) - len(entry_files),
+    "registered_count": len(registered),
+    "function_file_count": len(function_files),
+    "delimiter_or_include_errors": syntax_errors,
+    "functions": function_errors,
+    "critical_findings": critical,
+    "semantic_errors": semantic,
+    "contract_validators": contract_validator_results,
+    "rpt_regressions": rpt,
+    "hemtt": hemtt,
 }
 print(json.dumps(report, ensure_ascii=False, indent=2))
-failed = bool(syntax_errors) or any(function_errors.values()) or any(critical.values()) or any(semantic.values()) or any(rpt.values())
+
+failed = (
+    bool(syntax_errors)
+    or any(function_errors.values())
+    or any(critical.values())
+    or any(semantic.values())
+    or any(rpt.values())
+    or hemtt_failed
+)
 sys.exit(1 if failed else 0)

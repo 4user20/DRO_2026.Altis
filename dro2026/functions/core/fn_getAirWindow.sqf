@@ -8,7 +8,7 @@ private _unknownThreats = 0;
 {
     private _nodeId = _x;
     private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-    if (count _node > 0 && {!((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"])}) then {
+    if (count _node > 0 && {!((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"])}) then {
         private _nodePos = _node getOrDefault ["position", _position];
         private _distance = _nodePos distance2D _position;
         private _radius = if (_nodeId == "NODE_AA_LONG_01") then {12500} else {4800};
@@ -36,8 +36,12 @@ if (_jamming > 0.12) then {
 private _weatherRisk = ((rain * 0.25) + (fog * 0.45)) min 0.55;
 if (_weatherRisk > 0.12) then {_risk = _risk + _weatherRisk; _reasons pushBack "Погодные ограничения"};
 
-private _friendliesClose = allUnits findIf {alive _x && {side (group _x) == _requestSide} && {_x distance2D _position < 350}};
-private _civiliansClose = allUnits findIf {alive _x && {side (group _x) == civilian} && {_x distance2D _position < 420}};
+private _friendliesClose = allUnits findIf {
+    alive _x && {!(_x isKindOf "VirtualMan_F")} && {side (group _x) == _requestSide} && {_x distance2D _position < 350}
+};
+private _civiliansClose = allUnits findIf {
+    alive _x && {!(_x isKindOf "VirtualMan_F")} && {side (group _x) == civilian} && {_x distance2D _position < 420}
+};
 if (_friendliesClose >= 0) then {_risk = _risk + 0.45; _reasons pushBack "Свои силы в зоне поражения"};
 if (_civiliansClose >= 0) then {_risk = _risk + 0.55; _reasons pushBack "Гражданские в зоне поражения"};
 

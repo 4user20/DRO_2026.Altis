@@ -1,18 +1,30 @@
 params [
     "_origin", "_contact", ["_side", east], ["_operator", objNull],
-    ["_allowPlayerControl", false], ["_supportOwner", objNull], ["_requestedClass", ""]
+    ["_allowPlayerControl", false], ["_supportOwner", objNull], ["_requestedClass", ""],
+    ["_reservationNodeId", ""], ["_siteId", ""]
 ];
-private _refundFriendly = {
+private _refundReservation = {
     if (_side == playersSide) then {
         DRO2026_resources set ["friendlyFPVStock", (DRO2026_resources getOrDefault ["friendlyFPVStock", 0]) + 1];
+    } else {
+        if (_reservationNodeId != "") then {
+            [_reservationNodeId, "FPV_KITS", 1, "FPV_LAUNCH_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
+            [_reservationNodeId, "BATTERIES", 1, "FPV_LAUNCH_REFUND"] call DRO2026_fnc_changeNetworkNodeStock;
+            DRO2026_resources set ["enemyDroneStock", (DRO2026_resources getOrDefault ["enemyDroneStock", 0]) + 1];
+        };
     };
 };
-if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundFriendly; objNull};
-if (!isNull _operator && {!alive _operator}) exitWith {call _refundFriendly; objNull};
+private _siteOperational = {
+    _siteId == "" || {[_siteId] call DRO2026_fnc_isSiteOperational}
+};
+if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundReservation; objNull};
+if (!isNull _operator && {!alive _operator}) exitWith {call _refundReservation; objNull};
+if !(call _siteOperational) exitWith {call _refundReservation; objNull};
+if !([_contact] call DRO2026_fnc_isLiveContactSubject) exitWith {call _refundReservation; objNull};
 private _target = _contact getOrDefault ["target", objNull];
 private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
-if (count _targetPosition < 2) exitWith {call _refundFriendly; objNull};
-if (!isNull _target && {!alive _target}) exitWith {call _refundFriendly; objNull};
+if (count _targetPosition < 2) exitWith {call _refundReservation; objNull};
+if (!isNull _target && {!alive _target}) exitWith {call _refundReservation; objNull};
 
 private _role = switch (_side) do {
     case west: {"FPV_WEST"};
@@ -24,7 +36,18 @@ private _fallback = switch (_side) do {
     case resistance: {"I_UAV_01_F"};
     default {"O_UAV_01_F"};
 };
-private _pool = DRO2026_assetRegistry getOrDefault [_role, []];
+private _sideNumber = switch (_side) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
+private _pool = (DRO2026_assetRegistry getOrDefault [_role, []]) select {
+    private _cfg = configFile >> "CfgVehicles" >> _x;
+    isClass _cfg &&
+    {_x isKindOf "Air"} &&
+    {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}
+};
+if (_requestedClass != "" && {!(_requestedClass in _pool)}) exitWith {
+    [format ["FPV exact class %1 отсутствует в side-correct registry", _requestedClass]] call DRO2026_fnc_log;
+    call _refundReservation;
+    objNull
+};
 private _isArmored = !isNull _target && {
     (_target isKindOf "Tank") || {_target isKindOf "Wheeled_APC_F"} || {_target isKindOf "Tracked_APC_F"}
 };
@@ -41,13 +64,16 @@ private _preferred = _pool select {
         }
     }
 };
-private _droneClass = if (_requestedClass != "" && {_requestedClass in _pool}) then {
+private _droneClass = if (_requestedClass != "") then {
     _requestedClass
 } else {
     if (count _preferred > 0) then {selectRandom _preferred} else {if (count _pool > 0) then {selectRandom _pool} else {_fallback}}
 };
-if (!isClass (configFile >> "CfgVehicles" >> _droneClass) || {!(_droneClass isKindOf "Air")}) then {
-    _droneClass = _fallback
+private _droneCfg = configFile >> "CfgVehicles" >> _droneClass;
+if (!isClass _droneCfg || {!(_droneClass isKindOf "Air")} || {_sideNumber >= 0 && {getNumber (_droneCfg >> "side") != _sideNumber}}) exitWith {
+    [format ["FPV launch cancelled: invalid or cross-side class %1", _droneClass]] call DRO2026_fnc_log;
+    call _refundReservation;
+    objNull
 };
 private _usingNativeFPV = _droneClass != _fallback;
 
@@ -55,61 +81,84 @@ private _direction = _origin getDir _targetPosition;
 private _spawnPosition = _origin getPos [25 + random 20, _direction];
 _spawnPosition set [2, 18 + random 8];
 private _drone = createVehicle [_droneClass, _spawnPosition, [], 0, "FLY"];
-if (isNull _drone) exitWith {call _refundFriendly; objNull};
+if (isNull _drone) exitWith {call _refundReservation; objNull};
+_drone setPosATL _spawnPosition;
 private _crewGroup = _side createVehicleCrew _drone;
-if (isNull _crewGroup || {isNull driver _drone}) exitWith {
+if (isNull _crewGroup || {isNull (driver _drone)}) exitWith {
     deleteVehicleCrew _drone;
     deleteVehicle _drone;
-    call _refundFriendly;
+    if (!isNull _crewGroup) then {deleteGroup _crewGroup};
+    call _refundReservation;
     objNull
 };
-_drone setDir _direction;
+private _driver = driver _drone;
+_driver disableAI "MOVE";
+_driver disableAI "PATH";
+_driver disableAI "TARGET";
+_driver disableAI "AUTOTARGET";
 _drone setVariable ["DRO2026_operator", _operator];
 _drone setVariable ["DRO2026_manualControl", false, true];
 _drone setVariable ["DRO2026_supportOwner", _supportOwner, true];
+_drone setVariable ["DRO2026_siteId", _siteId, true];
 if (!isNull _operator) then {_operator setVariable ["DRO2026_activeUAV", _drone]};
 DRO2026_activeDrones pushBack _drone;
 DRO2026_managedVehicles pushBackUnique _drone;
 _crewGroup setBehaviourStrong "CARELESS";
 _crewGroup setCombatMode "BLUE";
 _crewGroup setSpeedMode "FULL";
-[_drone, format ["FPV %1", getText (configFile >> "CfgVehicles" >> _droneClass >> "displayName")], _side] spawn DRO2026_fnc_trackIncomingDrone;
+private _initialDirection = [sin _direction, cos _direction, 0];
+_drone setVelocity (_initialDirection vectorMultiply 24);
+private _eventSubject = if (_reservationNodeId != "") then {_reservationNodeId} else {if (_siteId != "") then {_siteId} else {"FPV_LAUNCH"}};
+["DRONE_LAUNCHED", createHashMapFromArray [
+    ["role", "FPV"], ["class", _droneClass], ["side", str _side],
+    ["contactId", _contact getOrDefault ["id", ""]], ["subjectId", _contact getOrDefault ["subjectId", ""]],
+    ["siteId", _siteId], ["reservationNodeId", _reservationNodeId], ["manual", _allowPlayerControl]
+], _eventSubject] call DRO2026_fnc_emitEvent;
+[_drone, format ["FPV %1", getText (_droneCfg >> "displayName")], _side] spawn DRO2026_fnc_trackIncomingDrone;
 
 if (_allowPlayerControl && {!isNull _supportOwner} && {_side == playersSide}) then {
     [_drone] remoteExecCall ["DRO2026_fnc_offerFPVControl", _supportOwner, false];
 };
 
+private _applyFlightVector = {
+    params ["_object", "_rawDirection", "_speed"];
+    private _dirLength = vectorMagnitude _rawDirection;
+    if (_dirLength <= 0.001) exitWith {};
+    private _flightDirection = _rawDirection vectorMultiply (1 / _dirLength);
+    private _right = _flightDirection vectorCrossProduct [0,0,1];
+    private _rightLength = vectorMagnitude _right;
+    if (_rightLength <= 0.001) then {_right = [1,0,0]; _rightLength = 1};
+    _right = _right vectorMultiply (1 / _rightLength);
+    private _up = _right vectorCrossProduct _flightDirection;
+    private _upLength = vectorMagnitude _up;
+    if (_upLength <= 0.001) then {_up = [0,0,1]} else {_up = _up vectorMultiply (1 / _upLength)};
+    _object setVectorDirAndUp [_flightDirection, _up];
+    _object setVelocity (_flightDirection vectorMultiply _speed);
+};
+
 private _timeout = time + 210;
-private _lastTargetSearch = -10;
 private _lastWobbleUpdate = -10;
 private _wobbleBearing = 0;
 private _guidanceLostUntil = -1;
 private _operatorQuality = if (!isNull _operator) then {0.65 + ((skill _operator) * 0.35)} else {0.72};
+private _hadPhysicalTarget = !isNull _target;
+private _targetLostAt = -1;
 
 while {
     alive _drone &&
     {time < _timeout} &&
+    {call _siteOperational} &&
     {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}
 } do {
     private _manual = _drone getVariable ["DRO2026_manualControl", false];
     if (!_manual) then {
         if (!isNull _target && {alive _target}) then {
             _targetPosition = getPosATL _target;
+            _targetLostAt = -1;
         } else {
-            if ((time - _lastTargetSearch) > 2.5) then {
-                _lastTargetSearch = time;
-                private _candidates = nearestObjects [_targetPosition, ["LandVehicle", "Man"], 180, true] select {
-                    alive _x && {
-                        private _objectSide = side _x;
-                        if (!isNull driver _x) then {_objectSide = side group driver _x};
-                        _objectSide != _side && {_objectSide != civilian}
-                    }
-                };
-                if (count _candidates > 0) then {
-                    _candidates = [_candidates, [], {_x distance2D _targetPosition}, "ASCEND"] call BIS_fnc_sortBy;
-                    _target = _candidates select 0;
-                    _targetPosition = getPosATL _target;
-                };
+            if (_hadPhysicalTarget && {_targetLostAt < 0}) then {
+                _targetLostAt = time;
+                [format ["FPV сохраняет последнюю подтверждённую точку после потери цели %1", _contact getOrDefault ["id", ""]]] call DRO2026_fnc_log;
             };
         };
 
@@ -169,10 +218,9 @@ while {
                     _desiredSpeed = _desiredSpeed * (0.88 + 0.12 * _channelQuality);
                     private _speedBlend = 0.16 + 0.18 * _channelQuality;
                     private _newSpeed = _currentSpeed + ((_desiredSpeed - _currentSpeed) * _speedBlend);
-                    _drone setVectorDirAndUp [_newDirection, [0,0,1]];
-                    _drone setVelocity (_newDirection vectorMultiply _newSpeed);
+                    [_drone, _newDirection, _newSpeed] call _applyFlightVector;
                     private _closingSpeed = (velocity _drone) vectorDotProduct _desiredDirection;
-                    if (_distance < 5.2 && {_closingSpeed > 6}) exitWith {
+                    if (_distance < 5.2 && {_closingSpeed > 6}) then {
                         if (_usingNativeFPV) then {
                             _drone setDamage 1;
                         } else {
@@ -197,8 +245,9 @@ while {
 
 private _activeIndex = DRO2026_activeDrones find _drone;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
-if (alive _drone) then {
+if (!isNull _drone) then {
     deleteVehicleCrew _drone;
-    deleteVehicle _drone;
+    if (alive _drone) then {deleteVehicle _drone};
 };
+if (!isNull _crewGroup) then {deleteGroup _crewGroup};
 _drone

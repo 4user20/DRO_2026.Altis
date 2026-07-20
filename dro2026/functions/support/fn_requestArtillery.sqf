@@ -43,8 +43,12 @@ private _targetPosition = +(_contact getOrDefault ["positionMean", _position]);
 private _uncertainty = _contact getOrDefault ["uncertaintyRadius", 80];
 _targetPosition = _targetPosition getPos [random (_uncertainty min 220), random 360];
 
-private _friendlyRisk = allUnits findIf {alive _x && {side (group _x) == playersSide} && {_x distance2D _targetPosition < 220}};
-private _civilianRisk = allUnits findIf {alive _x && {side (group _x) == civilian} && {_x distance2D _targetPosition < 320}};
+private _friendlyRisk = allUnits findIf {
+    alive _x && {!(_x isKindOf "VirtualMan_F")} && {side (group _x) == playersSide} && {_x distance2D _targetPosition < 220}
+};
+private _civilianRisk = allUnits findIf {
+    alive _x && {!(_x isKindOf "VirtualMan_F")} && {side (group _x) == civilian} && {_x distance2D _targetPosition < 320}
+};
 if (_friendlyRisk >= 0) exitWith {["Штаб: огонь запрещён — свои силы слишком близко к зоне поражения.", _requester] call DRO2026_fnc_supportMessage};
 if (_civilianRisk >= 0) exitWith {["Штаб: огонь запрещён — подтверждено присутствие гражданских.", _requester] call DRO2026_fnc_supportMessage};
 
@@ -69,15 +73,22 @@ if (isNull _arty || {!alive _arty}) then {
     if (isNull _arty) exitWith {["Штаб: не удалось развернуть артиллерийскую систему.", _requester] call DRO2026_fnc_supportMessage};
     _createdNow = true;
     private _group = playersSide createVehicleCrew _arty;
-    if (isNull _group || {isNull gunner _arty}) exitWith {
+    if (isNull _group || {isNull (gunner _arty)}) exitWith {
         deleteVehicleCrew _arty;
         deleteVehicle _arty;
+        if (!isNull _group) then {deleteGroup _group};
         _arty = objNull;
         ["Штаб: артсистема не получила совместимый экипаж.", _requester] call DRO2026_fnc_supportMessage;
     };
     _group setBehaviourStrong "COMBAT";
     _group setCombatMode "RED";
     _group setVariable ["DRO2026_supportGroup", true];
+    _arty setVariable ["DRO2026_supportGroup", _group];
+    _arty addEventHandler ["Killed", {
+        params ["_vehicle"];
+        private _group = _vehicle getVariable ["DRO2026_supportGroup", grpNull];
+        [_group] spawn {params ["_group"]; sleep 1; if (!isNull _group) then {deleteGroup _group}};
+    }];
     _arty enableDynamicSimulation false;
     DRO2026_supportAssets set [_key, _arty];
     DRO2026_managedVehicles pushBackUnique _arty;
@@ -86,7 +97,13 @@ if (isNull _arty) exitWith {};
 
 private _ammoPool = getArtilleryAmmo [_arty];
 if (count _ammoPool == 0) exitWith {
-    if (_createdNow) then {DRO2026_supportAssets deleteAt _key; deleteVehicleCrew _arty; deleteVehicle _arty};
+    if (_createdNow) then {
+        DRO2026_supportAssets deleteAt _key;
+        private _group = _arty getVariable ["DRO2026_supportGroup", grpNull];
+        deleteVehicleCrew _arty;
+        deleteVehicle _arty;
+        if (!isNull _group) then {deleteGroup _group};
+    };
     ["Штаб: выбранная система не предоставляет штатных артиллерийских боеприпасов.", _requester] call DRO2026_fnc_supportMessage;
 };
 private _solutions = _ammoPool select {_targetPosition inRangeOfArtillery [[_arty], _x]};

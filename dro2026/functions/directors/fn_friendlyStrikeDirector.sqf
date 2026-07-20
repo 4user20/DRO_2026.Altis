@@ -2,6 +2,7 @@ if (!isServer) exitWith {};
 private _lastRecommendation = -999;
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep 18;
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {};
     private _mode = toUpperANSI (DRO2026_supportPreset getOrDefault ["automation", "RECOMMEND_ONLY"]);
     if !(_mode in ["MANUAL", "RECOMMEND_ONLY", "AUTO_DEFENSIVE", "AUTO_FULL"]) then {_mode = "RECOMMEND_ONLY"};
     if (_mode == "MANUAL") then {continue};
@@ -12,10 +13,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         {(_x getOrDefault ["confidence", 0]) >= 0.72} &&
         {(_x getOrDefault ["uncertaintyRadius", 9999]) <= 320} &&
         {(time - (_x getOrDefault ["lastSeen", 0])) < 230} &&
-        {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} && {
-            private _target = _x getOrDefault ["target", objNull];
-            isNull _target || {alive _target}
-        }
+        {[_x] call DRO2026_fnc_isLiveContactSubject}
     };
     if (count _contacts == 0) then {continue};
 
@@ -38,9 +36,10 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     _contacts = [_contacts, [], {-([_x] call _contactValue)}, "ASCEND"] call BIS_fnc_sortBy;
     private _contact = _contacts select 0;
     private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
-    if (count _targetPosition < 2) then {continue};
+    if (count _targetPosition < 2 || {!([_contact] call DRO2026_fnc_isLiveContactSubject)}) then {continue};
 
-    private _nearFriendly = (allPlayers findIf {alive _x && {_x distance2D _targetPosition < 1700}}) >= 0;
+    private _humanPlayers = allPlayers select {!(_x isKindOf "VirtualMan_F")};
+    private _nearFriendly = (_humanPlayers findIf {alive _x && {_x distance2D _targetPosition < 1700}}) >= 0;
     if (!_nearFriendly) then {
         _nearFriendly = (DRO2026_friendlyPositions findIf {
             private _position = _x getOrDefault ["position", []];
@@ -51,8 +50,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
 
     private _fpvSites = DRO2026_sites select {
         (_x getOrDefault ["type", ""]) == "FRIENDLY_FPV_SITE" && {
-            private _operator = _x getOrDefault ["operator", objNull];
-            !isNull _operator && {alive _operator}
+            private _siteId = _x getOrDefault ["id", ""];
+            _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
         } && {
             private _position = _x getOrDefault ["position", []];
             count _position > 1 && {_position distance2D _targetPosition <= 4800}
@@ -60,14 +59,27 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     };
     private _strategicSites = DRO2026_sites select {
         (_x getOrDefault ["type", ""]) == "FRIENDLY_DRONE_SITE" && {
-            private _operator = _x getOrDefault ["operator", objNull];
-            !isNull _operator && {alive _operator}
+            private _siteId = _x getOrDefault ["id", ""];
+            _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
         }
+    };
+    private _catalog = missionNamespace getVariable ["DRO2026_supportCatalog", []];
+    private _catalogHasMode = {
+        params ["_modeName"];
+        (_catalog findIf {(_x isEqualType []) && {(_x param [1, ""]) == _modeName}}) >= 0
     };
     private _fpvStock = DRO2026_resources getOrDefault ["friendlyFPVStock", 0];
     private _longStock = DRO2026_resources getOrDefault ["friendlyLongRangeStock", 0];
+    private _fp5Stock = DRO2026_resources getOrDefault ["friendlyFP5Stock", 0];
+    private _canUseFP5 = _mode == "AUTO_FULL" &&
+        {DRO2026_friendlyFP5Used < 2} &&
+        {_fp5Stock > 0} &&
+        {([_contact] call _contactValue) > 1.1} &&
+        {["STRIKE_FP5"] call _catalogHasMode};
+    private _canUseLong = _longStock > 0 && {["STRIKE_AUTO"] call _catalogHasMode};
+    private _strategicAvailable = _canUseLong || {_canUseFP5};
     private _recommendedSystem = if (count _fpvSites > 0 && {_fpvStock > 0}) then {"FPV"} else {
-        if (count _strategicSites > 0 && {_longStock > 0}) then {"LONG_RANGE"} else {"NONE"}
+        if (count _strategicSites > 0 && {_strategicAvailable}) then {"LONG_RANGE"} else {"NONE"}
     };
     if (_recommendedSystem == "NONE") then {continue};
 
@@ -93,29 +105,34 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         continue;
     };
 
+    if !([_contact] call DRO2026_fnc_isLiveContactSubject) then {continue};
     if (_recommendedSystem == "FPV") then {
         _fpvSites = [_fpvSites, [], {(_x getOrDefault ["position", [0,0,0]]) distance2D _targetPosition}, "ASCEND"] call BIS_fnc_sortBy;
         private _site = _fpvSites select 0;
+        private _siteId = _site getOrDefault ["id", ""];
         private _origin = _site getOrDefault ["position", _targetPosition];
         private _operator = _site getOrDefault ["operator", objNull];
-        [_origin, _contact, playersSide, _operator, false, objNull] spawn DRO2026_fnc_launchFPVStrike;
+        if !([_siteId] call DRO2026_fnc_isSiteOperational) then {continue};
         DRO2026_resources set ["friendlyFPVStock", (_fpvStock - 1) max 0];
-        ["FRIENDLY_AUTO_STRIKE", createHashMapFromArray [["mode", _mode], ["system", "FPV"], ["contactId", _contact getOrDefault ["id", ""]]], "FRIENDLY_HQ"] call DRO2026_fnc_emitEvent;
-        ["ACK", "Штаб: автоматический защитный контур назначил FPV по подтверждённой цели.", -2] call DRO2026_fnc_hqVoice;
+        ["FRIENDLY_AUTO_STRIKE", createHashMapFromArray [["mode", _mode], ["system", "FPV"], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId], ["state", "RESERVED"]], "FRIENDLY_HQ"] call DRO2026_fnc_emitEvent;
+        [_origin, _contact, playersSide, _operator, false, objNull, "", "", _siteId] spawn DRO2026_fnc_launchFPVStrike;
+        ["ACK", "Штаб: автоматический защитный контур зарезервировал FPV по подтверждённой цели.", -2] call DRO2026_fnc_hqVoice;
         DRO2026_lastFriendlyStrike = time;
     } else {
         private _site = _strategicSites select 0;
+        private _siteId = _site getOrDefault ["id", ""];
         private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
         private _operator = _site getOrDefault ["operator", objNull];
-        private _preferFP5 = _mode == "AUTO_FULL" && {(DRO2026_friendlyFP5Used < 2)} && {(DRO2026_resources getOrDefault ["friendlyFP5Stock", 0]) > 0} && {([_contact] call _contactValue) > 1.1};
-        [_origin, _contact, playersSide, _preferFP5, _operator, if (_preferFP5) then {"FP5"} else {"AUTO"}, false, 0, 1, false] spawn DRO2026_fnc_launchLongRangeStrike;
-        DRO2026_resources set ["friendlyLongRangeStock", (_longStock - 1) max 0];
-        if (_preferFP5) then {
-            DRO2026_friendlyFP5Used = DRO2026_friendlyFP5Used + 1;
-            DRO2026_resources set ["friendlyFP5Stock", ((DRO2026_resources getOrDefault ["friendlyFP5Stock", 0]) - 1) max 0];
-        };
-        ["FRIENDLY_AUTO_STRIKE", createHashMapFromArray [["mode", _mode], ["system", if (_preferFP5) then {"FP5"} else {"LONG_RANGE"}], ["contactId", _contact getOrDefault ["id", ""]]], "FRIENDLY_HQ"] call DRO2026_fnc_emitEvent;
-        ["ACK", "Штаб: автоматический контур назначил дальний ударный БПЛА по высокоценной цели.", -2] call DRO2026_fnc_hqVoice;
+        if !([_siteId] call DRO2026_fnc_isSiteOperational) then {continue};
+        private _preferFP5 = _canUseFP5;
+        private _type = if (_preferFP5) then {"FP5"} else {"AUTO"};
+        private _reservePool = if (_preferFP5) then {"friendlyFP5Stock"} else {"friendlyLongRangeStock"};
+        private _reserveStock = DRO2026_resources getOrDefault [_reservePool, 0];
+        if (_reserveStock <= 0) then {continue};
+        DRO2026_resources set [_reservePool, (_reserveStock - 1) max 0];
+        ["FRIENDLY_AUTO_STRIKE", createHashMapFromArray [["mode", _mode], ["system", if (_preferFP5) then {"FP5"} else {"LONG_RANGE"}], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId], ["state", "RESERVED"]], "FRIENDLY_HQ"] call DRO2026_fnc_emitEvent;
+        [_origin, _contact, playersSide, _preferFP5, _operator, _type, false, 0, 1, true, "", _siteId] spawn DRO2026_fnc_launchLongRangeStrike;
+        ["ACK", "Штаб: автоматический контур зарезервировал дальний удар по высокоценной цели.", -2] call DRO2026_fnc_hqVoice;
         DRO2026_lastFriendlyStrike = time;
     };
 };

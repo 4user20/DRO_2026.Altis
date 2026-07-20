@@ -1,6 +1,7 @@
 if (!isServer) exitWith {};
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep (DRO2026_ENEMY_ISR_MIN_INTERVAL + random (DRO2026_ENEMY_ISR_MAX_INTERVAL - DRO2026_ENEMY_ISR_MIN_INTERVAL));
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {};
     if ((time - DRO2026_lastEnemyISR) < DRO2026_ENEMY_ISR_MIN_INTERVAL) then {continue};
     private _stock = DRO2026_resources getOrDefault ["enemyDroneStock", 0];
     if (_stock <= 0 || {(count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT}) then {continue};
@@ -39,12 +40,13 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             _searchTargets pushBack [_position, _x getOrDefault ["type", "FRIENDLY_POSITION"], _x getOrDefault ["object", objNull], _x getOrDefault ["id", ""], 5];
         };
     } forEach DRO2026_friendlyPositions;
+    private _humanPlayers = allPlayers select {!(_x isKindOf "VirtualMan_F")};
     {
         if (!isNull _x && {alive _x}) then {
             private _vehicle = vehicle _x;
             _searchTargets pushBack [getPosATL _vehicle, if (_vehicle == _x) then {"PLAYER_GROUP"} else {"PLAYER_VEHICLE"}, _vehicle, format ["PLAYER:%1", getPlayerUID _x], if (_vehicle == _x) then {3} else {6}];
         };
-    } forEach allPlayers;
+    } forEach _humanPlayers;
     {
         private _asset = DRO2026_supportAssets get _x;
         if (!isNull _asset && {alive _asset}) then {
@@ -58,17 +60,21 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _site = selectRandom _sites;
     private _operator = _site getOrDefault ["operator", objNull];
     private _origin = _site getOrDefault ["position", ["ENEMY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
-    private _pool = DRO2026_assetRegistry getOrDefault ["ENEMY_ISR_UAV", []];
-    _pool = _pool select {isClass (configFile >> "CfgVehicles" >> _x) && {_x isKindOf "Air"}};
+    private _enemySideNumber = switch (enemySide) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
+    private _pool = (DRO2026_assetRegistry getOrDefault ["ENEMY_ISR_UAV", []]) select {
+        private _cfg = configFile >> "CfgVehicles" >> _x;
+        isClass _cfg &&
+        {_x isKindOf "Air"} &&
+        {_enemySideNumber < 0 || {getNumber (_cfg >> "side") == _enemySideNumber}}
+    };
     private _class = "";
     if (enemySide == east && {"RUS_VKS_forpostru" in _pool} && {random 1 < 0.62}) then {_class = "RUS_VKS_forpostru"};
     if (_class == "" && {count _pool > 0}) then {_class = selectRandom _pool};
     if (_class == "") then {
-        _class = if (enemySide == west) then {"B_UAV_02_dynamicLoadout_F"} else {
-            if (enemySide == resistance) then {"I_UAV_02_dynamicLoadout_F"} else {"O_UAV_02_dynamicLoadout_F"}
-        };
+        _class = if (enemySide == west) then {"B_UAV_02_dynamicLoadout_F"} else {if (enemySide == resistance) then {"I_UAV_02_dynamicLoadout_F"} else {"O_UAV_02_dynamicLoadout_F"}};
     };
-    if (!isClass (configFile >> "CfgVehicles" >> _class)) then {continue};
+    private _classCfg = configFile >> "CfgVehicles" >> _class;
+    if (!isClass _classCfg || {!(_class isKindOf "Air")} || {_enemySideNumber >= 0 && {getNumber (_classCfg >> "side") != _enemySideNumber}}) then {continue};
 
     private _lower = toLowerANSI _class;
     private _isMicro = (_class isKindOf "UAV_01_base_F") || {(_lower find "mavic") >= 0} || {(_lower find "quad") >= 0};
@@ -81,16 +87,22 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     } else {
         _origin vectorAdd [0, 0, 85]
     };
+    private _spawnDirection = _spawn getDir _searchCenter;
     private _uav = createVehicle [_class, _spawn, [], 0, "FLY"];
     if (isNull _uav) then {continue};
+    _uav setDir _spawnDirection;
+    _uav setPosATL _spawn;
     private _group = enemySide createVehicleCrew _uav;
     if (isNull _group || {isNull (driver _uav)}) then {
         deleteVehicleCrew _uav;
         deleteVehicle _uav;
+        if (!isNull _group) then {deleteGroup _group};
         continue;
     };
 
     private _height = if (_isMicro) then {105} else {if ((_lower find "forpost") >= 0) then {520} else {320}};
+    private _initialSpeed = if (_isMicro) then {18} else {82};
+    _uav setVelocity [sin _spawnDirection * _initialSpeed, cos _spawnDirection * _initialSpeed, 0];
     _uav flyInHeight _height;
     _uav setVariable ["DRO2026_operator", _operator];
     _operator setVariable ["DRO2026_activeUAV", _uav];
@@ -103,8 +115,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     _group setSpeedMode "NORMAL";
     ["DRONE_LAUNCHED", createHashMapFromArray [["role", "ENEMY_ISR"], ["class", _class], ["sectors", count _routeTargets]], "NODE_DRONE_REAR_01"] call DRO2026_fnc_emitEvent;
 
-    [_uav, _routeTargets, _isMicro, _operator, _origin, _height] spawn {
-        params ["_uav", "_routeTargets", "_isMicro", "_operator", "_origin", "_height"];
+    [_uav, _routeTargets, _isMicro, _operator, _origin, _height, _group] spawn {
+        params ["_uav", "_routeTargets", "_isMicro", "_operator", "_origin", "_height", "_group"];
         private _end = time + (if (_isMicro) then {360} else {620});
         private _routeIndex = 0;
         private _angle = random 360;
@@ -123,7 +135,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             _orbit set [2, _height + (-20 + random 40)];
             if (!isNull (driver _uav)) then {(driver _uav) doMove _orbit};
 
-            if (!_announced && {(allPlayers findIf {alive _x && {((vehicle _x) knowsAbout _uav) > 1.1 || {(vehicle _x) distance2D _uav < 900}}}) >= 0}) then {
+            private _humanPlayers = allPlayers select {!(_x isKindOf "VirtualMan_F")};
+            if (!_announced && {(_humanPlayers findIf {alive _x && {((vehicle _x) knowsAbout _uav) > 1.1 || {(vehicle _x) distance2D _uav < 900}}}) >= 0}) then {
                 _announced = true;
                 ["ACK", "Штаб: В районе работает разведывательный БПЛА противника."] call DRO2026_fnc_hqVoice;
             };
@@ -144,7 +157,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         };
                     };
                 };
-            } forEach allPlayers;
+            } forEach _humanPlayers;
 
             {
                 _x params ["_targetPos", "_classification", "_targetObject", "_subjectId", "_priority"];
@@ -164,12 +177,20 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             } forEach _routeTargets;
             sleep 5;
         };
-        if (alive _uav) then {
+        if (alive _uav && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}) then {
             if (!isNull (driver _uav)) then {(driver _uav) doMove _origin};
-            sleep 20;
-            if (alive _uav) then {deleteVehicleCrew _uav; deleteVehicle _uav};
+            private _returnDeadline = time + 20;
+            waitUntil {
+                sleep 1;
+                time > _returnDeadline || {!alive _uav} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+            };
         };
         private _index = DRO2026_activeDrones find _uav;
         if (_index >= 0) then {DRO2026_activeDrones deleteAt _index};
+        if (!isNull _uav) then {
+            deleteVehicleCrew _uav;
+            if (alive _uav) then {deleteVehicle _uav};
+        };
+        if (!isNull _group) then {deleteGroup _group};
     };
 };

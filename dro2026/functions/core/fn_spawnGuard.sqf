@@ -16,13 +16,20 @@ if (count _classes == 0) then {
     };
 };
 private _group = createGroup [_side, true];
+if (isNull _group) exitWith {grpNull};
+
 private _count = [_countMin, _countMax] call BIS_fnc_randomInt;
-for "_i" from 1 to _count do {_group createUnit [selectRandom _classes, _position, [], 8, "FORM"]};
-if (!isNull _group) then {
-    [_group] call DRO2026_fnc_registerManagedGroup;
-    _group setVariable ["DRO2026_static", _static];
-    _group setBehaviourStrong "AWARE";
-    _group setCombatMode "YELLOW";
-    if (_static) then {[_group, _position, _radius] call BIS_fnc_taskDefend};
+for "_i" from 1 to _count do {
+    _group createUnit [selectRandom _classes, _position, [], 8, "FORM"];
 };
+if (({alive _x} count units _group) == 0) exitWith {
+    deleteGroup _group;
+    grpNull
+};
+
+[_group] call DRO2026_fnc_registerManagedGroup;
+_group setVariable ["DRO2026_static", _static];
+_group setBehaviourStrong "AWARE";
+_group setCombatMode "YELLOW";
+if (_static) then {[_group, _position, _radius] call BIS_fnc_taskDefend};
 _group
