@@ -35,7 +35,14 @@ for "_index" from 1 to 2 do {
 _group setVariable ["DRO2026_static", true];
 _group setBehaviourStrong "AWARE";
 [_group, _position, 55] call BIS_fnc_taskDefend;
+private _objects = [_hq, _bunker, _tent] select {!isNull _x};
 private _extra = createHashMapFromArray [["officer", _officer], ["group", _group], ["background", true]];
-private _record = [_type, _position, _hq, [_hq, _bunker, _tent], _extra] call DRO2026_fnc_createSiteRecord;
-if ([_record, true, ["officer", "group"]] call DRO2026_fnc_validateSiteRecord) then {DRO2026_sites pushBack _record};
+private _record = [_type, _position, _hq, _objects, _extra] call DRO2026_fnc_createSiteRecord;
+if !([_record, true, ["officer", "group"]] call DRO2026_fnc_validateSiteRecord) exitWith {
+    {if (!isNull _x) then {deleteVehicle _x}} forEach units _group;
+    deleteGroup _group;
+    {if (!isNull _x) then {deleteVehicle _x}} forEach _objects;
+    objNull
+};
+DRO2026_sites pushBack _record;
 _hq
