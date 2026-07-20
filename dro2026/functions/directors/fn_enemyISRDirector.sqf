@@ -1,6 +1,7 @@
 if (!isServer) exitWith {};
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep (DRO2026_ENEMY_ISR_MIN_INTERVAL + random (DRO2026_ENEMY_ISR_MAX_INTERVAL - DRO2026_ENEMY_ISR_MIN_INTERVAL));
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {};
     if ((time - DRO2026_lastEnemyISR) < DRO2026_ENEMY_ISR_MIN_INTERVAL) then {continue};
     private _stock = DRO2026_resources getOrDefault ["enemyDroneStock", 0];
     if (_stock <= 0 || {(count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT}) then {continue};
@@ -70,9 +71,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     if (enemySide == east && {"RUS_VKS_forpostru" in _pool} && {random 1 < 0.62}) then {_class = "RUS_VKS_forpostru"};
     if (_class == "" && {count _pool > 0}) then {_class = selectRandom _pool};
     if (_class == "") then {
-        _class = if (enemySide == west) then {"B_UAV_02_dynamicLoadout_F"} else {
-            if (enemySide == resistance) then {"I_UAV_02_dynamicLoadout_F"} else {"O_UAV_02_dynamicLoadout_F"}
-        };
+        _class = if (enemySide == west) then {"B_UAV_02_dynamicLoadout_F"} else {if (enemySide == resistance) then {"I_UAV_02_dynamicLoadout_F"} else {"O_UAV_02_dynamicLoadout_F"}};
     };
     private _classCfg = configFile >> "CfgVehicles" >> _class;
     if (!isClass _classCfg || {!(_class isKindOf "Air")} || {_enemySideNumber >= 0 && {getNumber (_classCfg >> "side") != _enemySideNumber}}) then {continue};
@@ -180,7 +179,11 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         };
         if (alive _uav && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}) then {
             if (!isNull (driver _uav)) then {(driver _uav) doMove _origin};
-            sleep 20;
+            private _returnDeadline = time + 20;
+            waitUntil {
+                sleep 1;
+                time > _returnDeadline || {!alive _uav} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+            };
         };
         private _index = DRO2026_activeDrones find _uav;
         if (_index >= 0) then {DRO2026_activeDrones deleteAt _index};
