@@ -3,24 +3,67 @@ private _pos = ["ENEMY_DRONE_FORWARD"] call DRO2026_fnc_getTheaterNode;
 private _taskName = format ["D26_UAVTEAM_%1", floor random 1000000];
 private _marker = format ["D26_M_UAVTEAM_%1", floor random 1000000];
 private _color = if (isNil "markerColorEnemy") then {"ColorOPFOR"} else {markerColorEnemy};
-createMarker [_marker, _pos]; _marker setMarkerShape "ELLIPSE"; _marker setMarkerSize [260,260]; _marker setMarkerBrush "Border"; _marker setMarkerColor _color; _marker setMarkerAlpha 0.68; _marker setMarkerText " Передовая группа БПЛА";
+createMarker [_marker, _pos];
+_marker setMarkerShape "ELLIPSE";
+_marker setMarkerSize [260,260];
+_marker setMarkerBrush "Border";
+_marker setMarkerColor _color;
+_marker setMarkerAlpha 0.68;
+_marker setMarkerText " Передовая группа БПЛА";
+
 private _team = [_pos, enemySide, "FPV_TEAM"] call DRO2026_fnc_createDroneTeam;
 private _operator = _team getOrDefault ["operator", objNull];
 private _assistant = _team getOrDefault ["assistant", objNull];
 private _antenna = _team getOrDefault ["antenna", objNull];
+private _tent = _team getOrDefault ["tent", objNull];
+private _teamGroup = _team getOrDefault ["group", grpNull];
 if (isNull _operator) exitWith {deleteMarker _marker; [_AOIndex] call DRO2026_fnc_objectiveLogisticsHub};
+
 private _cache = createVehicle ["Land_Pallet_MilBoxes_F", _pos getPos [9, 170], [], 0, "CAN_COLLIDE"];
 private _suffix = [enemySide] call DRO2026_fnc_getSideSuffix;
 private _parkedFallback = switch (enemySide) do {case west: {"B_UAV_01_F"}; case resistance: {"I_UAV_01_F"}; default {"O_UAV_01_F"}};
 private _parkedClass = [format ["FPV_%1", _suffix], _parkedFallback, enemySide] call DRO2026_fnc_getSideRoleClass;
 private _parked = if (_parkedClass == "") then {objNull} else {createVehicle [_parkedClass, _pos getPos [12, 260], [], 0, "NONE"]};
-if (!isNull _parked) then {_parked setFuel 0; _parked setDamage 0.15; DRO2026_managedVehicles pushBackUnique _parked};
-private _critical = [_operator, _assistant, _antenna, _cache, _parked] select {!isNull _x};
-DRO2026_sites pushBack createHashMapFromArray [["type", "FPV_TEAM"], ["position", _pos], ["object", _operator], ["operator", _operator], ["team", _team], ["objects", _critical]];
+if (!isNull _parked) then {
+    _parked setFuel 0;
+    _parked setDamage 0.15;
+    DRO2026_managedVehicles pushBackUnique _parked;
+};
+private _siteObjects = [_operator, _assistant, _antenna, _tent, _cache, _parked] select {!isNull _x};
+private _objectiveCritical = [_operator, _antenna, _cache] select {!isNull _x};
+private _extra = createHashMapFromArray [["operator", _operator], ["group", _teamGroup], ["team", _team], ["background", false]];
+private _site = ["FPV_TEAM", _pos, _operator, _siteObjects, _extra] call DRO2026_fnc_createSiteRecord;
+if !([_site, true] call DRO2026_fnc_validateSiteRecord) exitWith {
+    {if (!isNull _x) then {if !(_x isKindOf "Man") then {deleteVehicleCrew _x}; deleteVehicle _x}} forEach _siteObjects;
+    if (!isNull _teamGroup) then {
+        {if (!isNull _x) then {deleteVehicle _x}} forEach units _teamGroup;
+        deleteGroup _teamGroup;
+    };
+    deleteMarker _marker;
+    [_AOIndex] call DRO2026_fnc_objectiveLogisticsHub
+};
+DRO2026_sites pushBack _site;
+
 private _title = "Подавить передовую группу БПЛА";
 private _desc = "В обозначенной точке действует конкретная операторская группа FPV и разведывательных квадрокоптеров. Пока оператор жив и антенна работает, группа может запускать аппараты по подтверждённым контактам. Уничтожьте оператора, антенну и запас аппаратов.";
-private _meta = createHashMapFromArray [["type", "UAV_TEAM"], ["critical", _critical], ["operator", _operator]];
+private _meta = createHashMapFromArray [["type", "UAV_TEAM"], ["critical", _siteObjects], ["operator", _operator], ["siteId", _site get "id"]];
 [_taskName, _desc, _title, _marker, "destroy", _pos, 0.93, [], _meta] call DRO2026_fnc_createObjectiveRecord;
-[_taskName, _operator, _antenna, _cache] spawn {params ["_task", "_operator", "_antenna", "_cache"]; waitUntil {sleep 2; (!alive _operator && {(isNull _antenna || {!alive _antenna}) || {isNull _cache || {!alive _cache}}}) || {missionNamespace getVariable ["DRO2026_missionEnding", false]}}; if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {[_task, "TARGET_DESTROYED", [["enemyDroneStock", -14], ["enemySupply", -4]]] call DRO2026_fnc_completeObjective}};
-[] spawn {waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}}; if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {sleep 8; ["NEW_TASK", "Штаб: Подавите передовую операторскую группу беспилотников."] call DRO2026_fnc_hqVoice}};
+[_taskName, _operator, _antenna, _cache, _site] spawn {
+    params ["_task", "_operator", "_antenna", "_cache", "_site"];
+    waitUntil {
+        sleep 2;
+        (!alive _operator && {(isNull _antenna || {!alive _antenna}) || {isNull _cache || {!alive _cache}}}) ||
+        {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+    };
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {
+        _site set ["status", "CANCELLED"];
+        _site set ["physicalState", "DISABLED"];
+        _site set ["disabledAt", time];
+    };
+    [_task, "TARGET_DESTROYED", [["enemyDroneStock", -14], ["enemySupply", -4]]] call DRO2026_fnc_completeObjective;
+};
+[] spawn {
+    waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
+    if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {sleep 8; ["NEW_TASK", "Штаб: Подавите передовую операторскую группу беспилотников."] call DRO2026_fnc_hqVoice};
+};
 _taskName
