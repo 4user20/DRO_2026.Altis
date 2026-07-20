@@ -1,0 +1,33 @@
+name: RC6 Source Snapshot Temp
+
+on:
+  push:
+    branches:
+      - fix/rc6-main-full-stabilization
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Package source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p snapshot
+          git rev-parse HEAD > snapshot/validated-revision.txt
+          tar --exclude=.git --exclude=snapshot -czf snapshot/dro-source.tar.gz .
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc6-source-${{ github.sha }}
+          path: snapshot/
+          retention-days: 1
