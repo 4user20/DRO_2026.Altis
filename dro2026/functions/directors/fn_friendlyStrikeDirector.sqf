@@ -2,6 +2,7 @@ if (!isServer) exitWith {};
 private _lastRecommendation = -999;
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep 18;
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {};
     private _mode = toUpperANSI (DRO2026_supportPreset getOrDefault ["automation", "RECOMMEND_ONLY"]);
     if !(_mode in ["MANUAL", "RECOMMEND_ONLY", "AUTO_DEFENSIVE", "AUTO_FULL"]) then {_mode = "RECOMMEND_ONLY"};
     if (_mode == "MANUAL") then {continue};
@@ -65,14 +66,21 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             !isNull _operator && {alive _operator}
         }
     };
+    private _catalog = missionNamespace getVariable ["DRO2026_supportCatalog", []];
+    private _catalogHasMode = {
+        params ["_modeName"];
+        (_catalog findIf {(_x isEqualType []) && {(_x param [1, ""]) == _modeName}}) >= 0
+    };
     private _fpvStock = DRO2026_resources getOrDefault ["friendlyFPVStock", 0];
     private _longStock = DRO2026_resources getOrDefault ["friendlyLongRangeStock", 0];
     private _fp5Stock = DRO2026_resources getOrDefault ["friendlyFP5Stock", 0];
     private _canUseFP5 = _mode == "AUTO_FULL" &&
         {DRO2026_friendlyFP5Used < 2} &&
         {_fp5Stock > 0} &&
-        {([_contact] call _contactValue) > 1.1};
-    private _strategicAvailable = _longStock > 0 || {_canUseFP5};
+        {([_contact] call _contactValue) > 1.1} &&
+        {["STRIKE_FP5"] call _catalogHasMode};
+    private _canUseLong = _longStock > 0 && {["STRIKE_AUTO"] call _catalogHasMode};
+    private _strategicAvailable = _canUseLong || {_canUseFP5};
     private _recommendedSystem = if (count _fpvSites > 0 && {_fpvStock > 0}) then {"FPV"} else {
         if (count _strategicSites > 0 && {_strategicAvailable}) then {"LONG_RANGE"} else {"NONE"}
     };
@@ -100,6 +108,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         continue;
     };
 
+    private _target = _contact getOrDefault ["target", objNull];
+    if (!isNull _target && {!alive _target}) then {continue};
     if (_recommendedSystem == "FPV") then {
         _fpvSites = [_fpvSites, [], {(_x getOrDefault ["position", [0,0,0]]) distance2D _targetPosition}, "ASCEND"] call BIS_fnc_sortBy;
         private _site = _fpvSites select 0;
