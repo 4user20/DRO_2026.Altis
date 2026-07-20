@@ -1,0 +1,42 @@
+name: Apply final stabilization
+
+on:
+  push:
+    branches:
+      - fix/rc6-main-full-stabilization
+    paths:
+      - ".github/workflows/apply-final-stabilization.yml"
+      - ".bootstrap/**"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out bootstrap revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/rc6-main-full-stabilization
+
+      - name: Verify and apply final patch series
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .bootstrap/rc6-final.part* | base64 --decode > /tmp/rc6-final.tar.xz
+          echo "0bd1f89e7571a7bb16e7423da8cf8ca4f08c1f201685e17e809912254afbfee7  /tmp/rc6-final.tar.xz" | sha256sum --check --strict
+          mkdir -p /tmp/rc6-final
+          tar -xJf /tmp/rc6-final.tar.xz -C /tmp/rc6-final --strip-components=1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git reset --hard origin/main
+          git am /tmp/rc6-final/*.patch
+          git diff --check origin/main...HEAD
+          python -m compileall -q tools
+          python tools/validate_all_rc6.py
+          git push --force origin HEAD:fix/rc6-main-full-stabilization
