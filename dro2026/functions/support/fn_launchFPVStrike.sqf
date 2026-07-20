@@ -108,6 +108,12 @@ _crewGroup setCombatMode "BLUE";
 _crewGroup setSpeedMode "FULL";
 private _initialDirection = [sin _direction, cos _direction, 0];
 _drone setVelocity (_initialDirection vectorMultiply 24);
+private _eventSubject = if (_reservationNodeId != "") then {_reservationNodeId} else {if (_siteId != "") then {_siteId} else {"FPV_LAUNCH"}};
+["DRONE_LAUNCHED", createHashMapFromArray [
+    ["role", "FPV"], ["class", _droneClass], ["side", str _side],
+    ["contactId", _contact getOrDefault ["id", ""]], ["subjectId", _contact getOrDefault ["subjectId", ""]],
+    ["siteId", _siteId], ["reservationNodeId", _reservationNodeId], ["manual", _allowPlayerControl]
+], _eventSubject] call DRO2026_fnc_emitEvent;
 [_drone, format ["FPV %1", getText (_droneCfg >> "displayName")], _side] spawn DRO2026_fnc_trackIncomingDrone;
 
 if (_allowPlayerControl && {!isNull _supportOwner} && {_side == playersSide}) then {
