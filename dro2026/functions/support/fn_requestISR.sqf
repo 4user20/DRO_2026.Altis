@@ -42,13 +42,14 @@ if ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) <= 0) exitWith {
     ["Штаб: Резерв разведывательных БПЛА исчерпан.", _requester] call DRO2026_fnc_supportMessage;
 };
 private _sites = DRO2026_sites select {
-    (_x getOrDefault ["type", ""]) == "FRIENDLY_DRONE_SITE" && {
+    (_x getOrDefault ["type", ""]) == "FRIENDLY_DRONE_SITE" &&
+    {!((_x getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"])} && {
         private _operator = _x getOrDefault ["operator", objNull];
         !isNull _operator && {alive _operator}
     }
 };
 if (count _sites == 0) exitWith {
-    ["Штаб: Союзный расчёт БПЛА не отвечает.", _requester] call DRO2026_fnc_supportMessage;
+    ["Штаб: Союзный расчёт БПЛА не отвечает или площадка недоступна.", _requester] call DRO2026_fnc_supportMessage;
 };
 private _site = _sites select 0;
 private _operator = _site getOrDefault ["operator", objNull];
@@ -59,6 +60,6 @@ DRO2026_lastISRRequest = time;
 private _profileLabel = if (_exactClass != "") then {_exactClass} else {_requestedType};
 [
     "ACK",
-    format ["Штаб: Разведывательный БПЛА (%1) направлен в сектор.", _profileLabel],
+    format ["Штаб: запрос на разведывательный БПЛА (%1) принят; расчёт выполняет materialization и выход в сектор.", _profileLabel],
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;
