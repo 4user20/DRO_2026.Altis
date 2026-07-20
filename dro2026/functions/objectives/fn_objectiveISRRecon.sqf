@@ -24,7 +24,13 @@ private _labels = createHashMapFromArray [
 ];
 private _text = _labels getOrDefault [_nodeType, ["Уточнить стратегический объект", "Найдите физический разведывательный relay и подтвердите связанный тыловой объект."]];
 _text params ["_title", "_desc"];
-createMarker [_marker, _estimate]; _marker setMarkerShape "ELLIPSE"; _marker setMarkerSize [_uncertainty, _uncertainty]; _marker setMarkerBrush "Border"; _marker setMarkerColor _color; _marker setMarkerAlpha 0.55; _marker setMarkerText format [" %1", _title];
+createMarker [_marker, _estimate];
+_marker setMarkerShape "ELLIPSE";
+_marker setMarkerSize [_uncertainty, _uncertainty];
+_marker setMarkerBrush "Border";
+_marker setMarkerColor _color;
+_marker setMarkerAlpha 0.55;
+_marker setMarkerText format [" %1", _title];
 private _antenna = createVehicle ["Land_TTowerSmall_1_F", _relayPosition, [], 0, "CAN_COLLIDE"];
 private _generator = createVehicle ["Land_PortableGenerator_01_F", _relayPosition getPos [8, 120], [], 0, "CAN_COLLIDE"];
 private _table = createVehicle ["Land_CampingTable_small_F", _relayPosition getPos [5, 210], [], 0, "CAN_COLLIDE"];
@@ -44,10 +50,17 @@ _operatorPool = (_operatorPool arrayIntersect _operatorPool) select {
 };
 private _operatorClass = if (count _operatorPool > 0) then {selectRandom _operatorPool} else {_operatorFallback};
 private _group = createGroup [enemySide, true];
+if (isNull _group) exitWith {
+    {if (!isNull _x) then {deleteVehicle _x}} forEach [_antenna, _generator, _table, _controlVehicle];
+    deleteMarker _marker;
+    ""
+};
 private _operator = _group createUnit [_operatorClass, _relayPosition getPos [3, random 360], [], 0, "NONE"];
 if (isNull _operator) exitWith {
     {if (!isNull _x) then {deleteVehicle _x}} forEach [_antenna, _generator, _table, _controlVehicle];
-    deleteGroup _group; deleteMarker _marker; ""
+    deleteGroup _group;
+    deleteMarker _marker;
+    ""
 };
 for "_index" from 1 to 2 do {
     private _guardClass = if (count _operatorPool > 0) then {selectRandom _operatorPool} else {_operatorFallback};
@@ -56,14 +69,18 @@ for "_index" from 1 to 2 do {
 };
 _operator setSkill 0.65;
 [_group, false] call DRO2026_fnc_registerManagedGroup;
-_group setVariable ["DRO2026_static", true]; _group setBehaviourStrong "AWARE"; [_group, _relayPosition, 65] call BIS_fnc_taskDefend;
+_group setVariable ["DRO2026_static", true];
+_group setBehaviourStrong "AWARE";
+[_group, _relayPosition, 65] call BIS_fnc_taskDefend;
 private _objects = [_antenna, _generator, _table, _controlVehicle] select {!isNull _x};
 private _extra = createHashMapFromArray [["operator", _operator], ["group", _group], ["relatedNodeId", _nodeId], ["background", false]];
 private _site = ["ISR_RELAY", _relayPosition, _antenna, _objects, _extra] call DRO2026_fnc_createSiteRecord;
 if !([_site, false] call DRO2026_fnc_validateSiteRecord) exitWith {
     {if (!isNull _x) then {deleteVehicle _x}} forEach _objects;
     {if (!isNull _x) then {deleteVehicle _x}} forEach units _group;
-    deleteGroup _group; deleteMarker _marker; ""
+    deleteGroup _group;
+    deleteMarker _marker;
+    ""
 };
 DRO2026_sites pushBack _site;
 private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _relayPosition], ["nodeId", _nodeId], ["targetPosition", _targetPosition]];
@@ -89,9 +106,14 @@ private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _rel
             private _finalUncertainty = if (_observed >= 60) then {90} else {240};
             ["PLAYER", objNull, _targetPosition, _confidence, _nodeType, "ISR_RELAY", _finalUncertainty, _nodeId, 0.02] call DRO2026_fnc_addContact;
             private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-            if (count _node > 0) then {_node set ["knownByPlayer", if (_confidence > 0.85) then {"CONFIRMED"} else {"TRACKED"}]; _node set ["lastUpdatedAt", time]; DRO2026_networkNodes set [_nodeId, _node]};
+            if (count _node > 0) then {
+                _node set ["knownByPlayer", if (_confidence > 0.85) then {"CONFIRMED"} else {"TRACKED"}];
+                _node set ["lastUpdatedAt", time];
+                DRO2026_networkNodes set [_nodeId, _node];
+            };
             DRO2026_intelQuality = (DRO2026_intelQuality + 0.22) min 1;
-            _marker setMarkerPos _targetPosition; _marker setMarkerSize [_finalUncertainty, _finalUncertainty];
+            _marker setMarkerPos _targetPosition;
+            _marker setMarkerSize [_finalUncertainty, _finalUncertainty];
             [_task, "TASK_COMPLETE", []] call DRO2026_fnc_completeObjective;
             ["NODE_RECON_CONFIRMED", createHashMapFromArray [["nodeId", _nodeId], ["confidence", _confidence], ["uncertainty", _finalUncertainty]], _nodeId] call DRO2026_fnc_emitEvent;
             _finished = true;
@@ -103,5 +125,11 @@ private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _rel
     {if (!isNull _x) then {deleteVehicle _x}} forEach units _group;
     if (!isNull _group) then {deleteGroup _group};
 };
-[] spawn {waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}}; if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {sleep 7; ["NEW_TASK", "Штаб: Найдите физический разведывательный relay. Он выведет нас на конкретный стратегический объект."] call DRO2026_fnc_hqVoice}};
+[] spawn {
+    waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
+    if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {
+        sleep 7;
+        ["NEW_TASK", "Штаб: Найдите физический разведывательный relay. Он выведет нас на конкретный стратегический объект."] call DRO2026_fnc_hqVoice;
+    };
+};
 _taskName
