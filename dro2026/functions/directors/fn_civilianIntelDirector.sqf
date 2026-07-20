@@ -64,7 +64,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _node = DRO2026_networkNodes get _nodeId;
             private _status = _node getOrDefault ["status", "ACTIVE"];
             private _position = _node getOrDefault ["position", []];
-            if (!(_status in ["DESTROYED", "DISABLED"]) && {count _position > 1} && {_position distance2D _reporterPosition < 2400}) then {
+            if (!(_status in ["DESTROYED", "DISABLED", "CANCELLED"]) && {count _position > 1} && {_position distance2D _reporterPosition < 2400}) then {
                 private _type = _node getOrDefault ["type", "UNKNOWN"];
                 private _classification = switch _type do {
                     case "FPV_TEAM": {"ПОДОЗРИТЕЛЬНЫЕ ОПЕРАТОРЫ БПЛА"};
