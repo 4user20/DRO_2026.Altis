@@ -26,7 +26,8 @@ private _normalizedOwner = switch true do {
 };
 if (_normalizedOwner == "") exitWith {createHashMap};
 
-private _positionSpace = toUpperANSI (_metadata getOrDefault ["positionSpace","ASL"]);
+private _defaultSpace = if (!isNull _target && {toUpperANSI _source == "PLAYER_DESIGNATION"}) then {"ATL"} else {"ASL"};
+private _positionSpace = toUpperANSI (_metadata getOrDefault ["positionSpace",_defaultSpace]);
 _position = [_position,_positionSpace,_target] call DRO2026_fnc_normalizePositionASL;
 if (count _position != 3) exitWith {createHashMap};
 if (_confidence < 0 || {_confidence > 1}) exitWith {createHashMap};
@@ -45,16 +46,20 @@ if (_id == "") then {
 };
 if (_id == "") exitWith {createHashMap};
 
-if (_subjectNetId == "" && {!isNull _target}) then {
-    _subjectNetId = netId _target;
-    private _nodeId = _target getVariable ["DRO2026_networkNodeId",""];
-    if (_nodeId != "") then {_subjectNetId = _nodeId};
+private _stableSubjectId = _metadata getOrDefault ["stableSubjectId",""];
+if ((_subjectNetId find "NODE_") == 0) then {
+    if (_stableSubjectId == "") then {_stableSubjectId = _subjectNetId};
+    _subjectNetId = "";
 };
-private _stableSubjectId = _metadata getOrDefault ["stableSubjectId",_subjectNetId];
+if (_subjectNetId == "" && {!isNull _target}) then {_subjectNetId = netId _target};
 if (_stableSubjectId == "" && {!isNull _target}) then {
-    _stableSubjectId = _target getVariable ["DRO2026_stableSubjectId",_id];
-    _target setVariable ["DRO2026_stableSubjectId",_stableSubjectId,true];
+    _stableSubjectId = _target getVariable ["DRO2026_networkNodeId",""];
+    if (_stableSubjectId == "") then {
+        _stableSubjectId = _target getVariable ["DRO2026_stableSubjectId",_id];
+        _target setVariable ["DRO2026_stableSubjectId",_stableSubjectId,true];
+    };
 };
+if (_stableSubjectId == "") then {_stableSubjectId = if (_subjectNetId != "") then {_subjectNetId} else {_id}};
 
 private _profile = switch (toUpperANSI _source) do {
     case "VISUAL": {[1.00,24,0.0025,5]}; case "MICRO_UAV": {[0.92,45,0.0045,10]};
