@@ -75,6 +75,14 @@ class CfgFunctions
             class createSiteComponents {};
             class evaluateSiteComponents {};
             class transferLogisticsCargo {};
+            class initStrategicOperationData {};
+            class seededRandom {};
+            class getAssetPrimaryRole {};
+            class isAssetAllowedForRole {};
+            class selectStrategicSite {};
+            class buildStrategicPlan {};
+            class transitionContactState {};
+            class evaluateEndgame {};
             class clientInit {postInit = 1;};
         };
         class Directors
