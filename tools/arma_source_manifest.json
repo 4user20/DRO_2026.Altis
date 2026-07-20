@@ -110,7 +110,21 @@
       ],
       "validators": [
         "tools/validate_runtime_transactions.py",
-        "tools/validate_arma_wiki_contracts.py"
+        "tools/validate_arma_wiki_contracts.py",
+        "tools/validate_group_lifecycle_contracts.py"
+      ]
+    },
+    {
+      "id": "site-and-objective-lifecycle",
+      "kind": "mission-structure",
+      "sources": [
+        "bohemia-community-wiki",
+        "stokys-scripting-guide"
+      ],
+      "validators": [
+        "tools/validate_site_lifecycle_contracts.py",
+        "tools/validate_runtime_transactions.py",
+        "tools/validate_rc6.py"
       ]
     },
     {
