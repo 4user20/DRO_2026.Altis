@@ -65,6 +65,39 @@ REQUIRED: dict[str, tuple[tuple[str, ...], ...]] = {
         ("deleteGroup _group",),
         ("createHashMap",),
     ),
+    "dro2026/functions/core/fn_getAirWindow.sqf": (
+        ('"DESTROYED", "DISABLED", "CANCELLED"',),
+        ('isKindOf "VirtualMan_F"',),
+        ('"friendliesClose"',),
+        ('"civiliansClose"',),
+    ),
+    "dro2026/functions/core/fn_getJammingAtPosition.sqf": (
+        ('"DESTROYED", "DISABLED", "CANCELLED"',),
+        ("terrainIntersectASL",),
+        ("jammingRadius",),
+    ),
+    "dro2026/functions/core/fn_evaluateOperationPhase.sqf": (
+        ("if (count _node == 0)",),
+        ('case "CANCELLED"',),
+        ('"PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"',),
+        ('"destroyedCapabilities"',),
+    ),
+    "dro2026/functions/core/fn_selectObjectiveOpportunity.sqf": (
+        ("_excludedTypes",),
+        ('missionNamespace setVariable ["DRO2026_selectedOpportunity", createHashMap]',),
+        ('"DESTROYED", "DISABLED", "CANCELLED"',),
+        ('"deterministic active-node fallback"',),
+        ('"deterministic vanilla materialization fallback"',),
+        ('"NO_OBJECTIVE_OPPORTUNITY"',),
+    ),
+    "dro2026/functions/objectives/fn_selectObjective.sqf": (
+        ("_attemptedTypes",),
+        ("DRO2026_usedObjectiveTypes pushBackUnique _type",),
+        ("DRO2026_usedObjectiveNodes pushBackUnique _nodeId",),
+        ('"OBJECTIVE_MATERIALIZATION_FAILED"',),
+        ('"OBJECTIVE_SELECTION_EXHAUSTED"',),
+        ('missionNamespace setVariable ["DRO2026_selectedOpportunity", createHashMap]',),
+    ),
     "dro2026/functions/support/fn_launchFPVStrike.sqf": (
         ('"FPV_KITS", 1, "FPV_LAUNCH_REFUND"',),
         ('"BATTERIES", 1, "FPV_LAUNCH_REFUND"',),
@@ -80,6 +113,24 @@ REQUIRED: dict[str, tuple[tuple[str, ...], ...]] = {
         ("FPV salvo aborted",),
         ("_unlaunched",),
         ('"friendlyFPVStock"',),
+    ),
+    "dro2026/functions/support/fn_requestISR.sqf": (
+        ('"FRIENDLY_DRONE_SITE"',),
+        ('"DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"',),
+        ('getOrDefault ["id", ""]',),
+        ("materialization",),
+        ("DRO2026_fnc_launchISR",),
+    ),
+    "dro2026/functions/support/fn_launchISR.sqf": (
+        ("_siteOperational",),
+        ('"DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"',),
+        ('"DRONE_RECOVERED"',),
+        ('"DRONE_LOST"',),
+        ('DRO2026_resources set ["friendlyISRStock"',),
+        ("_returnDeadline",),
+        ("_recoveryRadius",),
+        ("deleteVehicleCrew _uav",),
+        ("deleteGroup _group",),
     ),
     "dro2026/functions/support/fn_requestAirSupport.sqf": (
         ("_refundTail",),
@@ -108,6 +159,7 @@ REQUIRED: dict[str, tuple[tuple[str, ...], ...]] = {
         ("DRO2026_fnc_isLiveContactSubject",),
         ('"PROBABLY_DESTROYED"',),
         ('"CONFIRMED_DESTROYED"',),
+        ('"DESTROYED", "DISABLED", "CANCELLED"',),
     ),
     "dro2026/functions/directors/fn_airDefenceDirector.sqf": (
         ('getText (_ammoCfg >> "simulation")',),
@@ -115,6 +167,7 @@ REQUIRED: dict[str, tuple[tuple[str, ...], ...]] = {
         ('"shotrocket"',),
         ("deleteVehicle _projectile",),
         ('"AA_LAUNCH_REJECTED"',),
+        ('"DESTROYED", "DISABLED", "CANCELLED"',),
     ),
     "dro2026/functions/directors/fn_enemyAirDirector.sqf": (
         ('missionNamespace getVariable ["DRO2026_missionEnding", false]',),
@@ -125,6 +178,12 @@ REQUIRED: dict[str, tuple[tuple[str, ...], ...]] = {
         ('missionNamespace getVariable ["DRO2026_missionEnding", false]',),
         ("deleteVehicleCrew",),
         ("deleteGroup",),
+    ),
+    "dro2026/functions/directors/fn_relocateDroneTeam.sqf": (
+        ('"DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"',),
+        ('getOrDefault ["assistant", objNull]',),
+        ('"physicalRefs", _objects',),
+        ('"disabledAt"',),
     ),
     "dro2026/functions/objectives/fn_objectiveConvoy.sqf": (
         ("validateSiteRecord",),
@@ -161,12 +220,20 @@ REQUIRED: dict[str, tuple[tuple[str, ...], ...]] = {
         ("_vehicle deleteVehicleCrew _driver",),
         ("deleteVehicleCrew _vehicle",),
     ),
+    "dro2026/functions/directors/fn_civilianIntelDirector.sqf": (
+        ('isKindOf "VirtualMan_F"',),
+        ('"DESTROYED", "DISABLED", "CANCELLED"',),
+        ('"falseProbability"',),
+        ('"uncertainty"',),
+    ),
     "dro2026/functions/directors/fn_reactionDirector.sqf": (
         ('"pausedUntil"',),
         ('"ROUTE_RESUMED"',),
         ("DRO2026_fnc_isLiveContactSubject",),
         ('"MATERIALIZATION_FAILED_OR_MISSION_ENDING"',),
         ("alive _leader",),
+        ("_hqStatus",),
+        ('"DESTROYED", "DISABLED", "CANCELLED"',),
     ),
     "dro2026/functions/directors/fn_orderEncirclement.sqf": (
         ('getOrDefault ["positionMean"',),
@@ -199,6 +266,10 @@ FORBIDDEN: dict[str, tuple[str, ...]] = {
     ),
     "dro2026/functions/directors/fn_longRangeDroneDirector.sqf": (
         "private _isLiveStrategicContact",
+    ),
+    "dro2026/functions/objectives/fn_selectObjective.sqf": (
+        '_selectedType = "CUT_REAR"',
+        'DRO2026_usedObjectiveTypes pushBackUnique _type;\n    if',
     ),
 }
 
