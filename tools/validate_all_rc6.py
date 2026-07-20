@@ -17,10 +17,14 @@ group_lifecycle = [
     sys.executable,
     str(ROOT / "tools" / "validate_group_lifecycle_contracts.py"),
 ]
+site_lifecycle = [
+    sys.executable,
+    str(ROOT / "tools" / "validate_site_lifecycle_contracts.py"),
+]
 base = [sys.executable, str(ROOT / "tools" / "validate_rc6.py")]
 if args.require_hemtt:
     base.append("--require-hemtt")
-commands: list[list[str]] = [group_lifecycle, base]
+commands: list[list[str]] = [group_lifecycle, site_lifecycle, base]
 
 if args.rpt:
     rpt = [
