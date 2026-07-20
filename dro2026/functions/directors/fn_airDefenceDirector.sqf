@@ -15,7 +15,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _commandHealth = _components getOrDefault ["commandLink", 1];
             private _channels = floor (_baseChannels * ((_radarHealth max 0.25) min 1) * ((_commandHealth max 0.35) min 1));
             _channels = (_channels max 1) min _baseChannels;
-            private _weaponsEnabled = !(_status in ["DESTROYED", "DISABLED"]) && {_missiles > 0};
+            private _weaponsEnabled = !(_status in ["DESTROYED", "DISABLED", "CANCELLED"]) && {_missiles > 0};
 
             {
                 private _asset = _x;
@@ -45,7 +45,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         private _status = _node getOrDefault ["status", "ACTIVE"];
                         private _stocks = _node getOrDefault ["stocks", createHashMap];
                         private _available = _stocks getOrDefault ["AA_MISSILES", 0];
-                        if (_status in ["DESTROYED", "DISABLED"] || {_available <= 0}) exitWith {
+                        if (_status in ["DESTROYED", "DISABLED", "CANCELLED"] || {_available <= 0}) exitWith {
                             if (!isNull _projectile) then {deleteVehicle _projectile};
                             ["AA_LAUNCH_REJECTED", createHashMapFromArray [["nodeId", _nodeId], ["reason", if (_available <= 0) then {"NO_STOCK"} else {"NODE_DISABLED"}], ["weapon", _weapon], ["magazine", _magazine]], _nodeId] call DRO2026_fnc_emitEvent;
                         };
