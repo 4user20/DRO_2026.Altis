@@ -30,7 +30,8 @@ private _siteNodeId = {
         default {""};
     }
 };
-private _terminalSiteStatuses = ["DESTROYED", "CANCELLED", "COMPLETED"];
+private _terminalSiteStatuses = ["DESTROYED", "DISABLED", "CANCELLED", "COMPLETED"];
+private _irreversibleSiteStatuses = ["DESTROYED", "CANCELLED", "COMPLETED"];
 private _nodeRefs = createHashMap;
 private _nodeSeen = createHashMap;
 private _nodeHasActive = createHashMap;
@@ -44,7 +45,7 @@ private _nodeHasDestroyed = createHashMap;
     private _position = _site getOrDefault ["position", []];
     private _id = _site getOrDefault ["id", ""];
     if (_id == "") then {_id = format ["SITE_%1_%2_%3", _type, floor diag_tickTime, _forEachIndex]; _site set ["id", _id]};
-    if (isNil {_site get "schema"}) then {_site set ["schema", 4]};
+    if (isNil {_site get "schema"}) then {_site set ["schema", 3]};
     if (isNil {_site get "createdAt"}) then {_site set ["createdAt", time]};
 
     private _refs = +(_site getOrDefault ["objects", []]);
@@ -56,7 +57,7 @@ private _nodeHasDestroyed = createHashMap;
     private _liveRefs = _refs select {alive _x};
     private _oldStatus = toUpperANSI (_site getOrDefault ["status", "ACTIVE"]);
     private _newStatus = _oldStatus;
-    if !(_oldStatus in _terminalSiteStatuses) then {
+    if !(_oldStatus in _irreversibleSiteStatuses) then {
         _newStatus = if (count _refs == 0) then {
             if (_site getOrDefault ["virtual", false]) then {"ACTIVE"} else {"UNKNOWN"}
         } else {
