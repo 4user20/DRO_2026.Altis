@@ -52,11 +52,18 @@ jobs:
           fi
           python -m compileall -q tools
 
-      - name: Run canonical RC6 validator
+      - name: Archive exact checkout
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p validation-artifacts
+          git archive --format=tar.gz --output=validation-artifacts/source-snapshot.tar.gz HEAD
+          git rev-parse HEAD > validation-artifacts/validated-revision.txt
+
+      - name: Run canonical RC6 validator
+        shell: bash
+        run: |
+          set -euo pipefail
           python tools/validate_all_rc6.py | tee validation-artifacts/validate_all_rc6.json
 
       - name: Verify validator report shape
