@@ -162,11 +162,10 @@ private _meta = createHashMapFromArray [
 [_taskName, _vehicles, _cargoVehicles, _convoyGroup, _destination, _routeMarkers, _convoy, _delivery, _siteRecord, _edgeId, _toNodeId, _cargoType, _amount] spawn {
     params ["_task", "_vehicles", "_cargo", "_group", "_destination", "_markers", "_convoy", "_delivery", "_siteRecord", "_edgeId", "_toNodeId", "_cargoType", "_amount"];
     private _cleanup = {
-        params [["_deleteAliveVehicles", true]];
         {
             if (!isNull _x) then {
                 deleteVehicleCrew _x;
-                if (_deleteAliveVehicles && {alive _x}) then {deleteVehicle _x};
+                if (alive _x) then {deleteVehicle _x};
             };
         } forEach _vehicles;
         if (!isNull _group) then {deleteGroup _group};
@@ -184,7 +183,7 @@ private _meta = createHashMapFromArray [
         _siteRecord set ["status", "DISABLED"];
         _siteRecord set ["disabledAt", time];
         ["DELIVERY_CANCELLED", createHashMapFromArray [["deliveryId", _delivery get "id"], ["edgeId", _edgeId], ["cargoType", _cargoType], ["amount", _amount]], _delivery get "id"] call DRO2026_fnc_emitEvent;
-        [true] call _cleanup;
+        call _cleanup;
     };
 
     private _readyDeadline = time + 180;
@@ -255,9 +254,9 @@ private _meta = createHashMapFromArray [
     if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {call _cancel};
     _convoy set ["status", _delivery getOrDefault ["status", "COMPLETED"]];
     {if (_x != "") then {deleteMarker _x}} forEach _markers;
-    private _cleanupAt = time + if ((_delivery getOrDefault ["status", ""]) == "DELIVERED") then {20} else {90};
+    private _cleanupAt = time + (if ((_delivery getOrDefault ["status", ""]) == "DELIVERED") then {20} else {90});
     waitUntil {sleep 2; time >= _cleanupAt || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
-    [(_delivery getOrDefault ["status", ""]) == "DELIVERED" || {missionNamespace getVariable ["DRO2026_missionEnding", false]}] call _cleanup;
+    call _cleanup;
 };
 [] spawn {
     private _deadline = time + 190;
