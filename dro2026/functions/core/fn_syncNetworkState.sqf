@@ -5,19 +5,27 @@ private _siteNodeId = {
     params ["_type", "_position"];
     switch _type do {
         case "ENEMY_HQ": {"NODE_ENEMY_HQ"};
+        case "FRIENDLY_HQ": {"NODE_FRIENDLY_HQ"};
         case "LOGISTICS_HUB": {"NODE_LOGISTICS_01"};
+        case "FRIENDLY_LOGISTICS": {"NODE_FRIENDLY_LOGISTICS"};
         case "ARTILLERY_SITE": {"NODE_ARTILLERY_01"};
         case "FPV_TEAM": {"NODE_FPV_FORWARD_01"};
         case "UAV_TEAM": {"NODE_FPV_FORWARD_01"};
         case "DRONE_SITE": {"NODE_DRONE_REAR_01"};
         case "STRATEGIC_DRONE_SITE": {"NODE_DRONE_REAR_01"};
+        case "FRIENDLY_FPV_SITE": {"NODE_FRIENDLY_FPV"};
+        case "FRIENDLY_DRONE_SITE": {"NODE_FRIENDLY_DRONES"};
         case "EW_SITE": {"NODE_EW_01"};
+        case "BALLISTIC_MISSILE_SITE": {"NODE_BALLISTIC_01"};
+        case "FARP": {"NODE_FARP_01"};
+        case "FRIENDLY_FARP": {"NODE_FRIENDLY_FARP"};
         case "AIR_DEFENCE_SITE": {
             private _long = DRO2026_networkNodes getOrDefault ["NODE_AA_LONG_01", createHashMap];
             private _short = DRO2026_networkNodes getOrDefault ["NODE_AA_SHORAD_01", createHashMap];
             if ((_position distance2D (_long getOrDefault ["position", _position])) <= (_position distance2D (_short getOrDefault ["position", _position]))) then {"NODE_AA_LONG_01"} else {"NODE_AA_SHORAD_01"}
         };
         case "ENEMY_LAYERED_AA": {"NODE_AA_LONG_01"};
+        case "FRIENDLY_LAYERED_AA": {"NODE_FRIENDLY_AA_LONG"};
         case "REAR_LINK": {"NODE_ENEMY_HQ"};
         default {""};
     }
@@ -69,7 +77,6 @@ private _nodeHasDestroyed = createHashMap;
         case "CANCELLED": {"DISABLED"};
         case "COMPLETED": {"COMPLETED"};
         default {if (count _liveRefs > 0) then {"ACTIVE"} else {"VIRTUAL"}};
-    };
     _site set ["physicalState", _physicalState];
     _site set ["lastUpdatedAt", time];
     if (_newStatus == "DESTROYED" && {_oldStatus != "DESTROYED"}) then {
@@ -84,9 +91,7 @@ private _nodeHasDestroyed = createHashMap;
         _nodeId = [_type, _position] call _siteNodeId;
         if (_nodeId != "") then {_site set ["networkNodeId", _nodeId]};
     };
-    if (_nodeId != "") then {
-        {_x setVariable ["DRO2026_networkNodeId", _nodeId, true]} forEach _refs;
-    };
+    if (_nodeId != "") then {{_x setVariable ["DRO2026_networkNodeId", _nodeId, true]} forEach _refs};
 
     if (!_transient && {_nodeId != ""} && {!isNil {DRO2026_networkNodes get _nodeId}}) then {
         _nodeSeen set [_nodeId, true];
