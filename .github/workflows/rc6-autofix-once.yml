@@ -1,0 +1,222 @@
+name: RC6 One-shot Validated Autofix
+
+on:
+  push:
+    branches:
+      - fix/post-merge-audit-hardening
+    paths:
+      - ".github/workflows/rc6-autofix-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.repository == '4user20/DRO_2026.Altis'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/post-merge-audit-hardening
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Apply exact validated replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              source = target.read_text(encoding="utf-8")
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one exact match, found {count}")
+              target.write_text(source.replace(old, new), encoding="utf-8")
+
+          replace_exact(
+              "dro2026/functions/core/fn_publishSupportCatalog.sqf",
+              '''    private _cfgSide = getNumber (_cfg >> "side");
+              if (_sideNumber >= 0 && {_cfgSide != _sideNumber}) exitWith {false};
+          ''',
+              '''    if (_sideNumber >= 0 && {getNumber (_cfg >> "side") != _sideNumber}) exitWith {false};
+          ''',
+          )
+
+          replace_exact(
+              "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
+              '''        _sites = _sites select {
+                      private _operator = _x getOrDefault ["operator", objNull];
+                      private _status = _x getOrDefault ["status", "ACTIVE"];
+                      !isNull _operator && {alive _operator} && {!(_status in ["DESTROYED", "DISABLED", "CANCELLED"])}
+                  };
+          ''',
+              '''        _sites = _sites select {
+                      private _siteId = _x getOrDefault ["id", ""];
+                      private _operator = _x getOrDefault ["operator", objNull];
+                      _siteId != "" &&
+                      {!isNull _operator} &&
+                      {alive _operator} &&
+                      {[_siteId] call DRO2026_fnc_isSiteOperational}
+                  };
+          ''',
+          )
+          replace_exact(
+              "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
+              '''            private _site = selectRandom _sites;
+                          private _operator = _site getOrDefault ["operator", objNull];
+                          private _origin = _site getOrDefault ["position", ["ENEMY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
+          ''',
+              '''            private _site = selectRandom _sites;
+                          private _siteId = _site getOrDefault ["id", ""];
+                          private _operator = _site getOrDefault ["operator", objNull];
+                          private _origin = _site getOrDefault ["position", ["ENEMY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
+          ''',
+          )
+          replace_exact(
+              "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
+              '''            DRO2026_resources set ["enemyLongRangeStock", ((_airframes - _count) max 0)];
+                          DRO2026_lastEnemyLongRange = time;
+                          [_origin, _contact, _operator, _type, _count, _nodeId] spawn {
+                              params ["_origin", "_contact", "_operator", "_type", "_count", "_nodeId"];
+          ''',
+              '''            DRO2026_resources set ["enemyLongRangeStock", ((_airframes - _count) max 0)];
+                          DRO2026_lastEnemyLongRange = time;
+                          ["DRONE_LAUNCH_RESERVED", createHashMapFromArray [
+                              ["role", "LONG_RANGE"], ["type", _type], ["count", _count],
+                              ["contactId", _contact getOrDefault ["id", ""]],
+                              ["subjectId", _contact getOrDefault ["subjectId", ""]],
+                              ["siteId", _siteId], ["reservationNodeId", _nodeId]
+                          ], _siteId] call DRO2026_fnc_emitEvent;
+                          [_origin, _contact, _operator, _type, _count, _nodeId, _siteId] spawn {
+                              params ["_origin", "_contact", "_operator", "_type", "_count", "_nodeId", "_siteId"];
+          ''',
+          )
+          replace_exact(
+              "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
+              '''                        {!isNull _operator && {!alive _operator}} ||
+                                      {!([_contact] call DRO2026_fnc_isLiveContactSubject)} ||
+                                      {count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"]}};
+          ''',
+              '''                        {!isNull _operator && {!alive _operator}} ||
+                                      {!([_siteId] call DRO2026_fnc_isSiteOperational)} ||
+                                      {!([_contact] call DRO2026_fnc_isLiveContactSubject)} ||
+                                      {count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"]}};
+          ''',
+          )
+          replace_exact(
+              "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
+              '''                    [_origin, _copy, enemySide, false, _operator, _type, false, _index, _count, true, _nodeId] spawn DRO2026_fnc_launchLongRangeStrike;
+          ''',
+              '''                    [_origin, _copy, enemySide, false, _operator, _type, false, _index, _count, true, _nodeId, _siteId] spawn DRO2026_fnc_launchLongRangeStrike;
+          ''',
+          )
+          replace_exact(
+              "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
+              '''            ["DRONE_LAUNCHED", createHashMapFromArray [["role", "LONG_RANGE"], ["type", _type], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]], ["subjectId", _contact getOrDefault ["subjectId", ""]]], _nodeId] call DRO2026_fnc_emitEvent;
+          ''',
+              '',
+          )
+
+          replace_exact(
+              "tools/validate_arma_wiki_contracts.py",
+              '''    require(
+                      errors,
+                      "dro2026/functions/support/fn_requestISR.sqf",
+                      required=(
+                          '"FRIENDLY_DRONE_SITE"',
+                          '"DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"',
+                          'getOrDefault ["id", ""]',
+                          "materialization",
+                      ),
+                  )
+          ''',
+              '''    require(
+                      errors,
+                      "dro2026/functions/core/fn_isSiteOperational.sqf",
+                      required=(
+                          '"DESTROYED", "DISABLED", "CANCELLED", "COMPLETED"',
+                          'pushBack "RELOCATING"',
+                          'getOrDefault ["physicalState", "ACTIVE"]',
+                          'getOrDefault ["operator", objNull]',
+                      ),
+                  )
+                  require(
+                      errors,
+                      "dro2026/functions/support/fn_requestISR.sqf",
+                      required=(
+                          '"FRIENDLY_DRONE_SITE"',
+                          "DRO2026_fnc_isSiteOperational",
+                          'getOrDefault ["id", ""]',
+                          "materialization",
+                      ),
+                  )
+          ''',
+          )
+
+          replace_exact(
+              "tools/validate_runtime_transactions.py",
+              '''    "dro2026/functions/support/fn_requestISR.sqf": (
+                      ('"FRIENDLY_DRONE_SITE"',),
+                      ('"DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"',),
+                      ('getOrDefault ["id", ""]',),
+                      ("materialization",),
+                      ("DRO2026_fnc_launchISR",),
+                  ),
+          ''',
+              '''    "dro2026/functions/support/fn_requestISR.sqf": (
+                      ('"FRIENDLY_DRONE_SITE"',),
+                      ("DRO2026_fnc_isSiteOperational",),
+                      ('getOrDefault ["id", ""]',),
+                      ("materialization",),
+                      ("DRO2026_fnc_launchISR",),
+                  ),
+          ''',
+          )
+
+          replace_exact(
+              "tools/validate_all_rc6.py",
+              '''preflight_validators = [
+                  "validate_group_lifecycle_contracts.py",
+                  "validate_site_lifecycle_contracts.py",
+                  "validate_status_contracts.py",
+              ]
+          ''',
+              '''preflight_validators = [
+                  "validate_group_lifecycle_contracts.py",
+                  "validate_site_lifecycle_contracts.py",
+                  "validate_launch_materialization_contracts.py",
+                  "validate_status_contracts.py",
+              ]
+          ''',
+          )
+          PY
+
+      - name: Validate patched snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python -m compileall -q tools
+          python tools/validate_all_rc6.py
+
+      - name: Commit validated fixes and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/rc6-autofix-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "fix: enforce long-range launch materialization contracts"
+          git push origin HEAD:fix/post-merge-audit-hardening
