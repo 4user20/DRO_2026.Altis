@@ -11,7 +11,7 @@ private _best = 0;
     if ((_node getOrDefault ["type", ""]) == "EW_SITE" && {
         (_node getOrDefault ["side", sideUnknown]) != _affectedSide
     } && {
-        !((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"])
+        !((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"])
     }) then {
         private _mode = _node getOrDefault ["emissionState", "PASSIVE"];
         private _modeFactor = switch _mode do {
