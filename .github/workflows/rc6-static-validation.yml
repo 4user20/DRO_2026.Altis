@@ -86,7 +86,28 @@ jobs:
           set -euo pipefail
           mkdir -p source-artifact
           git rev-parse HEAD > source-artifact/source-revision.txt
-          tar --exclude=.git --exclude=source-artifact --exclude=validation-artifacts -czf source-artifact/dro-source.tar.gz .
+          tar --exclude=.git --exclude=source-artifact --exclude=validation-artifacts --exclude=adapter-artifact -czf source-artifact/dro-source.tar.gz .
+
+      - name: Package prior adapter branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p adapter-artifact
+          git fetch --depth=1 origin feat/drone-warfare-adapter
+          git archive --format=tar.gz --output=adapter-artifact/drone-adapter.tar.gz FETCH_HEAD \
+            docs/DRONE_WARFARE_ADAPTER.md \
+            dro2026/CfgFunctions.hpp \
+            dro2026/functions/core/fn_createContactRecord.sqf \
+            dro2026/functions/core/fn_getJammingAtPosition.sqf \
+            dro2026/functions/core/fn_initState.sqf \
+            dro2026/functions/core/fn_preInit.sqf \
+            dro2026/functions/core/fn_registerManagedGroup.sqf \
+            dro2026/functions/directors/fn_startDirectors.sqf \
+            dro2026/functions/drone \
+            dro2026/functions/support/fn_launchFPVStrike.sqf \
+            tools/validate_all_rc6.py \
+            tools/validate_drone_warfare_contracts.py
+          git rev-parse FETCH_HEAD > adapter-artifact/adapter-revision.txt
 
       - name: Write validation summary
         if: always()
@@ -130,4 +151,11 @@ jobs:
         with:
           name: rc6-source-${{ github.sha }}
           path: source-artifact/
+          retention-days: 1
+
+      - name: Upload prior adapter snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc6-adapter-${{ github.sha }}
+          path: adapter-artifact/
           retention-days: 1
