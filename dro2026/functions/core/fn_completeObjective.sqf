@@ -33,8 +33,8 @@ private _destructiveTypes = [
     "EW_HUNT", "DRONE_SITE", "UAV_TEAM", "AIR_DEFENCE", "CUT_REAR"
 ];
 private _destructive = _type in _destructiveTypes;
-private _critical = _meta getOrDefault ["critical", []];
-if !(_critical isEqualType []) then {_critical = []};
+private _criticalValue = _meta getOrDefault ["critical", []];
+private _critical = if (_criticalValue isEqualType []) then {+_criticalValue} else {[]};
 {
     private _candidate = _meta getOrDefault [_x, objNull];
     if (_candidate isEqualType objNull && {!isNull _candidate}) then {_critical pushBackUnique _candidate};
@@ -56,8 +56,13 @@ private _matchedSites = 0;
     if (_matchesCritical || {_matchesNode}) then {
         private _liveRefs = _refs select {alive _x};
         private _siteStatus = if (count _liveRefs == 0) then {"DESTROYED"} else {if (_destructive) then {"DISABLED"} else {"COMPLETED"}};
+        private _sitePhysicalState = switch _siteStatus do {
+            case "DESTROYED": {"DESTROYED"};
+            case "COMPLETED": {"COMPLETED"};
+            default {"DISABLED"};
+        };
         _site set ["status", _siteStatus];
-        _site set ["physicalState", switch _siteStatus do {case "DESTROYED": {"DESTROYED"}; case "COMPLETED": {"COMPLETED"}; default {"DISABLED"}}];
+        _site set ["physicalState", _sitePhysicalState];
         _site set ["terminalReason", "OBJECTIVE_COMPLETED"];
         _site set ["lastUpdatedAt", time];
         switch _siteStatus do {
@@ -75,9 +80,10 @@ if (_destructive && {_nodeId != ""} && {_matchedSites == 0} && {!isNil {DRO2026_
     private _node = DRO2026_networkNodes get _nodeId;
     private _liveRefs = (_node getOrDefault ["physicalRefs", []]) select {!isNull _x && {alive _x}};
     private _nodeStatus = if (count _liveRefs == 0) then {"DESTROYED"} else {"DISABLED"};
+    private _timestampKey = if (_nodeStatus == "DESTROYED") then {"destroyedAt"} else {"disabledAt"};
     _node set ["status", _nodeStatus];
     _node set ["physicalState", _nodeStatus];
-    _node set [if (_nodeStatus == "DESTROYED") then {"destroyedAt"} else {"disabledAt"}, time];
+    _node set [_timestampKey, time];
     _node set ["lastUpdatedAt", time];
     DRO2026_networkNodes set [_nodeId, _node];
 };
