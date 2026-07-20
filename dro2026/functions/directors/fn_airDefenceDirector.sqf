@@ -15,22 +15,42 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _commandHealth = _components getOrDefault ["commandLink", 1];
             private _channels = floor (_baseChannels * ((_radarHealth max 0.25) min 1) * ((_commandHealth max 0.35) min 1));
             _channels = (_channels max 1) min _baseChannels;
+            private _weaponsEnabled = !(_status in ["DESTROYED", "DISABLED"]) && {_missiles > 0};
 
             {
                 private _asset = _x;
+                private _gunner = gunner _asset;
+                if (!isNull _gunner) then {
+                    if (_weaponsEnabled) then {
+                        _gunner enableAI "TARGET";
+                        _gunner enableAI "AUTOTARGET";
+                    } else {
+                        _gunner disableAI "TARGET";
+                        _gunner disableAI "AUTOTARGET";
+                    };
+                };
                 if !(_asset getVariable ["DRO2026_AAStockEH", false]) then {
                     _asset setVariable ["DRO2026_AAStockEH", true];
                     _asset setVariable ["DRO2026_networkNodeId", _nodeId, true];
                     _asset addEventHandler ["Fired", {
                         params ["_unit", "_weapon", "_muzzle", "_mode", "_ammo", "_magazine", "_projectile"];
                         if (!isServer) exitWith {};
+                        private _ammoCfg = configFile >> "CfgAmmo" >> _ammo;
+                        private _simulation = toLowerANSI getText (_ammoCfg >> "simulation");
+                        private _isMissile = _simulation in ["shotmissile", "shotrocket"];
+                        if (!_isMissile) exitWith {};
                         private _nodeId = _unit getVariable ["DRO2026_networkNodeId", ""];
-                        if (_nodeId == "") exitWith {};
-                        private _lower = toLowerANSI format ["%1 %2 %3", _weapon, _magazine, _ammo];
-                        if ((_lower find "missile") >= 0 || {(_lower find "rocket") >= 0} || {(_lower find "sam") >= 0}) then {
-                            [_nodeId, "AA_MISSILES", -1, "AA_LAUNCH"] call DRO2026_fnc_changeNetworkNodeStock;
-                            ["AA_MISSILE_LAUNCHED", createHashMapFromArray [["nodeId", _nodeId], ["weapon", _weapon], ["magazine", _magazine], ["projectile", _projectile]], _nodeId] call DRO2026_fnc_emitEvent;
+                        if (_nodeId == "") exitWith {if (!isNull _projectile) then {deleteVehicle _projectile}};
+                        private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
+                        private _status = _node getOrDefault ["status", "ACTIVE"];
+                        private _stocks = _node getOrDefault ["stocks", createHashMap];
+                        private _available = _stocks getOrDefault ["AA_MISSILES", 0];
+                        if (_status in ["DESTROYED", "DISABLED"] || {_available <= 0}) exitWith {
+                            if (!isNull _projectile) then {deleteVehicle _projectile};
+                            ["AA_LAUNCH_REJECTED", createHashMapFromArray [["nodeId", _nodeId], ["reason", if (_available <= 0) then {"NO_STOCK"} else {"NODE_DISABLED"}], ["weapon", _weapon], ["magazine", _magazine]], _nodeId] call DRO2026_fnc_emitEvent;
                         };
+                        [_nodeId, "AA_MISSILES", -1, "AA_LAUNCH"] call DRO2026_fnc_changeNetworkNodeStock;
+                        ["AA_MISSILE_LAUNCHED", createHashMapFromArray [["nodeId", _nodeId], ["weapon", _weapon], ["magazine", _magazine], ["projectile", _projectile]], _nodeId] call DRO2026_fnc_emitEvent;
                     }];
                 };
             } forEach _refs;
@@ -64,7 +84,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _activeTracks = _tracks select [0, (count _tracks) min _channels];
 
             private _emission = "SILENT";
-            if (_status in ["DESTROYED", "DISABLED"] || {_missiles <= 0}) then {
+            if (!_weaponsEnabled) then {
                 _emission = "OFF";
             } else {
                 if (count _tracks > 0) then {
