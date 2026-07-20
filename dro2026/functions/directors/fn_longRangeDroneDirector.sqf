@@ -40,9 +40,12 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             (_x getOrDefault ["networkNodeId", ""]) == _nodeId || {(_x getOrDefault ["type", ""]) in ["STRATEGIC_DRONE_SITE", "DRONE_SITE"]}
         };
         _sites = _sites select {
+            private _siteId = _x getOrDefault ["id", ""];
             private _operator = _x getOrDefault ["operator", objNull];
-            private _status = _x getOrDefault ["status", "ACTIVE"];
-            !isNull _operator && {alive _operator} && {!(_status in ["DESTROYED", "DISABLED", "CANCELLED"])}
+            _siteId != "" &&
+            {!isNull _operator} &&
+            {alive _operator} &&
+            {[_siteId] call DRO2026_fnc_isSiteOperational}
         };
         private _sideSuffix = [enemySide] call DRO2026_fnc_getSideSuffix;
         private _sideNumber = [enemySide] call DRO2026_fnc_getSideNumber;
@@ -55,6 +58,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _contact = _contacts select 0;
             if !([_contact] call DRO2026_fnc_isLiveContactSubject) then {continue};
             private _site = selectRandom _sites;
+            private _siteId = _site getOrDefault ["id", ""];
             private _operator = _site getOrDefault ["operator", objNull];
             private _origin = _site getOrDefault ["position", ["ENEMY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
             private _maxSalvo = (if (DRO2026_alertLevel > 0.78) then {DRO2026_MAX_ENEMY_LONG_RANGE_SALVO} else {2}) min DRO2026_MAX_ENEMY_LONG_RANGE_SALVO;
@@ -75,13 +79,20 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             [_nodeId, "FUEL", -_count, "LONG_RANGE_ATTACK"] call DRO2026_fnc_changeNetworkNodeStock;
             DRO2026_resources set ["enemyLongRangeStock", ((_airframes - _count) max 0)];
             DRO2026_lastEnemyLongRange = time;
-            [_origin, _contact, _operator, _type, _count, _nodeId] spawn {
-                params ["_origin", "_contact", "_operator", "_type", "_count", "_nodeId"];
+            ["DRONE_LAUNCH_RESERVED", createHashMapFromArray [
+                ["role", "LONG_RANGE"], ["type", _type], ["count", _count],
+                ["contactId", _contact getOrDefault ["id", ""]],
+                ["subjectId", _contact getOrDefault ["subjectId", ""]],
+                ["siteId", _siteId], ["reservationNodeId", _nodeId]
+            ], _siteId] call DRO2026_fnc_emitEvent;
+            [_origin, _contact, _operator, _type, _count, _nodeId, _siteId] spawn {
+                params ["_origin", "_contact", "_operator", "_type", "_count", "_nodeId", "_siteId"];
                 for "_index" from 0 to (_count - 1) do {
                     private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
                     private _abort =
                         (missionNamespace getVariable ["DRO2026_missionEnding", false]) ||
                         {!isNull _operator && {!alive _operator}} ||
+                        {!([_siteId] call DRO2026_fnc_isSiteOperational)} ||
                         {!([_contact] call DRO2026_fnc_isLiveContactSubject)} ||
                         {count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"]}};
                     if (_abort) exitWith {
@@ -99,11 +110,10 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         _copy set ["position", _position getPos [random (_uncertainty min 350), random 360]];
                         _copy set ["positionMean", _copy get "position"];
                     };
-                    [_origin, _copy, enemySide, false, _operator, _type, false, _index, _count, true, _nodeId] spawn DRO2026_fnc_launchLongRangeStrike;
+                    [_origin, _copy, enemySide, false, _operator, _type, false, _index, _count, true, _nodeId, _siteId] spawn DRO2026_fnc_launchLongRangeStrike;
                     sleep (4 + random 6);
                 };
             };
-            ["DRONE_LAUNCHED", createHashMapFromArray [["role", "LONG_RANGE"], ["type", _type], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]], ["subjectId", _contact getOrDefault ["subjectId", ""]]], _nodeId] call DRO2026_fnc_emitEvent;
             _intent set ["status", "EXECUTED"];
             _intent set ["executedAt", time];
             missionNamespace setVariable ["DRO2026_currentIntent", _intent];
