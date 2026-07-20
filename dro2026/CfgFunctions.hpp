@@ -88,6 +88,7 @@ class CfgFunctions
             class configureDDT {};
             class assignDroneLoadout {};
             class dispatchDDTDrones {};
+            class dispatchUnassignedDDT {};
             class isFiberOpticDrone {};
             class isExternallyControlledUAV {};
             class collectDroneIntel {};
