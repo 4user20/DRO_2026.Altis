@@ -128,6 +128,20 @@
       ]
     },
     {
+      "id": "status-aar-and-query-authority",
+      "kind": "network-execution",
+      "sources": [
+        "bohemia-community-wiki",
+        "acemod-arma3-wiki",
+        "stokys-scripting-guide"
+      ],
+      "validators": [
+        "tools/validate_status_contracts.py",
+        "tools/validate_runtime_transactions.py",
+        "tools/validate_arma_wiki_contracts.py"
+      ]
+    },
+    {
       "id": "remote-support-authority",
       "kind": "network-execution",
       "sources": [
