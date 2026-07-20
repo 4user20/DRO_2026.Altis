@@ -16,7 +16,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
 
     private _nodeId = "NODE_DRONE_REAR_01";
     private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-    if (count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"]}) then {continue};
+    if (count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"]}) then {continue};
     private _stocks = _node getOrDefault ["stocks", createHashMap];
     private _airframes = _stocks getOrDefault ["LONG_RANGE_DRONES", DRO2026_resources getOrDefault ["enemyLongRangeStock", 0]];
     private _fuel = _stocks getOrDefault ["FUEL", _airframes];
@@ -24,53 +24,12 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _slots = (DRO2026_PHYSICAL_DRONE_LIMIT - count DRO2026_activeDrones) max 0;
     private _cooldown = DRO2026_LONG_RANGE_MIN_INTERVAL + random (DRO2026_LONG_RANGE_MAX_INTERVAL - DRO2026_LONG_RANGE_MIN_INTERVAL);
     if (_stock > 0 && {_slots > 0} && {(time - DRO2026_lastEnemyLongRange) >= _cooldown} && {DRO2026_alertLevel > 0.45}) then {
-        private _isLiveStrategicContact = {
-            params ["_contact"];
-            private _target = _contact getOrDefault ["target", objNull];
-            if (!isNull _target) exitWith {alive _target};
-            private _subjectId = _contact getOrDefault ["subjectId", ""];
-            if (_subjectId == "") exitWith {false};
-
-            if ((_subjectId find "PLAYER:") == 0) exitWith {
-                private _uid = _subjectId select [7];
-                (allPlayers findIf {
-                    !(_x isKindOf "VirtualMan_F") && {!isNull _x} && {alive _x} && {getPlayerUID _x == _uid}
-                }) >= 0
-            };
-            if ((_subjectId find "SUPPORT:") == 0) exitWith {
-                private _netId = _subjectId select [8];
-                private _object = objectFromNetId _netId;
-                !isNull _object && {alive _object}
-            };
-
-            private _siteIndex = DRO2026_sites findIf {
-                (_x getOrDefault ["id", ""]) == _subjectId || {(_x getOrDefault ["networkNodeId", ""]) == _subjectId}
-            };
-            if (_siteIndex >= 0) exitWith {
-                private _site = DRO2026_sites select _siteIndex;
-                private _object = _site getOrDefault ["object", objNull];
-                private _status = _site getOrDefault ["status", "ACTIVE"];
-                !(_status in ["DESTROYED", "DISABLED"]) && {isNull _object || {alive _object}}
-            };
-
-            private _positionIndex = DRO2026_friendlyPositions findIf {(_x getOrDefault ["id", ""]) == _subjectId};
-            if (_positionIndex >= 0) exitWith {
-                private _record = DRO2026_friendlyPositions select _positionIndex;
-                private _object = _record getOrDefault ["object", objNull];
-                isNull _object || {alive _object}
-            };
-
-            private _subjectNode = DRO2026_networkNodes getOrDefault [_subjectId, createHashMap];
-            count _subjectNode > 0 && {!((_subjectNode getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"])}
-        };
-
         private _contacts = DRO2026_contacts select {
             (_x getOrDefault ["owner", ""]) == "ENEMY" &&
             {(_x getOrDefault ["confidence", 0]) >= DRO2026_CONTACT_REQUIRED_FOR_LONG_RANGE} &&
             {(time - (_x getOrDefault ["lastSeen", 0])) < 300} &&
             {(_x getOrDefault ["subjectId", ""]) != ""} &&
-            {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} &&
-            {[_x] call _isLiveStrategicContact}
+            {[_x] call DRO2026_fnc_isLiveContactSubject}
         };
         private _intentContactId = _intent getOrDefault ["contactId", ""];
         if (_intentContactId != "") then {
@@ -82,7 +41,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         };
         _sites = _sites select {
             private _operator = _x getOrDefault ["operator", objNull];
-            !isNull _operator && {alive _operator}
+            private _status = _x getOrDefault ["status", "ACTIVE"];
+            !isNull _operator && {alive _operator} && {!(_status in ["DESTROYED", "DISABLED", "CANCELLED"])}
         };
         private _sideSuffix = [enemySide] call DRO2026_fnc_getSideSuffix;
         private _sideNumber = [enemySide] call DRO2026_fnc_getSideNumber;
@@ -93,7 +53,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         if (count _contacts > 0 && {count _sites > 0} && {count _enemyPool > 0}) then {
             _contacts = [_contacts, [], {-((_x getOrDefault ["confidence", 0]) - ((_x getOrDefault ["uncertaintyRadius", 0]) / 3500))}, "ASCEND"] call BIS_fnc_sortBy;
             private _contact = _contacts select 0;
-            if !([_contact] call _isLiveStrategicContact) then {continue};
+            if !([_contact] call DRO2026_fnc_isLiveContactSubject) then {continue};
             private _site = selectRandom _sites;
             private _operator = _site getOrDefault ["operator", objNull];
             private _origin = _site getOrDefault ["position", ["ENEMY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
@@ -119,13 +79,11 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 params ["_origin", "_contact", "_operator", "_type", "_count", "_nodeId"];
                 for "_index" from 0 to (_count - 1) do {
                     private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-                    private _target = _contact getOrDefault ["target", objNull];
                     private _abort =
                         (missionNamespace getVariable ["DRO2026_missionEnding", false]) ||
                         {!isNull _operator && {!alive _operator}} ||
-                        {!isNull _target && {!alive _target}} ||
-                        {(_contact getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"]} ||
-                        {count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"]}};
+                        {!([_contact] call DRO2026_fnc_isLiveContactSubject)} ||
+                        {count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"]}};
                     if (_abort) exitWith {
                         private _unlaunched = _count - _index;
                         [_nodeId, "LONG_RANGE_DRONES", _unlaunched, "LONG_RANGE_SALVO_ABORT"] call DRO2026_fnc_changeNetworkNodeStock;
