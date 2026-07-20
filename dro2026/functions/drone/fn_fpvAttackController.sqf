@@ -80,8 +80,8 @@ while {
         };
         _lastDistance = _distance2D;
         _lastProgressCheck = time;
-        if (_stuckCount >= 2) exitWith {_result = "STUCK"};
     };
+    if (_stuckCount >= 2) exitWith {_result = "STUCK"};
 
     if (time > _guidanceLostUntil) then {
         private _lateralNoise = if (_distance2D > 400) then {7} else {2.5};
