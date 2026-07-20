@@ -76,6 +76,7 @@ class CfgFunctions
             class evaluateSiteComponents {};
             class transferLogisticsCargo {};
             class initStrategicOperationData {};
+            class registerStrategicAssets {};
             class seededRandom {};
             class getAssetPrimaryRole {};
             class isAssetAllowedForRole {};
