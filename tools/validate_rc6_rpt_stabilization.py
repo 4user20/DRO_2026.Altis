@@ -33,8 +33,26 @@ base = subprocess.run(
     stderr=subprocess.STDOUT,
 )
 errors: list[str] = []
+validator_output: dict[str, str] = {}
 if base.returncode != 0:
     errors.append("base validate_rc6.py failed")
+    validator_output["validate_rc6.py"] = base.stdout
+
+for validator in (
+    "validate_arma_wiki_contracts.py",
+    "validate_side_contracts.py",
+    "validate_orientation_contracts.py",
+):
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / validator)],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    if result.returncode != 0:
+        errors.append(f"{validator} failed")
+        validator_output[validator] = result.stdout
 
 contracts = {
     "dro2026/functions/core/fn_publishSupportCatalog.sqf": (
@@ -52,6 +70,11 @@ contracts = {
         "STRIKE_CLASS:",
         "ARTY:",
         "AIR:",
+    ),
+    "dro2026/functions/support/fn_requestFPV.sqf": (
+        "_unlaunched",
+        "FPV salvo aborted",
+        'DRO2026_resources set ["friendlyFPVStock"',
     ),
     "dro2026/functions/support/fn_requestLongRangeSupport.sqf": (
         'if (_requestUpper == "FP5") then {"friendlyFP5Stock"}',
@@ -95,8 +118,14 @@ for relative, tokens in contracts.items():
         errors.append(f"{relative}: missing {', '.join(missing)}")
 
 forbidden = {
-    "dro2026/functions/support/fn_launchFPVStrike.sqf": ("nearestObjects",),
-    "dro2026/functions/support/fn_launchLongRangeStrike.sqf": ("nearestObjects",),
+    "dro2026/functions/support/fn_launchFPVStrike.sqf": (
+        "nearestObjects",
+        "_drone setDir",
+    ),
+    "dro2026/functions/support/fn_launchLongRangeStrike.sqf": (
+        "nearestObjects",
+        "_drone setDir",
+    ),
     "dro2026/functions/directors/fn_enemyAirDirector.sqf": (
         'getOrDefault ["AIR_EAST"',
         "alive player",
@@ -138,7 +167,7 @@ for raw in args.rpt:
 report = {
     "validator": "rc6-rpt-stabilization",
     "base_validator_exit": base.returncode,
-    "base_validator_output": base.stdout if base.returncode != 0 else "",
+    "validator_output": validator_output,
     "errors": errors,
     "rpt_findings": rpt_findings,
 }
