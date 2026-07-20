@@ -1,6 +1,6 @@
 params [
     "_position", ["_origin", []], ["_operator", objNull], ["_requestedType", "AUTO"],
-    ["_site", createHashMap]
+    ["_siteId", ""]
 ];
 if (!isServer) exitWith {objNull};
 private _refundReservation = {
@@ -8,9 +8,7 @@ private _refundReservation = {
     DRO2026_lastISRRequest = -999;
 };
 private _siteOperational = {
-    count _site == 0 || {
-        !((_site getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"])
-    }
+    [_siteId] call DRO2026_fnc_isSiteOperational
 };
 if (!isNull _operator && {!alive _operator}) exitWith {call _refundReservation; objNull};
 if !(call _siteOperational) exitWith {call _refundReservation; objNull};
@@ -146,13 +144,14 @@ private _initialSpeed = if (_isMicro) then {18} else {if (_isHALE) then {105} el
 _uav setVelocity [sin _spawnDirection * _initialSpeed, cos _spawnDirection * _initialSpeed, 0];
 _uav flyInHeight _height;
 _uav setVariable ["DRO2026_operator", _operator];
+_uav setVariable ["DRO2026_siteId", _siteId, true];
 if (!isNull _operator) then {_operator setVariable ["DRO2026_activeUAV", _uav]};
 DRO2026_activeDrones pushBack _uav;
 DRO2026_managedVehicles pushBackUnique _uav;
 _group setBehaviourStrong "CARELESS";
 _group setCombatMode "BLUE";
 _group setSpeedMode "NORMAL";
-["DRONE_LAUNCHED", createHashMapFromArray [["class", _class], ["role", "ISR"], ["source", _source]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
+["DRONE_LAUNCHED", createHashMapFromArray [["class", _class], ["role", "ISR"], ["source", _source], ["siteId", _siteId]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
 
 private _end = time + (if (_isMicro) then {360} else {if (_isHALE) then {720} else {520}});
 private _angle = random 360;
@@ -279,5 +278,5 @@ if (!isNull _uav) then {
 };
 if (!isNull _group) then {deleteGroup _group};
 private _eventType = if (_returned) then {"DRONE_RECOVERED"} else {"DRONE_LOST"};
-[_eventType, createHashMapFromArray [["class", _class], ["role", "ISR"], ["returned", _returned]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
+[_eventType, createHashMapFromArray [["class", _class], ["role", "ISR"], ["returned", _returned], ["siteId", _siteId]], "FRIENDLY_ISR"] call DRO2026_fnc_emitEvent;
 _uav
