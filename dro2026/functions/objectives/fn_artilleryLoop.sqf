@@ -1,5 +1,8 @@
 params ["_arty", "_positions", ["_taskName", ""], ["_marker", ""]];
 if (!isServer || {isNull _arty}) exitWith {};
+if (!local _arty) exitWith {
+    ["ARTILLERY","LOCALITY_REJECTED",createHashMapFromArray [["class",typeOf _arty],["netId",netId _arty],["owner",owner _arty]],"ARTILLERY"] call DRO2026_fnc_logStructured;
+};
 waitUntil {
     sleep 1;
     missionNamespace getVariable ["playersReady", 0] == 1 ||
@@ -12,6 +15,7 @@ private _firstMission = true;
 
 while {
     alive _arty &&
+    {local _arty} &&
     {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} && {
         (_taskName == "") || {(missionNamespace getVariable [format ["%1Completed", _taskName], 0]) == 0}
     }
@@ -22,7 +26,7 @@ while {
     };
     sleep _delay;
     _firstMission = false;
-    if (!alive _arty || {missionNamespace getVariable ["DRO2026_missionEnding", false]}) exitWith {};
+    if (!alive _arty || {!local _arty} || {missionNamespace getVariable ["DRO2026_missionEnding", false]}) exitWith {};
 
     private _intent = missionNamespace getVariable ["DRO2026_currentIntent", createHashMap];
     private _intentAction = _intent getOrDefault ["action", ""];
@@ -46,6 +50,7 @@ while {
             (_x getOrDefault ["owner", ""]) == "ENEMY" &&
             {(_x getOrDefault ["confidence", 0]) >= 0.58} &&
             {(time - (_x getOrDefault ["lastSeen", 0])) < 300} &&
+            {!((toUpperANSI (_x getOrDefault ["state","ACTIVE"])) in ["LOST","DESTROYED","INVALID","EXPIRED"])} &&
             {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])}
         };
         if (_intentContactId != "") then {
@@ -55,11 +60,12 @@ while {
 
         private _targetCandidates = [];
         {
-            private _mean = _x getOrDefault ["positionMean", _x getOrDefault ["position", []]];
-            if (count _mean > 1) then {
+            private _meanASL = _x getOrDefault ["positionASL",_x getOrDefault ["positionMean", _x getOrDefault ["position", []]]];
+            if (count _meanASL > 1) then {
                 private _uncertainty = _x getOrDefault ["uncertaintyRadius", 80];
-                private _aim = _mean getPos [random (_uncertainty min 260), random 360];
-                _targetCandidates pushBack [_aim, _x getOrDefault ["id", ""], _x getOrDefault ["confidence", 0], "CONTACT"];
+                private _aimASL = _meanASL getPos [random (_uncertainty min 260), random 360];
+                private _aimAGL = ASLToAGL _aimASL;
+                _targetCandidates pushBack [_aimAGL, _x getOrDefault ["id", ""], _x getOrDefault ["confidence", 0], "CONTACT"];
             };
         } forEach _enemyContacts;
 
@@ -78,40 +84,43 @@ while {
         {
             _x params ["_targetPos", "_contactId", "_confidence", "_targetKind"];
             {
-                if (_targetPos inRangeOfArtillery [[_arty], _x]) then {
-                    _solutions pushBack [_targetPos, _x, _contactId, _confidence, _targetKind];
+                private _eta = _arty getArtilleryETA [_targetPos,_x];
+                if (_eta >= 0 && {_targetPos inRangeOfArtillery [[_arty], _x]}) then {
+                    _solutions pushBack [_targetPos, _x, _contactId, _confidence, _targetKind,_eta];
                 };
             } forEach _ammoPool;
         } forEach _targetCandidates;
 
         if (count _solutions > 0) then {
             private _solution = selectRandom _solutions;
-            _solution params ["_targetPos", "_mag", "_contactId", "_confidence", "_targetKind"];
+            _solution params ["_targetPos", "_mag", "_contactId", "_confidence", "_targetKind","_eta"];
             private _rounds = ((2 + floor random 3) min floor _nodeAmmo) max 1;
-            _arty doArtilleryFire [_targetPos, _mag, _rounds];
-            ["NODE_ARTILLERY_01", "ARTILLERY_AMMO", -_rounds, "FIRE_MISSION"] call DRO2026_fnc_changeNetworkNodeStock;
-            private _remaining = ((_nodeAmmo - _rounds) max 0);
-            DRO2026_resources set ["enemyArtilleryAmmo", _remaining];
-            _shotsAtPosition = _shotsAtPosition + 1;
+            if (_rounds > 0 && {local _arty}) then {
+                _arty doArtilleryFire [_targetPos, _mag, _rounds];
+                ["NODE_ARTILLERY_01", "ARTILLERY_AMMO", -_rounds, "FIRE_MISSION"] call DRO2026_fnc_changeNetworkNodeStock;
+                private _remaining = ((_nodeAmmo - _rounds) max 0);
+                DRO2026_resources set ["enemyArtilleryAmmo", _remaining];
+                _shotsAtPosition = _shotsAtPosition + 1;
 
-            private _fireMission = createHashMapFromArray [
-                ["observerContact", _contactId], ["targetArea", +_targetPos], ["ammoType", _mag],
-                ["rounds", _rounds], ["priority", _confidence], ["targetKind", _targetKind], ["createdAt", time]
-            ];
-            ["FIRE_MISSION_EXECUTED", _fireMission, "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
+                private _fireMission = createHashMapFromArray [
+                    ["observerContact", _contactId], ["targetAreaAGL", +_targetPos], ["ammoType", _mag],
+                    ["rounds", _rounds], ["eta",_eta], ["priority", _confidence], ["targetKind", _targetKind], ["createdAt", time]
+                ];
+                ["FIRE_MISSION_EXECUTED", _fireMission, "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
 
-            private _estimated = (getPosATL _arty) getPos [180 + random 420, random 360];
-            if (_marker != "") then {
-                _marker setMarkerPos _estimated;
-                _marker setMarkerSize [360, 360];
-                _marker setMarkerAlpha 0.72;
+                private _estimated = (getPosATL _arty) getPos [180 + random 420, random 360];
+                if (_marker != "") then {
+                    _marker setMarkerPos _estimated;
+                    _marker setMarkerSize [360, 360];
+                    _marker setMarkerAlpha 0.72;
+                };
+                ["PLAYER", objNull, _estimated, 0.62, "ВЕРОЯТНАЯ АРТИЛЛЕРИЯ", "COUNTERBATTERY", 380, "NODE_ARTILLERY_01", 0.08] call DRO2026_fnc_addContact;
+                [format ["Артиллерия выполнила огневую задачу: %1 выстр., источник %2, удаление %3 м", _rounds, _targetKind, round (_arty distance2D _targetPos)]] call DRO2026_fnc_log;
+                _intent set ["status", "EXECUTED"];
+                _intent set ["executedAt", time];
+                missionNamespace setVariable ["DRO2026_currentIntent", _intent];
+                ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "ARTILLERY_FIRE"]], "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
             };
-            ["PLAYER", objNull, _estimated, 0.62, "ВЕРОЯТНАЯ АРТИЛЛЕРИЯ", "COUNTERBATTERY", 380, "NODE_ARTILLERY_01", 0.08] call DRO2026_fnc_addContact;
-            [format ["Артиллерия выполнила огневую задачу: %1 выстр., источник %2, удаление %3 м", _rounds, _targetKind, round (_arty distance2D _targetPos)]] call DRO2026_fnc_log;
-            _intent set ["status", "EXECUTED"];
-            _intent set ["executedAt", time];
-            missionNamespace setVariable ["DRO2026_currentIntent", _intent];
-            ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "ARTILLERY_FIRE"]], "NODE_ARTILLERY_01"] call DRO2026_fnc_emitEvent;
         } else {
             [format ["Артиллерия %1 не имеет решения по подтверждённым контактам", typeOf _arty]] call DRO2026_fnc_log;
         };
