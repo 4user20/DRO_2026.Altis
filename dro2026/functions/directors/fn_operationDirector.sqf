@@ -22,7 +22,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         };
         private _contacts = DRO2026_contacts select {
             (_x getOrDefault ["owner", ""]) == "ENEMY" &&
-            {(_x getOrDefault ["bdaState", "DETECTED"]) != "CONFIRMED_DESTROYED"} &&
+            {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} &&
             {(time - (_x getOrDefault ["lastSeen", 0])) < 320}
         };
         private _priority = {
@@ -39,7 +39,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         };
         private _strategic = _contacts select {
             private _kind = toUpperANSI (_x getOrDefault ["classification", ""]);
-            (_x getOrDefault ["subjectId", ""]) != "" && {
+            (_x getOrDefault ["subjectId", ""]) != "" &&
+            {[_x] call DRO2026_fnc_isLiveContactSubject} && {
                 (_kind find "HQ") >= 0 || {(_kind find "ШТАБ") >= 0} ||
                 {(_kind find "AA") >= 0} || {(_kind find "ПВО") >= 0} ||
                 {(_kind find "ARTILLERY") >= 0} || {(_kind find "АРТИЛ") >= 0} ||
@@ -75,7 +76,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     {(_node getOrDefault ["position", [0,0,0]]) distance2D _targetPos <= 4800};
             };
             if (!_validTarget) exitWith {};
-            if (_action == "LONG_RANGE_ATTACK" && {(_contact getOrDefault ["subjectId", ""]) == ""}) exitWith {};
+            if (_action == "LONG_RANGE_ATTACK" && {!([_contact] call DRO2026_fnc_isLiveContactSubject)}) exitWith {};
             if (_action == "ARTILLERY_FIRE" && {(_contact getOrDefault ["uncertaintyRadius", 9999]) > 520}) exitWith {};
             private _exposure = if ((_node getOrDefault ["knownByPlayer", "UNKNOWN"]) in ["CONFIRMED", "TRACKED"]) then {0.22} else {0.05};
             private _phaseWeight = switch _phase do {
