@@ -1,6 +1,7 @@
 if (!isServer) exitWith {};
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep (300 + random 260);
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {};
     if (DRO2026_alertLevel < 0.62 || {DRO2026_fpsAverage < 25}) then {continue};
 
     private _enemySideNumber = switch (enemySide) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
@@ -55,8 +56,6 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _spawnDirection = _spawn getDir _targetPos;
     private _air = createVehicle [_class, _spawn, [], 0, "FLY"];
     if (isNull _air) then {continue};
-    // BI's FLY special only guarantees airborne placement when crew already exists.
-    // This vehicle is created empty, so set direction before explicit ATL position.
     _air setDir _spawnDirection;
     _air setPosATL _spawn;
 
@@ -106,16 +105,18 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             if (_engaged && {(isNull _target || {!alive _target}) || {_air distance2D _targetPos < 500}}) exitWith {};
             sleep 1;
         };
-        private _egress = _targetPos getPos [10000, 270 + (-15 + random 30)];
-        _egress set [2, if (_air isKindOf "Helicopter") then {300} else {760}];
-        if (!isNull (driver _air)) then {(driver _air) doMove _egress};
-        private _exitDeadline = time + 180;
-        waitUntil {
-            sleep 2;
-            !alive _air ||
-            {_air distance2D _targetPos > 8500} ||
-            {time > _exitDeadline} ||
-            {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+        if (!isNull _air && {alive _air} && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}) then {
+            private _egress = _targetPos getPos [10000, 270 + (-15 + random 30)];
+            _egress set [2, if (_air isKindOf "Helicopter") then {300} else {760}];
+            if (!isNull (driver _air)) then {(driver _air) doMove _egress};
+            private _exitDeadline = time + 180;
+            waitUntil {
+                sleep 2;
+                !alive _air ||
+                {_air distance2D _targetPos > 8500} ||
+                {time > _exitDeadline} ||
+                {missionNamespace getVariable ["DRO2026_missionEnding", false]}
+            };
         };
         if (!isNull _air) then {
             deleteVehicleCrew _air;
