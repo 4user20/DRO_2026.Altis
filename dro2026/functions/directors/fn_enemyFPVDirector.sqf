@@ -82,24 +82,11 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     };
                 };
                 ["DRONE_LAUNCH_RESERVED", createHashMapFromArray [["role", "FPV"], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId]], _nodeId] call DRO2026_fnc_emitEvent;
-
-                private _launches = (_node getOrDefault ["launchesSinceRelocation", 0]) + _count;
-                private _threshold = _node getOrDefault ["relocationThreshold", 1 + floor random 3];
-                _node set ["launchesSinceRelocation", _launches];
-                _node set ["relocationThreshold", _threshold];
-                DRO2026_networkNodes set [_nodeId, _node];
-                if (_launches >= _threshold) then {
-                    _node set ["launchesSinceRelocation", 0];
-                    _node set ["relocationThreshold", 1 + floor random 3];
-                    DRO2026_networkNodes set [_nodeId, _node];
-                    [_nodeId] spawn DRO2026_fnc_relocateDroneTeam;
-                };
-
                 _intent set ["status", "EXECUTED"];
                 _intent set ["executedAt", time];
                 missionNamespace setVariable ["DRO2026_currentIntent", _intent];
                 ["INTENT_EXECUTED", createHashMapFromArray [["intentId", _intent getOrDefault ["id", ""]], ["action", "FPV_ATTACK"]], _nodeId] call DRO2026_fnc_emitEvent;
-                [format ["FPV-node зарезервировал %1 аппарат(а), остаток комплектов %2; relocation %3/%4", _count, (_kits - _count) max 0, _launches, _threshold]] call DRO2026_fnc_log;
+                [format ["FPV-node зарезервировал %1 аппарат(а), остаток комплектов %2", _count, (_kits - _count) max 0]] call DRO2026_fnc_log;
             };
         };
     };
