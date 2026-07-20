@@ -10,7 +10,10 @@ private _appendFiltered = {
         private _blockedTokens = ["spawner", "module", "logic", "dummy", "placeholder", "_root", "site_", "pook_sam", "pook_tos1a"];
         private _blocked = (_blockedTokens findIf {(_name find _x) >= 0}) >= 0;
         private _valid = isClass _cfg && {getNumber (_cfg >> "scope") >= 2} && {!_blocked};
-        if (_valid && {_sideNumber >= 0}) then {_valid = getNumber (_cfg >> "side") == _sideNumber};
+        if (_valid && {_sideNumber >= 0}) then {
+            private _cfgSide = getNumber (_cfg >> "side");
+            _valid = _cfgSide == _sideNumber;
+        };
         if (_valid && {_mustBeArtillery}) then {
             _valid = (getNumber (_cfg >> "artilleryScanner") > 0) || {(_name find "mortar") >= 0} || {(_name find "arty") >= 0} || {(_name find "mrl") >= 0} || {count getArray (_cfg >> "availableForSupportTypes") > 0};
         };
@@ -36,7 +39,6 @@ if (!isNil "eUAVClasses") then {["ENEMY_ISR_UAV", eUAVClasses, false, _enemySide
 if (!isNil "ePlaneClasses") then {["ENEMY_CAS_AIR", ePlaneClasses, false, _enemySideNumber, true] call _appendFiltered};
 if (!isNil "eHeliClasses") then {["ENEMY_CAS_AIR", eHeliClasses, false, _enemySideNumber, true] call _appendFiltered};
 if (!isNil "pUAVClasses") then {["PLAYER_ISR_UAV", pUAVClasses, false, _playerSideNumber, true] call _appendFiltered};
-
 if (!isNil "pAmmoClasses") then {["PLAYER_LOGISTICS", pAmmoClasses, false, _playerSideNumber] call _appendFiltered};
 if (!isNil "pCarNoTurretClasses") then {["PLAYER_LOGISTICS", pCarNoTurretClasses, false, _playerSideNumber] call _appendFiltered};
 if (!isNil "pMortarClasses") then {["PLAYER_ARTILLERY_MORTAR", pMortarClasses, true, _playerSideNumber] call _appendFiltered};
@@ -74,7 +76,6 @@ private _explicitEnemyAir = switch (enemySide) do {
 };
 ["ENEMY_CAS_AIR", _explicitEnemyAir, false, _enemySideNumber, true] call _appendFiltered;
 
-// Discover faction-compatible gun trucks/SPAA without hardcoding uncertain mod class names.
 private _discoverPointDefence = {
     params ["_sideNumber","_suffix"];
     private _role = format ["SHORAD_%1",_suffix];
@@ -82,16 +83,19 @@ private _discoverPointDefence = {
     private _root = configFile >> "CfgVehicles";
     for "_index" from 0 to ((count _root) - 1) do {
         private _cfg = _root select _index;
-        if (isClass _cfg && {getNumber (_cfg >> "scope") >= 2} && {getNumber (_cfg >> "side") == _sideNumber}) then {
-            private _class = configName _cfg;
-            private _hay = toLowerANSI format ["%1 %2",_class,getText (_cfg >> "displayName")];
-            private _tokens = ["kamaz", "урал", "ural", "gaz66", "zu-23", "zu23", "зсу", "zsu", "shilka"];
-            private _matches = (_tokens findIf {(_hay find _x) >= 0}) >= 0;
-            private _vehicle = _class isKindOf "LandVehicle" || {_class isKindOf "StaticWeapon"};
-            private _weapons = getArray (_cfg >> "weapons");
-            private _turretRoot = _cfg >> "Turrets";
-            private _hasTurret = isClass _turretRoot && {count _turretRoot > 0};
-            if (_matches && {_vehicle} && {count _weapons > 0 || {_hasTurret}}) then {_pool pushBackUnique _class};
+        if (isClass _cfg && {getNumber (_cfg >> "scope") >= 2}) then {
+            private _cfgSide = getNumber (_cfg >> "side");
+            if (_cfgSide == _sideNumber) then {
+                private _class = configName _cfg;
+                private _hay = toLowerANSI format ["%1 %2",_class,getText (_cfg >> "displayName")];
+                private _tokens = ["kamaz", "урал", "ural", "gaz66", "zu-23", "zu23", "зсу", "zsu", "shilka"];
+                private _matches = (_tokens findIf {(_hay find _x) >= 0}) >= 0;
+                private _vehicle = _class isKindOf "LandVehicle" || {_class isKindOf "StaticWeapon"};
+                private _weapons = getArray (_cfg >> "weapons");
+                private _turretRoot = _cfg >> "Turrets";
+                private _hasTurret = isClass _turretRoot && {count _turretRoot > 0};
+                if (_matches && {_vehicle} && {count _weapons > 0 || {_hasTurret}}) then {_pool pushBackUnique _class};
+            };
         };
     };
     DRO2026_assetRegistry set [_role,_pool];
