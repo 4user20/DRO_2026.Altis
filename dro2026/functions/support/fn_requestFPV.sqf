@@ -33,51 +33,56 @@ private _contacts = DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence", 0]) >= DRO2026_CONTACT_REQUIRED_FOR_FPV} &&
     {(time - (_x getOrDefault ["lastSeen", 0])) < 210} &&
+    {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} &&
+    {[_x] call DRO2026_fnc_isLiveContactSubject} &&
     {((_x getOrDefault ["positionMean", _x getOrDefault ["position", [0,0,0]]]) distance2D _position) < 320}
 };
 if (count _contacts == 0) exitWith {
-    ["Штаб: В указанном районе нет свежей подтверждённой цели. Сначала получите разведданные.", _requester] call DRO2026_fnc_supportMessage;
+    ["Штаб: В указанном районе нет свежей живой подтверждённой цели. Сначала обновите разведданные.", _requester] call DRO2026_fnc_supportMessage;
 };
 _contacts = [_contacts, [], {-((_x getOrDefault ["confidence", 0]) - (((_x getOrDefault ["positionMean", _x getOrDefault ["position", _position]]) distance2D _position) / 1200))}, "ASCEND"] call BIS_fnc_sortBy;
 private _contact = _contacts select 0;
 private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", _position]];
 private _sites = DRO2026_sites select {
     (_x getOrDefault ["type", ""]) == "FRIENDLY_FPV_SITE" && {
-        private _operator = _x getOrDefault ["operator", objNull];
-        !isNull _operator && {alive _operator}
+        private _siteId = _x getOrDefault ["id", ""];
+        _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
     } && {
         private _sitePosition = _x getOrDefault ["position", []];
         count _sitePosition > 1 && {_sitePosition distance2D _targetPosition <= 4800}
     }
 };
 if (count _sites == 0) exitWith {
-    ["Штаб: В радиусе действия нет живого союзного расчёта FPV.", _requester] call DRO2026_fnc_supportMessage;
+    ["Штаб: В радиусе действия нет боеспособного союзного расчёта FPV.", _requester] call DRO2026_fnc_supportMessage;
 };
 _sites = [_sites, [], {(_x getOrDefault ["position", [0,0,0]]) distance2D _targetPosition}, "ASCEND"] call BIS_fnc_sortBy;
 private _site = _sites select 0;
+private _siteId = _site getOrDefault ["id", ""];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_FORWARD"] call DRO2026_fnc_getTheaterNode];
 private _operator = _site getOrDefault ["operator", objNull];
 
 DRO2026_resources set ["friendlyFPVStock", (_stock - _launchCount) max 0];
 DRO2026_lastFPVRequest = time;
-[_origin, _contact, _operator, _manualControl, _launchCount, _requestSide, _requester, _requestedClass] spawn {
-    params ["_origin", "_contact", "_operator", "_manualControl", "_count", "_requestSide", "_requester", "_requestedClass"];
+[_origin, _contact, _operator, _manualControl, _launchCount, _requestSide, _requester, _requestedClass, _siteId] spawn {
+    params ["_origin", "_contact", "_operator", "_manualControl", "_count", "_requestSide", "_requester", "_requestedClass", "_siteId"];
     for "_index" from 0 to (_count - 1) do {
         private _abort =
             (missionNamespace getVariable ["DRO2026_missionEnding", false]) ||
-            {!isNull _operator && {!alive _operator}};
+            {!isNull _operator && {!alive _operator}} ||
+            {!([_siteId] call DRO2026_fnc_isSiteOperational)} ||
+            {!([_contact] call DRO2026_fnc_isLiveContactSubject)};
         if (_abort) exitWith {
             private _unlaunched = _count - _index;
             DRO2026_resources set ["friendlyFPVStock", (DRO2026_resources getOrDefault ["friendlyFPVStock", 0]) + _unlaunched];
             [format ["FPV salvo aborted before %1 remaining launches", _unlaunched]] call DRO2026_fnc_log;
         };
         private _launchOrigin = _origin getPos [4 + random 10, random 360];
-        [_launchOrigin, _contact, _requestSide, _operator, _manualControl, _requester, _requestedClass] spawn DRO2026_fnc_launchFPVStrike;
+        [_launchOrigin, _contact, _requestSide, _operator, _manualControl, _requester, _requestedClass, "", _siteId] spawn DRO2026_fnc_launchFPVStrike;
         sleep (1.8 + random 2.4);
     };
 };
 [
     "ACK",
-    if (_manualControl) then {"Штаб: FPV запущен. Управление доступно через действие игрока."} else {format ["Штаб: Цель подтверждена. Расчёт FPV запускает аппаратов: %1.", _launchCount]},
+    if (_manualControl) then {"Штаб: запрос на ручной FPV принят; управление появится после успешной materialization."} else {format ["Штаб: цель подтверждена. Расчёт FPV принял запрос на аппаратов: %1.", _launchCount]},
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;
