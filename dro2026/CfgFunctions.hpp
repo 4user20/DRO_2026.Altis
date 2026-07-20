@@ -85,6 +85,15 @@ class CfgFunctions
             class buildStrategicPlan {};
             class transitionContactState {};
             class evaluateEndgame {};
+            class getOperationalEffects {};
+            class selectStrategicTarget {};
+            class registerStrategicMunition {};
+            class resolveStrategicImpact {};
+            class launchStrategicMunition {};
+            class spawnOperationalNodeSite {};
+            class spawnPointDefenceGroup {};
+            class getStandoffWeapon {};
+            class executeStandoffAirMission {};
             class clientInit {postInit = 1;};
         };
         class Directors
@@ -108,6 +117,10 @@ class CfgFunctions
             class reactionDirector {};
             class orderEncirclement {};
             class dynamicObjectiveDirector {};
+            class capabilityEffectsDirector {};
+            class strategicStrikeDirector {};
+            class missileDefenceDirector {};
+            class pointDefenceDirector {};
         };
         class Drone
         {
