@@ -22,6 +22,8 @@ FILES = {
     "aa": ROOT / "dro2026" / "functions" / "core" / "fn_spawnLayeredAA.sqf",
     "crew": ROOT / "dro2026" / "functions" / "core" / "fn_crewManagedVehicle.sqf",
     "artillery": ROOT / "dro2026" / "functions" / "objectives" / "fn_artilleryLoop.sqf",
+    "logistics": ROOT / "dro2026" / "functions" / "directors" / "fn_logisticsDirector.sqf",
+    "long_support": ROOT / "dro2026" / "functions" / "support" / "fn_requestLongRangeSupport.sqf",
     "seed": ROOT / "dro2026" / "functions" / "core" / "fn_seededRandom.sqf",
     "phase": ROOT / "dro2026" / "functions" / "core" / "fn_evaluateOperationPhase.sqf",
     "endgate": ROOT / "dro2026" / "functions" / "core" / "fn_evaluateEndgame.sqf",
@@ -54,7 +56,8 @@ required = {
         "locationPosition _x", "roadsConnectedTo [_road,_allowRoadFallback]",
     ],
     "contact": [
-        'getOrDefault ["positionSpace","ASL"]', "DRO2026_fnc_normalizePositionASL",
+        'getOrDefault ["positionSpace",_defaultSpace]', "DRO2026_fnc_normalizePositionASL",
+        '(_subjectNetId find "NODE_") == 0', 'if (_subjectNetId == "" && {!isNull _target}) then {_subjectNetId = netId _target}',
         '["positionSpace","ASL"]', '["stableSubjectId",_stableSubjectId]',
         '["networkOwner",_networkOwner]', '["lastKnownPosition",+_position]',
     ],
@@ -82,11 +85,23 @@ required = {
         '_launcherCount = if (_side == east && {_longClass == "S300_F_UCG"}) then {2}',
         '"launcherPairDistance"', '"radarMinLauncherDistance"',
         'private _shortAnchor = if (_withLongRange) then {_longPosition}',
+        'private _bearingJitter = [25,format',
     ],
     "crew": ["if (!local _vehicle)", "_group addVehicle _vehicle"],
     "artillery": [
         "local _arty", "ASLToAGL _aimASL", "getArtilleryETA",
         "doArtilleryFire [_targetPos, _mag, _rounds]", '"targetAreaAGL"',
+    ],
+    "logistics": [
+        '[_source,250,1800,_bearing,true,false,350]',
+        '[_cargoClass,"LOGISTICS_POOL"]', '_group addVehicle _vehicle',
+        'if (!isNull _vehicle && {local _vehicle})',
+    ],
+    "long_support": [
+        'createHashMapFromArray [["positionSpace","ASL"]]',
+        'createHashMapFromArray [["positionSpace","ATL"],["stableSubjectId",_subjectId]]',
+        '"","PLAYER_DESIGNATION",120,"",0,-1',
+        '"","PLAYER_DESIGNATION",90,"",0,-1',
     ],
     "seed": ["private _modulus = 65521", "251 * _state + 13849", "below 2^24"],
     "phase": [
@@ -123,6 +138,8 @@ if '["state", switch _bda do' in texts.get("add_contact", ""):
     errors.append("add_contact:forbidden:bda-as-lifecycle-state")
 if "1103515245" in texts.get("seed", ""):
     errors.append("seed:forbidden:large-imprecise-lcg")
+if '["PLAYER", objNull, _position, 0.76, "НАЗНАЧЕННАЯ_ТОЧКА", "PLAYER_DESIGNATION", 120]' in texts.get("long_support", ""):
+    errors.append("long_support:forbidden:shifted-contact-arguments")
 
 pairs = {")": "(", "]": "[", "}": "{"}
 for key, text in texts.items():
