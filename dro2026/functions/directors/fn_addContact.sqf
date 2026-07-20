@@ -134,10 +134,11 @@ if (_bda == "CONFIRMED_DESTROYED") then {
 };
 
 private _nodeId = _contact getOrDefault ["subjectId", ""];
-if (_normalizedOwner == "PLAYER" && {_nodeId != ""} && {!isNil {DRO2026_networkNodes get _nodeId}}) then {
+if (_normalizedOwner in ["PLAYER","ENEMY"] && {_nodeId != ""} && {!isNil {DRO2026_networkNodes get _nodeId}}) then {
     private _node = DRO2026_networkNodes get _nodeId;
-    private _known = if ((_contact getOrDefault ["confidence", 0]) >= 0.78) then {"CONFIRMED"} else {"DETECTED"};
-    _node set ["knownByPlayer", _known];
+    private _known = if ((_contact getOrDefault ["confidence", 0]) >= 0.78) then {"CONFIRMED"} else {if ((_contact getOrDefault ["confidence",0]) >= 0.62) then {"TRACKED"} else {"DETECTED"}};
+    private _knowledgeKey = if (_normalizedOwner == "PLAYER") then {"knownByPlayer"} else {"knownByEnemy"};
+    _node set [_knowledgeKey, _known];
     _node set ["lastUpdatedAt", time];
     DRO2026_networkNodes set [_nodeId, _node];
 };
