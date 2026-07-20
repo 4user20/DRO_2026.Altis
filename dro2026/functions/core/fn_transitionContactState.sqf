@@ -22,6 +22,7 @@ if (count _lastPosition == 2) then {_lastPosition pushBack (getTerrainHeightASL 
 _contact set ["state",_state];
 _contact set ["terminalReason",if (_state in _terminalStates) then {_reason} else {""}];
 _contact set ["lastKnownPosition",+_lastPosition];
+_contact set ["positionSpace","ASL"];
 _contact set ["positionASL",+_lastPosition];
 _contact set ["position",+_lastPosition];
 _contact set ["positionMean",+_lastPosition];
@@ -32,14 +33,11 @@ if (_state in _terminalStates) then {
     _contact set ["reservationId",""];
     _contact set ["engagedAt",-1];
     private _contactId = _contact getOrDefault ["contactId",_contact getOrDefault ["id",""]];
-    private _activeIndex = DRO2026_contacts findIf {
-        (_x getOrDefault ["id",""]) == _contactId &&
-        {((_x getOrDefault ["state","ACTIVE"]) in ["ACTIVE","STALE"])}
-    };
+    private _activeIndex = DRO2026_contacts findIf {(_x getOrDefault ["id",""]) == _contactId};
     if (_activeIndex >= 0) then {DRO2026_contacts set [_activeIndex,_contact]};
     {
         if (_x isEqualType createHashMap && {(_x getOrDefault ["contactId",""]) == _contactId}) then {
-            _x set ["status","CANCELLED"];
+            _x set ["status","CANCELED"];
             _x set ["terminalReason",format ["CONTACT_%1",_state]];
             _x set ["lastUpdatedAt",time];
         };
