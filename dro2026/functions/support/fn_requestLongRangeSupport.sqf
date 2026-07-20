@@ -27,11 +27,8 @@ if (_decoy && {_requestUpper != "AUTO"}) exitWith {
 _quantity = ((round _quantity) max 1) min DRO2026_MAX_DRONES_PER_SALVO;
 if (_requestUpper == "FP5") then {_quantity = 1};
 
-private _sideSuffix = switch (_requestSide) do {
-    case west: {"WEST"};
-    case resistance: {"GUER"};
-    default {"EAST"};
-};
+private _sideSuffix = [_requestSide] call DRO2026_fnc_getSideSuffix;
+private _sideNumber = [_requestSide] call DRO2026_fnc_getSideNumber;
 private _longRole = format ["LONG_RANGE_%1", _sideSuffix];
 private _launcherRole = {
     params ["_system"];
@@ -40,8 +37,11 @@ private _launcherRole = {
 private _roleHasToken = {
     params ["_role", "_tokens"];
     ((DRO2026_assetRegistry getOrDefault [_role, []]) findIf {
+        private _cfg = configFile >> "CfgVehicles" >> _x;
         private _name = toLowerANSI _x;
-        (_tokens findIf {(_name find _x) >= 0}) >= 0
+        isClass _cfg &&
+        {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}} &&
+        {(_tokens findIf {(_name find _x) >= 0}) >= 0}
     }) >= 0
 };
 private _launcherHasAmmo = {
@@ -59,10 +59,12 @@ private _bm35LauncherRole = ["BM35"] call _launcherRole;
 private _bulavaLauncherRole = ["BULAVA"] call _launcherRole;
 
 private _available = if (_exactClass != "") then {
+    private _cfg = configFile >> "CfgVehicles" >> _exactClass;
     private _mode = format ["STRIKE_CLASS:%1", _exactClass];
     (_exactClass in (DRO2026_assetRegistry getOrDefault [_longRole, []])) &&
-    {isClass (configFile >> "CfgVehicles" >> _exactClass)} &&
+    {isClass _cfg} &&
     {_exactClass isKindOf "Air"} &&
+    {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}} &&
     {((missionNamespace getVariable ["DRO2026_supportCatalog", []]) findIf {
         (_x isEqualType []) &&
         {(_x param [1, ""]) == _mode} &&
@@ -76,7 +78,12 @@ private _available = if (_exactClass != "") then {
         case "BULAVA": {[_bulavaLauncherRole, ""] call _launcherHasAmmo};
         case "FP5": {_requestSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _launcherHasAmmo}};
         case "SHAHED": {([_longRole, ["shahed", "geran"]] call _roleHasToken) || {count (DRO2026_ammoRegistry getOrDefault ["STRIKE_AMMO_SHAHED", []]) > 0}};
-        case "AUTO": {count (DRO2026_assetRegistry getOrDefault [_longRole, []]) > 0};
+        case "AUTO": {
+            ((DRO2026_assetRegistry getOrDefault [_longRole, []]) findIf {
+                private _cfg = configFile >> "CfgVehicles" >> _x;
+                isClass _cfg && {_x isKindOf "Air"} && {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}
+            }) >= 0
+        };
         default {false};
     }
 };
@@ -104,18 +111,19 @@ if (_launchCount <= 0) exitWith {
 
 private _sites = DRO2026_sites select {
     (_x getOrDefault ["type", ""]) == "FRIENDLY_DRONE_SITE" && {
-        private _operator = _x getOrDefault ["operator", objNull];
-        !isNull _operator && {alive _operator}
+        private _siteId = _x getOrDefault ["id", ""];
+        _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
     }
 };
 if (count _sites == 0) exitWith {
-    ["Штаб: Дальний расчёт БПЛА не отвечает.", _requester] call DRO2026_fnc_supportMessage;
+    ["Штаб: Дальний расчёт БПЛА не отвечает или площадка недоступна.", _requester] call DRO2026_fnc_supportMessage;
 };
 private _site = _sites select 0;
+private _siteId = _site getOrDefault ["id", ""];
 private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
 
-private _baseContact = ["PLAYER", objNull, _position, 0.76, "НАЗНАЧЕННАЯ_ТОЧКА"] call DRO2026_fnc_createContactRecord;
+private _baseContact = ["PLAYER", objNull, _position, 0.76, "НАЗНАЧЕННАЯ_ТОЧКА", "PLAYER_DESIGNATION", 120] call DRO2026_fnc_createContactRecord;
 if (count _baseContact == 0) exitWith {
     ["Штаб: не удалось сформировать запись назначенной цели. Ресурс не списан.", _requester] call DRO2026_fnc_supportMessage;
 };
@@ -123,13 +131,22 @@ private _contacts = DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence", 0]) >= 0.45} &&
     {(time - (_x getOrDefault ["lastSeen", 0])) < 360} &&
-    {((_x getOrDefault ["positionMean", _x getOrDefault ["position", [0,0,0]]]) distance2D _position) < 550}
+    {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} &&
+    {((_x getOrDefault ["positionMean", _x getOrDefault ["position", [0,0,0]]]) distance2D _position) < 550} && {
+        private _subjectId = _x getOrDefault ["subjectId", ""];
+        _subjectId == "" || {[_x] call DRO2026_fnc_isLiveContactSubject}
+    }
 };
-if (count _contacts > 0) then {_baseContact = _contacts select 0};
+if (count _contacts > 0) then {
+    _contacts = [_contacts, [], {-((_x getOrDefault ["confidence", 0]) - ((_x getOrDefault ["uncertaintyRadius", 0]) / 3000))}, "ASCEND"] call BIS_fnc_sortBy;
+    _baseContact = _contacts select 0;
+};
 private _siteContacts = DRO2026_sites select {
     private _sitePosition = _x getOrDefault ["position", []];
+    private _status = _x getOrDefault ["status", "ACTIVE"];
     count _sitePosition > 1 &&
     {_sitePosition distance2D _position < 650} &&
+    {!(_status in ["DESTROYED", "DISABLED", "CANCELLED", "COMPLETED", "RELOCATING"])} &&
     {(_x getOrDefault ["type", ""]) in [
         "ENEMY_HQ", "STRATEGIC_DRONE_SITE", "FPV_TEAM", "ARTILLERY_SITE", "EW_SITE",
         "AIR_DEFENCE_SITE", "ENEMY_LAYERED_AA", "CONVOY", "LOGISTICS_RUN", "LOGISTICS_HUB"
@@ -137,10 +154,11 @@ private _siteContacts = DRO2026_sites select {
 };
 if (count _siteContacts > 0) then {
     private _record = _siteContacts select 0;
+    private _subjectId = _record getOrDefault ["networkNodeId", _record getOrDefault ["id", ""]];
     _baseContact = [
         "PLAYER", _record getOrDefault ["object", objNull], _record getOrDefault ["position", _position],
         0.92, _record getOrDefault ["type", "ЦЕЛЬ"], "PLAYER_DESIGNATION", 90,
-        _record getOrDefault ["networkNodeId", ""]
+        _subjectId
     ] call DRO2026_fnc_createContactRecord;
 };
 if (count _baseContact == 0) exitWith {
@@ -149,11 +167,26 @@ if (count _baseContact == 0) exitWith {
 
 DRO2026_lastLongSupportRequest = time;
 DRO2026_resources set [_costPool, (_stock - _launchCount) max 0];
+["DRONE_LAUNCH_RESERVED", createHashMapFromArray [
+    ["role", "LONG_RANGE"], ["type", _requestedType], ["count", _launchCount],
+    ["decoy", _decoy], ["siteId", _siteId], ["contactId", _baseContact getOrDefault ["id", ""]]
+], _siteId] call DRO2026_fnc_emitEvent;
 
-[_origin, _baseContact, _operator, _requestedType, _decoy, _launchCount, _requestSide, _costPool] spawn {
-    params ["_origin", "_baseContact", "_operator", "_type", "_decoy", "_count", "_requestSide", "_costPool"];
+[_origin, _baseContact, _operator, _requestedType, _decoy, _launchCount, _requestSide, _costPool, _siteId] spawn {
+    params ["_origin", "_baseContact", "_operator", "_type", "_decoy", "_count", "_requestSide", "_costPool", "_siteId"];
     for "_index" from 0 to (_count - 1) do {
-        if ((missionNamespace getVariable ["DRO2026_missionEnding", false]) || {!isNull _operator && {!alive _operator}}) exitWith {
+        private _target = _baseContact getOrDefault ["target", objNull];
+        private _subjectId = _baseContact getOrDefault ["subjectId", ""];
+        private _contactInvalid =
+            (_baseContact getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"] ||
+            {!isNull _target && {!alive _target}} ||
+            {_subjectId != "" && {!([_baseContact] call DRO2026_fnc_isLiveContactSubject)}};
+        private _abort =
+            (missionNamespace getVariable ["DRO2026_missionEnding", false]) ||
+            {!isNull _operator && {!alive _operator}} ||
+            {!([_siteId] call DRO2026_fnc_isSiteOperational)} ||
+            {_contactInvalid};
+        if (_abort) exitWith {
             private _unlaunched = _count - _index;
             DRO2026_resources set [_costPool, (DRO2026_resources getOrDefault [_costPool, 0]) + _unlaunched];
             [format ["Отменена не запущенная часть salvo %1: возвращено %2", _type, _unlaunched]] call DRO2026_fnc_log;
@@ -165,13 +198,13 @@ DRO2026_resources set [_costPool, (_stock - _launchCount) max 0];
             _contact set ["position", _basePosition getPos [40 + random 260, random 360]];
             _contact set ["positionMean", _contact get "position"];
         };
-        [_origin, _contact, _requestSide, _type == "FP5", _operator, _type, _decoy, _index, _count, true] spawn DRO2026_fnc_launchLongRangeStrike;
+        [_origin, _contact, _requestSide, _type == "FP5", _operator, _type, _decoy, _index, _count, true, "", _siteId] spawn DRO2026_fnc_launchLongRangeStrike;
         sleep (2.5 + random 3.5);
     };
 };
 private _launchLabel = if (_decoy) then {"БПЛА-обманка"} else {if (_exactClass != "") then {_exactClass} else {_requestedType}};
 [
     "ACK",
-    format ["Штаб: Подтверждаю запуск: %1, количество %2.", _launchLabel, _launchCount],
+    format ["Штаб: запрос на %1 принят; зарезервировано аппаратов %2. Фактический запуск подтверждается после materialization.", _launchLabel, _launchCount],
     if (!isNull _requester) then {_requester} else {-2}
 ] call DRO2026_fnc_hqVoice;
