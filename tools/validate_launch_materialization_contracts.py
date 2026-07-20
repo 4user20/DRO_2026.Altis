@@ -102,6 +102,13 @@ LAUNCHERS = (
     "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
 )
 
+RESERVATION_BEFORE_LAUNCH: dict[str, str] = {
+    "dro2026/functions/support/fn_requestFPV.sqf": "spawn DRO2026_fnc_launchFPVStrike",
+    "dro2026/functions/directors/fn_enemyFPVDirector.sqf": "spawn DRO2026_fnc_launchFPVStrike",
+    "dro2026/functions/support/fn_requestLongRangeSupport.sqf": "spawn DRO2026_fnc_launchLongRangeStrike",
+    "dro2026/functions/directors/fn_longRangeDroneDirector.sqf": "spawn DRO2026_fnc_launchLongRangeStrike",
+}
+
 
 def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8", errors="replace")
@@ -125,14 +132,50 @@ def main() -> int:
         if '"DRONE_LAUNCHED"' in source:
             errors.append(f"{relative}: emits DRONE_LAUNCHED before materialization")
 
+    for relative, launch_token in RESERVATION_BEFORE_LAUNCH.items():
+        source = read(relative)
+        reservation_at = source.find('["DRONE_LAUNCH_RESERVED"')
+        launch_at = source.find(launch_token)
+        if reservation_at < 0 or launch_at < 0 or reservation_at > launch_at:
+            errors.append(f"{relative}: reservation event must precede launcher spawn")
+
+    friendly = read("dro2026/functions/directors/fn_friendlyStrikeDirector.sqf")
+    reservation_positions = [
+        match.start()
+        for match in re.finditer(r'"state"\s*,\s*"RESERVED"', friendly)
+    ]
+    launch_positions = sorted(
+        position
+        for token in (
+            "spawn DRO2026_fnc_launchFPVStrike",
+            "spawn DRO2026_fnc_launchLongRangeStrike",
+        )
+        if (position := friendly.find(token)) >= 0
+    )
+    if len(reservation_positions) != len(launch_positions) or any(
+        reserved_at > launch_at
+        for reserved_at, launch_at in zip(reservation_positions, launch_positions)
+    ):
+        errors.append(
+            "fn_friendlyStrikeDirector.sqf: RESERVED event must precede each launcher spawn"
+        )
+
     for relative in LAUNCHERS:
         source = read(relative)
         if source.count('"DRONE_LAUNCHED"') != 1:
             errors.append(f"{relative}: must emit DRONE_LAUNCHED exactly once")
         event_at = source.find('["DRONE_LAUNCHED"')
         create_at = source.find("createVehicle [")
-        if event_at < 0 or create_at < 0 or event_at < create_at:
-            errors.append(f"{relative}: launch event precedes physical materialization")
+        null_guard_at = source.find("if (isNull _drone) exitWith")
+        site_tag_at = source.find('setVariable ["DRO2026_siteId"')
+        active_at = source.find("DRO2026_activeDrones pushBack")
+        materialization_points = (create_at, null_guard_at, site_tag_at, active_at)
+        if event_at < 0 or any(
+            point < 0 or event_at < point for point in materialization_points
+        ):
+            errors.append(
+                f"{relative}: launch event precedes confirmed physical materialization"
+            )
         if relative.endswith("fn_launchFPVStrike.sqf"):
             crew_at = source.find("createVehicleCrew")
             if crew_at < 0 or event_at < crew_at:
@@ -147,7 +190,11 @@ def main() -> int:
         "dro2026/functions/directors/fn_enemyFPVDirector.sqf",
     ):
         source = read(relative)
-        calls = re.findall(r"\[[^;]+\]\s+spawn\s+DRO2026_fnc_launchFPVStrike", source, re.DOTALL)
+        calls = re.findall(
+            r"\[[^;]+\]\s+spawn\s+DRO2026_fnc_launchFPVStrike",
+            source,
+            re.DOTALL,
+        )
         if not calls or not all("_siteId" in call for call in calls):
             errors.append(f"{relative}: FPV call does not pass stable siteId")
 
@@ -156,7 +203,11 @@ def main() -> int:
         "dro2026/functions/directors/fn_longRangeDroneDirector.sqf",
     ):
         source = read(relative)
-        calls = re.findall(r"\[[^;]+\]\s+spawn\s+DRO2026_fnc_launchLongRangeStrike", source, re.DOTALL)
+        calls = re.findall(
+            r"\[[^;]+\]\s+spawn\s+DRO2026_fnc_launchLongRangeStrike",
+            source,
+            re.DOTALL,
+        )
         if not calls or not all("_siteId" in call for call in calls):
             errors.append(f"{relative}: long-range call does not pass stable siteId")
 
