@@ -27,7 +27,8 @@ private _guardGroup = [_pos, 3, 5, 110] call DRO2026_fnc_spawnGuard;
 private _extra = createHashMapFromArray [["group", _vehicleGroup], ["guardGroup", _guardGroup], ["background", false]];
 private _site = ["EW_SITE", _pos, _vehicle, _critical, _extra] call DRO2026_fnc_createSiteRecord;
 if !([_site, true] call DRO2026_fnc_validateSiteRecord) exitWith {
-    {if (!isNull _x) then {deleteVehicleCrew _x; deleteVehicle _x}} forEach (_critical select {!(_x isKindOf "Man")});
+    if (!isNull _vehicle) then {deleteVehicleCrew _vehicle};
+    {if (!isNull _x) then {deleteVehicle _x}} forEach _critical;
     {
         if (!isNull _x) then {
             {if (!isNull _x) then {deleteVehicle _x}} forEach units _x;
