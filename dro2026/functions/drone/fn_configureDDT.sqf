@@ -35,14 +35,10 @@ missionNamespace setVariable ["ddtDeployBehaviour", ["SAFE", "AWARE", "COMBAT"],
 ["ddtExclusionRadiusBomber", 1500] call _setDefault;
 
 private _enableUnassigned = missionNamespace getVariable ["DRO2026_DDT_ENABLE_UNASSIGNED", false];
-private _customFallback = missionNamespace getVariable ["DRO2026_CUSTOM_FPV_FALLBACK", true];
-if (_enableUnassigned && {!_customFallback}) then {
-    missionNamespace setVariable ["ddtCycleUnassigned", 60, true];
-} else {
-    missionNamespace setVariable ["ddtCycleUnassigned", -1, true];
-    if (_enableUnassigned && {_customFallback}) then {
-        ["DDT unassigned takeover kept disabled: custom FPV fallback is active"] call DRO2026_fnc_log;
-    };
+// Never wake DDT's native all-machine scanner. Optional takeover is dispatched by DRO on the server.
+missionNamespace setVariable ["ddtCycleUnassigned", -1, true];
+if (_enableUnassigned) then {
+    ["DDT unassigned takeover enabled through the server-owned DRO dispatcher"] call DRO2026_fnc_log;
 };
 
 // DDT's native jammer directly disconnects, kills crew and drains fuel without a class exemption.
