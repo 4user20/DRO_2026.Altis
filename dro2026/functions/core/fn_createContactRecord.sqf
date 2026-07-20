@@ -26,9 +26,9 @@ private _normalizedOwner = switch true do {
 };
 if (_normalizedOwner == "") exitWith {createHashMap};
 
-if (count _position < 2 && {!isNull _target}) then {_position = getPosASL _target};
-if !(_position isEqualType [] && {count _position in [2,3]} && {(_position findIf {!(_x isEqualType 0)}) < 0}) exitWith {createHashMap};
-if (count _position == 2) then {_position pushBack (getTerrainHeightASL _position)};
+private _positionSpace = toUpperANSI (_metadata getOrDefault ["positionSpace","ASL"]);
+_position = [_position,_positionSpace,_target] call DRO2026_fnc_normalizePositionASL;
+if (count _position != 3) exitWith {createHashMap};
 if (_confidence < 0 || {_confidence > 1}) exitWith {createHashMap};
 if (_uncertaintyRadius < -1 || {_uncertaintyGrowth < -1}) exitWith {createHashMap};
 
@@ -83,7 +83,7 @@ private _record = createHashMapFromArray [
     ["subjectType",_classification],["classification",_classification],["kind",_classification],
     ["side",if (!isNull _target) then {side _target} else {sideUnknown}],
     ["state","ACTIVE"],["terminalReason",""],["terminalAt",-1],
-    ["positionASL",+_position],["position",+_position],["positionMean",+_position],["lastKnownPosition",+_position],
+    ["positionSpace","ASL"],["positionASL",+_position],["position",+_position],["positionMean",+_position],["lastKnownPosition",+_position],
     ["uncertaintyRadius",_uncertaintyRadius],["uncertaintyGrowthPerMinute",_uncertaintyGrowth],
     ["uncertaintyGrowth",_uncertaintyGrowth],["confidence",_confidence],
     ["createdAt",time],["lastConfirmedAt",time],["lastSeenAt",time],["lastUpdatedAt",time],
@@ -94,7 +94,13 @@ private _record = createHashMapFromArray [
     ["falseContactProbability",(_falseContactProbability max 0) min 0.8],["marker",""],
     ["bdaState","DETECTED"],["engagedAt",-1],["reservationId",""]
 ];
+private _protectedKeys = [
+    "schema","contactId","id","ownerKey","owner","object","subjectObject","target",
+    "netId","subjectNetId","targetNetId","stableSubjectId","subjectId","state",
+    "terminalReason","terminalAt","positionSpace","positionASL","position","positionMean",
+    "lastKnownPosition","createdAt","lastConfirmedAt","lastSeenAt","lastUpdatedAt"
+];
 {
-    _record set [_x,_metadata get _x];
+    if !(_x in _protectedKeys) then {_record set [_x,_metadata get _x]};
 } forEach keys _metadata;
 _record
