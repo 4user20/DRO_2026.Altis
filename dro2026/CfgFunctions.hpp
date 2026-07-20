@@ -71,6 +71,7 @@ class CfgFunctions
             class buildWaypointFlightPlan {};
             class buildAssetDescriptors {};
             class dumpAssetClass {};
+            class normalizePositionASL {};
             class findRoadAwarePosition {};
             class createSiteComponents {};
             class evaluateSiteComponents {};
