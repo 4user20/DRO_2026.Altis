@@ -9,6 +9,8 @@ private _valid = _candidates select {
     _expected < 0 || {_cfgSide == _expected} || {_allowNeutral && {_cfgSide == 3}}
 };
 if (count _valid == 0) exitWith {""};
+// Keep the source-backed legacy contract available as an explicit compatibility mode.
+if (missionNamespace getVariable ["DRO2026_USE_LEGACY_ROLE_RANDOM",false]) exitWith {selectRandom _valid};
 private _stream = format ["ROLE_CLASS_%1_%2",toUpperANSI _role,_expected];
 private _index = floor ([count _valid,_stream,0] call DRO2026_fnc_seededRandom);
 _valid param [_index,_valid select 0]
