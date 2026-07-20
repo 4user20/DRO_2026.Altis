@@ -17,6 +17,11 @@ missionNamespace setVariable ["DRO2026_directorsStarted", true];
 } forEach allGroups;
 {private _object = _x getOrDefault ["object", objNull]; if (!isNull _object) then {DRO2026_managedVehicles pushBackUnique _object}} forEach DRO2026_sites;
 
+// Effects are authoritative inputs for all other directors; start them before action generation.
+[] spawn DRO2026_fnc_capabilityEffectsDirector;
+[] spawn DRO2026_fnc_missileDefenceDirector;
+[] spawn DRO2026_fnc_pointDefenceDirector;
+[] spawn DRO2026_fnc_strategicStrikeDirector;
 [] spawn DRO2026_fnc_operationDirector;
 [] spawn DRO2026_fnc_airDefenceDirector;
 [] spawn DRO2026_fnc_performanceGovernor;
@@ -33,4 +38,4 @@ missionNamespace setVariable ["DRO2026_directorsStarted", true];
 [] spawn DRO2026_fnc_enemyAirDirector;
 [] spawn DRO2026_fnc_reactionDirector;
 ["RADIO_CHECK"] call DRO2026_fnc_hqVoice;
-[format ["Директоры современной операции %1 запущены; doctrine=%2", DRO2026_VERSION, DRO2026_operationState getOrDefault ["doctrine", "UNKNOWN"]]] call DRO2026_fnc_log;
+[format ["Директоры современной операции %1 запущены; doctrine=%2, strategic warfare active", DRO2026_VERSION, DRO2026_operationState getOrDefault ["doctrine", "UNKNOWN"]]] call DRO2026_fnc_log;
