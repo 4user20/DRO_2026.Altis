@@ -27,7 +27,7 @@ private _confirmedIntel = count (DRO2026_contacts select {
     (_x getOrDefault ["owner",""]) == "PLAYER" &&
     {(_x getOrDefault ["confidence",0]) >= 0.58} &&
     {!((toUpperANSI (_x getOrDefault ["state","ACTIVE"])) in ["LOST","DESTROYED","INVALID","EXPIRED"])} &&
-    {!((_x getOrDefault ["bdaState","DETECTED"]) in ["PROBABLY_DESTROYED","CONFIRMED_DESTROYED"])}
+    {!((_x getOrDefault ["bdaState","DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])}
 });
 private _interdictions = count (DRO2026_eventLog select {
     (_x getOrDefault ["type",""]) in ["DELIVERY_INTERDICTED","SITE_DESTROYED","NETWORK_NODE_DESTROYED","OBJECTIVE_COMPLETED"]
