@@ -36,12 +36,8 @@ private _extra = createHashMapFromArray [
 ];
 private _site = ["STRATEGIC_DRONE_SITE", _pos, _siteObject, _siteObjects, _extra] call DRO2026_fnc_createSiteRecord;
 private _rollback = {
-    {
-        if (!isNull _x) then {
-            if !(_x isKindOf "Man") then {deleteVehicleCrew _x};
-            deleteVehicle _x;
-        };
-    } forEach _siteObjects;
+    if (!isNull _control) then {deleteVehicleCrew _control};
+    {if (!isNull _x) then {deleteVehicle _x}} forEach _siteObjects;
     {
         if (!isNull _x) then {
             {if (!isNull _x) then {deleteVehicle _x}} forEach units _x;
