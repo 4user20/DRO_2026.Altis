@@ -13,8 +13,10 @@ private _cleanupJob = {
     private _group = _job getOrDefault ["group",grpNull];
     {
         if (!isNull _x) then {
-            deleteVehicleCrew _x;
-            if (_deleteAlive || {!alive _x}) then {deleteVehicle _x};
+            if (local _x) then {
+                deleteVehicleCrew _x;
+                if (_deleteAlive || {!alive _x}) then {deleteVehicle _x};
+            };
         };
     } forEach (_job getOrDefault ["vehicles",[]]);
     if (!isNull _group) then {deleteGroup _group};
@@ -105,7 +107,7 @@ private _materialize = {
         if (_class != "" && {isClass (configFile >> "CfgVehicles" >> _class)}) then {
             private _vehiclePosition = _spawn getPos [_forEachIndex * 26,_bearing + 180];
             private _vehicle = createVehicle [_class,_vehiclePosition,[],0,"NONE"];
-            if (!isNull _vehicle) then {
+            if (!isNull _vehicle && {local _vehicle}) then {
                 _vehicle setDir _bearing;
                 _vehicle setVehiclePosition [getPosATL _vehicle,[],0,"NONE"];
                 private _crew = _side createVehicleCrew _vehicle;
@@ -116,6 +118,7 @@ private _materialize = {
                         (units _crew) joinSilent _group;
                         if (count units _crew == 0) then {deleteGroup _crew};
                     };
+                    _group addVehicle _vehicle;
                     _vehicles pushBack _vehicle;
                     if (_isCargo) then {_cargoVehicles pushBack _vehicle};
                     _vehicle forceFollowRoad true;
@@ -130,7 +133,7 @@ private _materialize = {
         };
     } forEach _vehiclePlan;
     if (isNull _group || {count _cargoVehicles == 0}) exitWith {
-        {if (!isNull _x) then {deleteVehicleCrew _x; deleteVehicle _x}} forEach _vehicles;
+        {if (!isNull _x && {local _x}) then {deleteVehicleCrew _x; deleteVehicle _x}} forEach _vehicles;
         if (!isNull _group) then {deleteGroup _group};
         createHashMap
     };
