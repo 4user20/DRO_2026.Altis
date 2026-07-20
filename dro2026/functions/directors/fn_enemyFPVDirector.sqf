@@ -16,7 +16,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
 
     private _nodeId = "NODE_FPV_FORWARD_01";
     private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-    if (count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "RELOCATING"]}) then {continue};
+    if (count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"]}) then {continue};
     private _stocks = _node getOrDefault ["stocks", createHashMap];
     private _kits = _stocks getOrDefault ["FPV_KITS", DRO2026_resources getOrDefault ["enemyDroneStock", 0]];
     private _batteries = _stocks getOrDefault ["BATTERIES", _kits];
@@ -28,10 +28,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             (_x getOrDefault ["owner", ""]) == "ENEMY" &&
             {(_x getOrDefault ["confidence", 0]) >= DRO2026_CONTACT_REQUIRED_FOR_FPV} &&
             {(time - (_x getOrDefault ["lastSeen", 0])) < 190} &&
-            {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])} && {
-                private _target = _x getOrDefault ["target", objNull];
-                isNull _target || {alive _target}
-            }
+            {[_x] call DRO2026_fnc_isLiveContactSubject}
         };
         private _intentContactId = _intent getOrDefault ["contactId", ""];
         if (_intentContactId != "") then {
@@ -43,16 +40,18 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _contact = _contacts select 0;
             private _targetPos = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
             private _sites = DRO2026_sites select {
-                (_x getOrDefault ["networkNodeId", ""]) == _nodeId || {(_x getOrDefault ["type", ""]) == "FPV_TEAM"}
-            };
-            _sites = _sites select {
-                private _operator = _x getOrDefault ["operator", objNull];
-                private _position = _x getOrDefault ["position", []];
-                !isNull _operator && {alive _operator} && {count _position > 1} && {_position distance2D _targetPos <= 4800}
+                ((_x getOrDefault ["networkNodeId", ""]) == _nodeId || {(_x getOrDefault ["type", ""]) == "FPV_TEAM"}) && {
+                    private _siteId = _x getOrDefault ["id", ""];
+                    _siteId != "" && {[_siteId] call DRO2026_fnc_isSiteOperational}
+                } && {
+                    private _position = _x getOrDefault ["position", []];
+                    count _position > 1 && {_position distance2D _targetPos <= 4800}
+                }
             };
             if (count _sites > 0) then {
                 _sites = [_sites, [], {(_x getOrDefault ["position", [0,0,0]]) distance2D _targetPos}, "ASCEND"] call BIS_fnc_sortBy;
                 private _site = _sites select 0;
+                private _siteId = _site getOrDefault ["id", ""];
                 private _operator = _site getOrDefault ["operator", objNull];
                 private _origin = _site getOrDefault ["position", getPosATL _operator];
                 private _count = (if (DRO2026_alertLevel > 0.72 && {random 1 < 0.45}) then {2} else {1}) min _stock min _slots;
@@ -60,16 +59,16 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 [_nodeId, "BATTERIES", -_count, "FPV_ATTACK"] call DRO2026_fnc_changeNetworkNodeStock;
                 DRO2026_resources set ["enemyDroneStock", ((_kits - _count) max 0)];
                 DRO2026_lastEnemyFPV = time;
-                [_origin, _contact, _operator, _count, _nodeId] spawn {
-                    params ["_origin", "_contact", "_operator", "_count", "_nodeId"];
+                [_origin, _contact, _operator, _count, _nodeId, _siteId] spawn {
+                    params ["_origin", "_contact", "_operator", "_count", "_nodeId", "_siteId"];
                     for "_index" from 0 to (_count - 1) do {
                         private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-                        private _target = _contact getOrDefault ["target", objNull];
                         private _abort =
                             (missionNamespace getVariable ["DRO2026_missionEnding", false]) ||
                             {!isNull _operator && {!alive _operator}} ||
-                            {!isNull _target && {!alive _target}} ||
-                            {count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "RELOCATING"]}};
+                            {!([_siteId] call DRO2026_fnc_isSiteOperational)} ||
+                            {!([_contact] call DRO2026_fnc_isLiveContactSubject)} ||
+                            {count _node > 0 && {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED", "RELOCATING"]}};
                         if (_abort) exitWith {
                             private _unlaunched = _count - _index;
                             [_nodeId, "FPV_KITS", _unlaunched, "FPV_SALVO_ABORT"] call DRO2026_fnc_changeNetworkNodeStock;
@@ -78,11 +77,11 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                             [format ["Enemy FPV salvo aborted before %1 remaining launches", _unlaunched]] call DRO2026_fnc_log;
                         };
                         private _launchOrigin = _origin getPos [4 + random 12, random 360];
-                        [_launchOrigin, _contact, enemySide, _operator, false, objNull, "", _nodeId] spawn DRO2026_fnc_launchFPVStrike;
+                        [_launchOrigin, _contact, enemySide, _operator, false, objNull, "", _nodeId, _siteId] spawn DRO2026_fnc_launchFPVStrike;
                         sleep (2 + random 3);
                     };
                 };
-                ["DRONE_LAUNCHED", createHashMapFromArray [["role", "FPV"], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]]], _nodeId] call DRO2026_fnc_emitEvent;
+                ["DRONE_LAUNCH_RESERVED", createHashMapFromArray [["role", "FPV"], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId]], _nodeId] call DRO2026_fnc_emitEvent;
 
                 private _launches = (_node getOrDefault ["launchesSinceRelocation", 0]) + _count;
                 private _threshold = _node getOrDefault ["relocationThreshold", 1 + floor random 3];
