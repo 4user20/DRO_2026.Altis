@@ -16,6 +16,7 @@ class CfgFunctions
             class getSideNumber {};
             class getSideRoleClass {};
             class crewManagedVehicle {};
+            class isLiveContactSubject {};
             class isSafeInfantryClass {};
             class sanitizeLegacyPools {};
             class findStrategicPosition {};
