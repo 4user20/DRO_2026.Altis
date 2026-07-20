@@ -14,6 +14,7 @@ parser.add_argument("--require-hemtt", action="store_true")
 args = parser.parse_args()
 
 commands: list[list[str]] = [
+    [sys.executable, str(ROOT / "tools" / "validate_source_manifest.py")],
     [sys.executable, str(ROOT / "tools" / "validate_arma_wiki_contracts.py")],
     [sys.executable, str(ROOT / "tools" / "validate_side_contracts.py")],
     [sys.executable, str(ROOT / "tools" / "validate_orientation_contracts.py")],
