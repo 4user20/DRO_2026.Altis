@@ -12,6 +12,10 @@ class CfgFunctions
             class refreshFactionAssets {};
             class publishSupportCatalog {};
             class getRoleClass {};
+            class getSideSuffix {};
+            class getSideNumber {};
+            class getSideRoleClass {};
+            class crewManagedVehicle {};
             class isSafeInfantryClass {};
             class sanitizeLegacyPools {};
             class findStrategicPosition {};
@@ -43,6 +47,10 @@ class CfgFunctions
             class completeObjective {};
             class createFriendlyPositions {};
             class createFriendlyLogisticsSite {};
+            class spawnStrategicHQ {};
+            class spawnLayeredAA {};
+            class spawnStrategicDroneSite {};
+            class spawnBackgroundArtillery {};
             class createStrategicInfrastructure {};
             class calculateTerrainAwareAim {};
             class resolveLauncherAmmo {};
