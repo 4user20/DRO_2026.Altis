@@ -39,10 +39,8 @@ if (_ammoClass == "" || {!isClass (configFile >> "CfgAmmo" >> _ammoClass)}) exit
 };
 private _originASL = [_originATL,"ATL",objNull] call DRO2026_fnc_normalizePositionASL;
 private _targetObject = _target getOrDefault ["object",objNull];
-private _bearing = _originASL getDir _targetASL;
 private _launchASL = +_originASL;
 private _isBallistic = _profileUpper in ["ISKANDER","BALLISTIC"];
-private _isCruise = !_isBallistic;
 _launchASL set [2,(getTerrainHeightASL _originATL) + (if (_isBallistic) then {45} else {80})];
 private _munitionObject = createVehicle [_ammoClass,ASLToAGL _launchASL,[],0,"CAN_COLLIDE"];
 if (isNull _munitionObject) exitWith {createHashMap};
@@ -52,14 +50,16 @@ private _record = [_munitionObject,_profileUpper,_launchSide,_target,_warheadYie
 if (count _record == 0) exitWith {deleteVehicle _munitionObject; createHashMap};
 private _munitionId = _record getOrDefault ["id",""];
 private _ammoCfg = configFile >> "CfgAmmo" >> _ammoClass;
-if (getNumber (_ammoCfg >> "manualControl") > 0) then {
-    _munitionObject setMissileTargetPos (ASLToATL _targetASL);
-};
+if (getNumber (_ammoCfg >> "manualControl") > 0) then {_munitionObject setMissileTargetPos (ASLToATL _targetASL)};
 private _initial = _targetASL vectorDiff _launchASL;
 private _initialLength = vectorMagnitude _initial;
 if (_initialLength > 0.1) then {
     private _direction = _initial vectorMultiply (1 / _initialLength);
-    _munitionObject setVectorDirAndUp [_direction,[0,0,1]];
+    private _right = _direction vectorCrossProduct [0,0,1];
+    if (vectorMagnitude _right < 0.01) then {_right = [1,0,0]};
+    _right = _right vectorMultiply (1 / ((vectorMagnitude _right) max 0.01));
+    private _up = _right vectorCrossProduct _direction;
+    _munitionObject setVectorDirAndUp [_direction,_up];
     _munitionObject setVelocity (_direction vectorMultiply (if (_isBallistic) then {140} else {_nominalSpeed}));
 };
 [_record,_targetObject,_originASL,_targetASL,_isBallistic,_nominalSpeed] spawn {
