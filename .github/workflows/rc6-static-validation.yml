@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/post-merge-audit-hardening
+      - fix/rc6-main-full-stabilization
   pull_request:
     branches:
       - main
@@ -79,6 +80,14 @@ jobs:
           print(f"Validated {len(results)} canonical RC6 stages")
           PY
 
+      - name: Package exact source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-artifact
+          git rev-parse HEAD > source-artifact/source-revision.txt
+          tar --exclude=.git --exclude=source-artifact --exclude=validation-artifacts -czf source-artifact/dro-source.tar.gz .
+
       - name: Write validation summary
         if: always()
         shell: bash
@@ -115,3 +124,10 @@ jobs:
           path: validation-artifacts/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Upload exact source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc6-source-${{ github.sha }}
+          path: source-artifact/
+          retention-days: 1
