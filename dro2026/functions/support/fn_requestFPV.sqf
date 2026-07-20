@@ -63,6 +63,10 @@ private _operator = _site getOrDefault ["operator", objNull];
 
 DRO2026_resources set ["friendlyFPVStock", (_stock - _launchCount) max 0];
 DRO2026_lastFPVRequest = time;
+["DRONE_LAUNCH_RESERVED", createHashMapFromArray [
+    ["role", "FPV"], ["count", _launchCount], ["manual", _manualControl],
+    ["requestedClass", _requestedClass], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId]
+], _siteId] call DRO2026_fnc_emitEvent;
 [_origin, _contact, _operator, _manualControl, _launchCount, _requestSide, _requester, _requestedClass, _siteId] spawn {
     params ["_origin", "_contact", "_operator", "_manualControl", "_count", "_requestSide", "_requester", "_requestedClass", "_siteId"];
     for "_index" from 0 to (_count - 1) do {
