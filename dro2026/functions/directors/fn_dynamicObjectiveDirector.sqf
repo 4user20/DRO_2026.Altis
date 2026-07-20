@@ -77,11 +77,15 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                 };
             };
             case "STRATEGIC_MUNITION_DETECTED": {
-                private _munitionId = _payload getOrDefault ["munitionId",_sourceId];
-                private _registry = missionNamespace getVariable ["DRO2026_activeStrategicMunitions",[]];
-                private _index = _registry findIf {(_x getOrDefault ["id",""]) == _munitionId};
-                private _p = if (_index >= 0) then {getPosASL ((_registry select _index) getOrDefault ["object",objNull])} else {[]};
-                ["INCOMING_MISSILE",_munitionId,"Отразить ракетный удар",format ["Обнаружена цель профиля %1. Не покидайте укрытия; дальняя ПВО выполняет ограниченное число попыток перехвата.",_payload getOrDefault ["profile","UNKNOWN"]],_p,900,"","interact"] call _createTask;
+                private _defender = _payload getOrDefault ["defender",""];
+                if (_defender == str playersSide) then {
+                    private _munitionId = _payload getOrDefault ["munitionId",_sourceId];
+                    private _registry = missionNamespace getVariable ["DRO2026_activeStrategicMunitions",[]];
+                    private _index = _registry findIf {(_x getOrDefault ["id",""]) == _munitionId};
+                    private _munitionObject = if (_index >= 0) then {(_registry select _index) getOrDefault ["object",objNull]} else {objNull};
+                    private _p = if (!isNull _munitionObject) then {getPosASL _munitionObject} else {[]};
+                    ["INCOMING_MISSILE",_munitionId,"Отразить ракетный удар",format ["Обнаружена цель профиля %1. Не покидайте укрытия; дальняя ПВО выполняет ограниченное число попыток перехвата.",_payload getOrDefault ["profile","UNKNOWN"]],_p,900,"","interact"] call _createTask;
+                };
             };
             case "STRATEGIC_STRIKE_ORDERED": {
                 private _actor = _payload getOrDefault ["actor",_sourceId];
