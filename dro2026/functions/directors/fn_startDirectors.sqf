@@ -21,6 +21,7 @@ missionNamespace setVariable ["DRO2026_directorsStarted", true];
 [] spawn DRO2026_fnc_airDefenceDirector;
 [] spawn DRO2026_fnc_performanceGovernor;
 [] spawn DRO2026_fnc_sensorDirector;
+[] spawn DRO2026_fnc_droneWarfareDirector;
 [] spawn DRO2026_fnc_enemyFPVDirector;
 [] spawn DRO2026_fnc_enemyISRDirector;
 [] spawn DRO2026_fnc_longRangeDroneDirector;
