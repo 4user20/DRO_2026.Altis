@@ -16,6 +16,14 @@ private _name = toLowerANSI _class;
 private _display = toLowerANSI getText (_cfg >> "displayName");
 private _hay = format ["%1 %2", _name, _display];
 
+if ((_hay find "9k720") >= 0 || {(_hay find "iskander") >= 0}) exitWith {"BALLISTIC_MISSILE_LAUNCHER"};
+if ((_hay find "s300") >= 0 && {(_hay find "radar") < 0} && {(_hay find "_rs") < 0}) exitWith {"SAM_LONG_RANGE"};
+if ((_hay find "s300") >= 0 && {(_hay find "radar") >= 0 || {(_hay find "_rs") >= 0}}) exitWith {"FIRE_CONTROL_RADAR"};
+if ((_hay find "nebo") >= 0) exitWith {"EARLY_WARNING_RADAR"};
+if ((_hay find "9k317") >= 0 || {(_hay find "buk") >= 0}) exitWith {"SAM_MEDIUM_RANGE"};
+if ((_hay find "96k6") >= 0 || {(_hay find "pantsir") >= 0} || {(_hay find "9k332") >= 0}) exitWith {"SHORAD"};
+if ((_hay find "bm35") >= 0 && {(_hay find "launcher") >= 0}) exitWith {"UAV_LAUNCHER"};
+
 if (_class isKindOf "Man") exitWith {"PERSONNEL"};
 if (_class isKindOf "Helicopter") exitWith {
     if (getNumber (_cfg >> "transportSoldier") > 3) then {"HELICOPTER_TRANSPORT"} else {"HELICOPTER_ATTACK"}
