@@ -90,10 +90,13 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 {({alive _x} count units _x) > 0}
             };
             private _hq = DRO2026_networkNodes getOrDefault ["NODE_ENEMY_HQ", createHashMap];
+            private _hqStatus = _hq getOrDefault ["status", "ACTIVE"];
             private _stocks = _hq getOrDefault ["stocks", createHashMap];
             private _replacements = _stocks getOrDefault ["INFANTRY_REPLACEMENTS", 0];
             private _fuel = _stocks getOrDefault ["FUEL", 0];
             private _canSpawn = !(missionNamespace getVariable ["DRO2026_missionEnding", false]) && {
+                count _hq > 0 && {!(_hqStatus in ["DESTROYED", "DISABLED", "CANCELLED"])}
+            } && {
                 count _nonStatic < 4
             } && {
                 DRO2026_fpsAverage >= DRO2026_MIN_FPS_FOR_REINFORCEMENTS
