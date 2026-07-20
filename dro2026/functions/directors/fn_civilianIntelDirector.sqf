@@ -4,7 +4,9 @@ if (isNil {DRO2026_operationState get "localHostility"}) then {DRO2026_operation
 private _lastReportAt = -999;
 
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
-    private _civilians = allUnits select {alive _x && {side (group _x) == civilian}};
+    private _civilians = allUnits select {
+        alive _x && {!(_x isKindOf "VirtualMan_F")} && {side (group _x) == civilian}
+    };
     {
         private _civilian = _x;
         if !(_civilian getVariable ["DRO2026_civilianTracked", false]) then {
@@ -50,11 +52,13 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     private _fear = DRO2026_operationState getOrDefault ["civilianFear", 18];
     private _hostility = DRO2026_operationState getOrDefault ["localHostility", 10];
     private _reportInterval = linearConversion [0, 100, _trust, 210, 85, true] + random 50;
-    if (count _civilians > 0 && {(time - _lastReportAt) >= _reportInterval} && {_trust > 12}) then {
+    if (
+        !(missionNamespace getVariable ["DRO2026_missionEnding", false]) &&
+        {count _civilians > 0} && {(time - _lastReportAt) >= _reportInterval} && {_trust > 12}
+    ) then {
         private _reporter = selectRandom _civilians;
         private _reporterPosition = getPosATL _reporter;
         private _observations = [];
-
         {
             private _nodeId = _x;
             private _node = DRO2026_networkNodes get _nodeId;
@@ -75,7 +79,6 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 _observations pushBack [_position, _classification, _nodeId, _position distance2D _reporterPosition];
             };
         } forEach keys DRO2026_networkNodes;
-
         {
             private _delivery = _x;
             private _status = _delivery getOrDefault ["status", ""];
