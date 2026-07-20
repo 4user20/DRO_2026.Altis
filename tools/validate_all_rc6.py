@@ -13,18 +13,20 @@ parser.add_argument("--rpt", action="append", default=[])
 parser.add_argument("--require-hemtt", action="store_true")
 args = parser.parse_args()
 
-group_lifecycle = [
-    sys.executable,
-    str(ROOT / "tools" / "validate_group_lifecycle_contracts.py"),
+preflight_validators = [
+    "validate_group_lifecycle_contracts.py",
+    "validate_site_lifecycle_contracts.py",
+    "validate_status_contracts.py",
 ]
-site_lifecycle = [
-    sys.executable,
-    str(ROOT / "tools" / "validate_site_lifecycle_contracts.py"),
+commands: list[list[str]] = [
+    [sys.executable, str(ROOT / "tools" / filename)]
+    for filename in preflight_validators
 ]
+
 base = [sys.executable, str(ROOT / "tools" / "validate_rc6.py")]
 if args.require_hemtt:
     base.append("--require-hemtt")
-commands: list[list[str]] = [group_lifecycle, site_lifecycle, base]
+commands.append(base)
 
 if args.rpt:
     rpt = [
