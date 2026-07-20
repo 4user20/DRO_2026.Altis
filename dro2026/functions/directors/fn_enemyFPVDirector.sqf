@@ -59,6 +59,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 [_nodeId, "BATTERIES", -_count, "FPV_ATTACK"] call DRO2026_fnc_changeNetworkNodeStock;
                 DRO2026_resources set ["enemyDroneStock", ((_kits - _count) max 0)];
                 DRO2026_lastEnemyFPV = time;
+                ["DRONE_LAUNCH_RESERVED", createHashMapFromArray [["role", "FPV"], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId]], _nodeId] call DRO2026_fnc_emitEvent;
                 [_origin, _contact, _operator, _count, _nodeId, _siteId] spawn {
                     params ["_origin", "_contact", "_operator", "_count", "_nodeId", "_siteId"];
                     for "_index" from 0 to (_count - 1) do {
@@ -81,7 +82,6 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         sleep (2 + random 3);
                     };
                 };
-                ["DRONE_LAUNCH_RESERVED", createHashMapFromArray [["role", "FPV"], ["count", _count], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId]], _nodeId] call DRO2026_fnc_emitEvent;
                 _intent set ["status", "EXECUTED"];
                 _intent set ["executedAt", time];
                 missionNamespace setVariable ["DRO2026_currentIntent", _intent];
