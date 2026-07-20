@@ -7,127 +7,176 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 DRO = ROOT / "dro2026"
 
-REQUIRED: dict[str, tuple[str, ...]] = {
+# Every inner tuple is an alternative group: at least one token must be present.
+# Every group listed for a file is mandatory.
+REQUIRED: dict[str, tuple[tuple[str, ...], ...]] = {
     "dro2026/CfgFunctions.hpp": (
-        "class isLiveContactSubject {};",
-        "class getSideRoleClass {};",
-        "class crewManagedVehicle {};",
-        "class spawnLayeredAA {};",
+        ("class isLiveContactSubject {};",),
+        ("class getSideRoleClass {};",),
+        ("class crewManagedVehicle {};",),
+        ("class spawnLayeredAA {};",),
     ),
     "dro2026/functions/core/fn_isLiveContactSubject.sqf": (
-        '"PROBABLY_DESTROYED"',
-        '"CONFIRMED_DESTROYED"',
-        '"CANCELLED"',
-        'isKindOf "VirtualMan_F"',
-        "objectFromNetId",
+        ('"PROBABLY_DESTROYED"',),
+        ('"CONFIRMED_DESTROYED"',),
+        ('"CANCELLED"',),
+        ('isKindOf "VirtualMan_F"',),
+        ("objectFromNetId",),
     ),
     "dro2026/functions/core/fn_createDroneTeam.sqf": (
-        "if (isNull _operator) exitWith",
-        "deleteGroup _group",
-        "createHashMap",
+        ("if (isNull _group) exitWith",),
+        ("if (isNull _operator) exitWith",),
+        ("deleteGroup _group",),
+        ("createHashMap",),
+    ),
+    "dro2026/functions/core/fn_spawnGuard.sqf": (
+        ("if (isNull _group) exitWith {grpNull};",),
+        ("({alive _x} count units _group) == 0",),
+        ("deleteGroup _group",),
+        ("DRO2026_fnc_registerManagedGroup",),
     ),
     "dro2026/functions/core/fn_spawnStrategicHQ.sqf": (
-        "validateSiteRecord",
-        "deleteGroup _group",
-        "deleteVehicle _x",
+        ("validateSiteRecord",),
+        ("deleteGroup _group",),
+        ("deleteVehicle _x",),
     ),
     "dro2026/functions/core/fn_spawnLayeredAA.sqf": (
-        "_deleteMaterialized",
-        "validateSiteRecord",
-        "deleteVehicleCrew",
+        ("_deleteMaterialized",),
+        ("validateSiteRecord",),
+        ("deleteVehicleCrew",),
     ),
     "dro2026/functions/core/fn_spawnStrategicDroneSite.sqf": (
-        "validateSiteRecord",
-        "deleteGroup _group",
-        "deleteVehicle _object",
+        ("validateSiteRecord",),
+        ("deleteGroup _group",),
+        ("deleteVehicle _object",),
+    ),
+    "dro2026/functions/core/fn_createFriendlyPositions.sqf": (
+        ("switch (playersSide)",),
+        ('default {["O_Soldier_F", "O_Soldier_AR_F", "O_medic_F"]};',),
+        ("if (!isNull _group)",),
+        ("if (!isNull _unit)",),
+        ("deleteGroup _group",),
+    ),
+    "dro2026/functions/core/fn_createFriendlyLogisticsSite.sqf": (
+        ("[playersSide] call DRO2026_fnc_getSideNumber",),
+        ('getNumber (_cfg >> "side") == _sideNumber',),
+        ("DRO2026_fnc_isSafeInfantryClass",),
+        ("validateSiteRecord",),
+        ("deleteGroup _group",),
+        ("createHashMap",),
     ),
     "dro2026/functions/support/fn_launchFPVStrike.sqf": (
-        '"FPV_KITS", 1, "FPV_LAUNCH_REFUND"',
-        '"BATTERIES", 1, "FPV_LAUNCH_REFUND"',
-        '"enemyDroneStock"',
-        "_reservationNodeId",
+        ('"FPV_KITS", 1, "FPV_LAUNCH_REFUND"',),
+        ('"BATTERIES", 1, "FPV_LAUNCH_REFUND"',),
+        ('"enemyDroneStock"',),
+        ("_reservationNodeId",),
     ),
     "dro2026/functions/directors/fn_enemyFPVDirector.sqf": (
-        '"FPV_SALVO_ABORT"',
-        "_unlaunched",
-        "DRO2026_fnc_launchFPVStrike",
+        ('"FPV_SALVO_ABORT"',),
+        ("_unlaunched",),
+        ("DRO2026_fnc_launchFPVStrike",),
     ),
     "dro2026/functions/support/fn_requestFPV.sqf": (
-        "FPV salvo aborted",
-        "_unlaunched",
-        '"friendlyFPVStock"',
+        ("FPV salvo aborted",),
+        ("_unlaunched",),
+        ('"friendlyFPVStock"',),
     ),
     "dro2026/functions/support/fn_requestAirSupport.sqf": (
-        "_refundTail",
-        '"MISSION_ENDING"',
-        '"TARGETS_LOST_BEFORE_LAUNCH"',
-        '"AIR_WINDOW_CLOSED_BEFORE_LAUNCH"',
+        ("_refundTail",),
+        ('"MISSION_ENDING"',),
+        ('"TARGETS_LOST_BEFORE_LAUNCH"',),
+        ('"AIR_WINDOW_CLOSED_BEFORE_LAUNCH"',),
     ),
     "dro2026/functions/support/fn_requestArtillery.sqf": (
-        'isKindOf "VirtualMan_F"',
-        "DRO2026_supportGroup",
-        "deleteVehicleCrew",
-        "deleteGroup",
+        ('isKindOf "VirtualMan_F"',),
+        ("DRO2026_supportGroup",),
+        ("deleteVehicleCrew",),
+        ("deleteGroup",),
     ),
     "dro2026/functions/directors/fn_longRangeDroneDirector.sqf": (
-        "DRO2026_fnc_isLiveContactSubject",
-        '"LONG_RANGE_SALVO_ABORT"',
-        "_unlaunched",
-        '"CANCELLED"',
+        ("DRO2026_fnc_isLiveContactSubject",),
+        ('"LONG_RANGE_SALVO_ABORT"',),
+        ("_unlaunched",),
+        ('"CANCELLED"',),
     ),
     "dro2026/functions/directors/fn_friendlyStrikeDirector.sqf": (
-        "_catalogHasMode",
-        '"STRIKE_FP5"',
-        '"STRIKE_AUTO"',
+        ("_catalogHasMode",),
+        ('"STRIKE_FP5"',),
+        ('"STRIKE_AUTO"',),
     ),
     "dro2026/functions/directors/fn_operationDirector.sqf": (
-        "DRO2026_fnc_isLiveContactSubject",
-        '"PROBABLY_DESTROYED"',
-        '"CONFIRMED_DESTROYED"',
+        ("DRO2026_fnc_isLiveContactSubject",),
+        ('"PROBABLY_DESTROYED"',),
+        ('"CONFIRMED_DESTROYED"',),
     ),
     "dro2026/functions/directors/fn_airDefenceDirector.sqf": (
-        'getText (_ammoCfg >> "simulation")',
-        '"shotmissile"',
-        '"shotrocket"',
-        "deleteVehicle _projectile",
-        '"AA_LAUNCH_REJECTED"',
+        ('getText (_ammoCfg >> "simulation")',),
+        ('"shotmissile"',),
+        ('"shotrocket"',),
+        ("deleteVehicle _projectile",),
+        ('"AA_LAUNCH_REJECTED"',),
     ),
     "dro2026/functions/directors/fn_enemyAirDirector.sqf": (
-        'missionNamespace getVariable ["DRO2026_missionEnding", false]',
-        "deleteVehicleCrew",
-        "deleteGroup",
+        ('missionNamespace getVariable ["DRO2026_missionEnding", false]',),
+        ("deleteVehicleCrew",),
+        ("deleteGroup",),
     ),
     "dro2026/functions/directors/fn_enemyISRDirector.sqf": (
-        'missionNamespace getVariable ["DRO2026_missionEnding", false]',
-        "deleteVehicleCrew",
-        "deleteGroup",
+        ('missionNamespace getVariable ["DRO2026_missionEnding", false]',),
+        ("deleteVehicleCrew",),
+        ("deleteGroup",),
     ),
     "dro2026/functions/objectives/fn_objectiveConvoy.sqf": (
-        "validateSiteRecord",
-        '"OBJECTIVE_CONVOY_REFUND"',
-        '"OBJECTIVE_CONVOY_CANCELLED"',
-        '"CANCELLED"',
-        '"INTERDICTED"',
-        '"DELIVERED"',
-        "_cleanup",
+        ("validateSiteRecord",),
+        ('"OBJECTIVE_CONVOY_REFUND"',),
+        ('"OBJECTIVE_CONVOY_CANCELLED"',),
+        ('"CANCELLED"',),
+        ('"INTERDICTED"',),
+        ('"DELIVERED"',),
+        ("_cleanup",),
     ),
     "dro2026/functions/directors/fn_logisticsDirector.sqf": (
-        "validateSiteRecord",
-        '"task", ""',
-        '"DELIVERY_CANCELLED"',
-        '"CANCELLED"',
-        "_cargoVehicle",
-        "_setDeliverySiteStatus",
-        '"siteRecord"',
-        '"COMPLETED"',
-        '"DESTROYED"',
-        '"DISABLED"',
-        "_cleanupDeliveryVehicles",
+        ("validateSiteRecord",),
+        ('["task", ""]', '"task", ""'),
+        ('"DELIVERY_CANCELLED"',),
+        ('"CANCELLED"',),
+        ("_cargoVehicle",),
+        ("_setDeliverySiteStatus",),
+        ('"siteRecord"',),
+        ('"COMPLETED"',),
+        ('"DESTROYED"',),
+        ('"DISABLED"',),
+        ("_cleanupDeliveryVehicles",),
+        ("deleteVehicleCrew _x",),
+        ("deleteGroup _group",),
     ),
     "dro2026/functions/objectives/fn_artilleryLoop.sqf": (
-        'missionNamespace getVariable ["DRO2026_missionEnding", false]',
-        "doArtilleryFire",
-        '"ARTILLERY_AMMO", -_rounds',
+        ('missionNamespace getVariable ["DRO2026_missionEnding", false]',),
+        ("doArtilleryFire",),
+        ('"ARTILLERY_AMMO", -_rounds',),
+    ),
+    "dro2026/functions/directors/fn_civilTrafficDirector.sqf": (
+        ("if (isNull _group)",),
+        ("objectParent _driver == _vehicle",),
+        ("_vehicle deleteVehicleCrew _driver",),
+        ("deleteVehicleCrew _vehicle",),
+    ),
+    "dro2026/functions/directors/fn_reactionDirector.sqf": (
+        ('"pausedUntil"',),
+        ('"ROUTE_RESUMED"',),
+        ("DRO2026_fnc_isLiveContactSubject",),
+        ('"MATERIALIZATION_FAILED_OR_MISSION_ENDING"',),
+        ("alive _leader",),
+    ),
+    "dro2026/functions/directors/fn_orderEncirclement.sqf": (
+        ('getOrDefault ["positionMean"',),
+        ("alive _leader",),
+        ('"DRO2026_reactionUntil"',),
+    ),
+    "dro2026/functions/objectives/fn_objectiveISRRecon.sqf": (
+        ("if (isNull _group) exitWith",),
+        ("deleteMarker _marker",),
+        ("validateSiteRecord",),
     ),
 }
 
@@ -180,15 +229,17 @@ def check_empty_fly(path: Path, source: str, errors: list[str]) -> None:
 def main() -> int:
     errors: list[str] = []
 
-    for relative, snippets in REQUIRED.items():
+    for relative, groups in REQUIRED.items():
         path = ROOT / relative
         if not path.is_file():
             errors.append(f"{relative}: missing")
             continue
         source = read(relative)
-        for snippet in snippets:
-            if snippet not in source:
-                errors.append(f"{relative}: missing contract {snippet!r}")
+        for alternatives in groups:
+            if not any(snippet in source for snippet in alternatives):
+                errors.append(
+                    f"{relative}: missing one of {', '.join(repr(item) for item in alternatives)}"
+                )
 
     for relative, snippets in FORBIDDEN.items():
         path = ROOT / relative
