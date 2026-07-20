@@ -53,9 +53,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                     if (_record getOrDefault ["detected",false] && {_engagements < 2} && {(time - _lastEngagement) > 7} && {_distance <= (_range * 0.88)}) then {
                         private _interceptorAmmo = "";
                         private _launchers = (_node getOrDefault ["physicalRefs",[]]) select {!isNull _x && {alive _x} && {local _x}};
-                        private _launcher = if (count _launchers > 0) then {
-                            ([_launchers,[],{_x distance2D _munition},"ASCEND"] call BIS_fnc_sortBy) select 0
-                        } else {objNull};
+                        private _launcher = if (count _launchers > 0) then {([_launchers,[],{_x distance2D _munition},"ASCEND"] call BIS_fnc_sortBy) select 0} else {objNull};
                         if (!isNull _launcher) then {_interceptorAmmo = [typeOf _launcher] call DRO2026_fnc_resolveLauncherAmmo};
                         if (_interceptorAmmo == "" || {!isClass (configFile >> "CfgAmmo" >> _interceptorAmmo)}) then {
                             if (isClass (configFile >> "CfgAmmo" >> "M_Titan_AA")) then {_interceptorAmmo = "M_Titan_AA"};
@@ -89,7 +87,11 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                                         _closest = _closest min _length;
                                         if (_length > 0.1) then {
                                             private _direction = _delta vectorMultiply (1 / _length);
-                                            _interceptor setVectorDirAndUp [_direction,[0,0,1]];
+                                            private _right = _direction vectorCrossProduct [0,0,1];
+                                            if (vectorMagnitude _right < 0.01) then {_right = [1,0,0]};
+                                            _right = _right vectorMultiply (1 / ((vectorMagnitude _right) max 0.01));
+                                            private _up = _right vectorCrossProduct _direction;
+                                            _interceptor setVectorDirAndUp [_direction,_up];
                                             _interceptor setVelocity (_direction vectorMultiply _speed);
                                         };
                                         if (_willKill && {_length < 24}) exitWith {
