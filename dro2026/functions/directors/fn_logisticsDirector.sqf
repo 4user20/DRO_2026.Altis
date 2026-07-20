@@ -13,6 +13,18 @@ private _setActiveConvoyStatus = {
         DRO2026_activeConvoys set [_index, _convoy];
     };
 };
+private _setDeliverySiteStatus = {
+    params ["_delivery", "_status"];
+    private _site = _delivery getOrDefault ["siteRecord", createHashMap];
+    if (count _site > 0) then {
+        _site set ["status", _status];
+        switch _status do {
+            case "DESTROYED": {_site set ["destroyedAt", time]};
+            case "DISABLED": {_site set ["disabledAt", time]};
+            case "COMPLETED": {_site set ["completedAt", time]};
+        };
+    };
+};
 private _cleanupDeliveryVehicles = {
     params ["_delivery", ["_deleteAlive", true]];
     private _group = _delivery getOrDefault ["group", grpNull];
@@ -128,6 +140,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     _delivery set ["vehicles", _vehicles];
                     _delivery set ["cargoVehicle", _cargoVehicle];
                     _delivery set ["group", _group];
+                    _delivery set ["siteRecord", _site];
                     {DRO2026_managedVehicles pushBackUnique _x} forEach _vehicles;
                     private _convoy = createHashMapFromArray [["id", _delivery get "id"], ["status", "IN_TRANSIT"], ["vehicles", _vehicles], ["group", _group], ["delivery", _delivery]];
                     DRO2026_activeConvoys pushBack _convoy;
@@ -149,6 +162,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     _delivery set ["physicalState", "DESTROYED"];
                     _delivery set ["processed", true];
                     [_delivery get "id", "INTERDICTED"] call _setActiveConvoyStatus;
+                    [_delivery, "DESTROYED"] call _setDeliverySiteStatus;
                     if (count _edge > 0) then {
                         _edge set ["risk", ((_edge getOrDefault ["risk", 0.12]) + 0.22) min 0.95];
                         _edge set ["interdictionPressure", (_edge getOrDefault ["interdictionPressure", 0]) + 1];
@@ -172,6 +186,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         _delivery set ["completedAt", _now];
                         _delivery set ["physicalState", "COMPLETED"];
                         [_delivery get "id", "DELIVERED"] call _setActiveConvoyStatus;
+                        [_delivery, "COMPLETED"] call _setDeliverySiteStatus;
                     };
                 };
             } else {
@@ -281,6 +296,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         _delivery set ["status", "CANCELLED"];
         _delivery set ["physicalState", "DISABLED"];
         _delivery set ["completedAt", time];
+        [_delivery, "DISABLED"] call _setDeliverySiteStatus;
         [_delivery] call _cleanupDeliveryVehicles;
     };
 } forEach DRO2026_supplyLanes;
