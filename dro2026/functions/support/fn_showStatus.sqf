@@ -18,6 +18,7 @@ private _phaseNames = createHashMapFromArray [
 private _statusNames = createHashMapFromArray [
     ["ACTIVE", "боеспособен"], ["DEGRADED", "ограниченно боеспособен"],
     ["RELOCATING", "меняет позицию"], ["DISABLED", "подавлен"], ["DESTROYED", "уничтожен"],
+    ["CANCELLED", "отменён / выведен из контура"], ["COMPLETED", "задача завершена"],
     ["UNKNOWN", "состояние неясно"]
 ];
 private _stockWord = {
@@ -42,7 +43,9 @@ private _nodeLine = {
 
 private _activeDeliveries = count (DRO2026_supplyLanes select {(_x getOrDefault ["status", ""]) in ["VIRTUAL", "IN_TRANSIT", "EN_ROUTE"]});
 private _knownDeliveries = count (DRO2026_contacts select {
-    (_x getOrDefault ["owner", ""]) == "PLAYER" && {(_x getOrDefault ["classification", ""]) in ["КОЛОННА", "ЛОГИСТИКА", "ТЕХНИКА"]}
+    (_x getOrDefault ["owner", ""]) == "PLAYER" &&
+    {(_x getOrDefault ["classification", ""]) in ["КОЛОННА", "ЛОГИСТИКА", "ТЕХНИКА"]} &&
+    {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])}
 });
 private _airWindow = [getPosATL _requester, playersSide] call DRO2026_fnc_getAirWindow;
 private _windowText = switch (_airWindow getOrDefault ["state", "CLOSED"]) do {
@@ -67,6 +70,16 @@ private _reserveAssessment = format [
     [DRO2026_resources getOrDefault ["friendlyArtilleryStock", 0], 18] call _stockWord,
     [DRO2026_resources getOrDefault ["friendlyAirSorties", 0], 4] call _stockWord
 ];
+private _isrAssessment = format [
+    "ISR возвращено / потеряно: %1 / %2",
+    _aar getOrDefault ["droneRecoveries", 0],
+    _aar getOrDefault ["droneLosses", 0]
+];
+private _objectiveAssessment = format [
+    "Сбои materialization / исчерпание выбора: %1 / %2",
+    _aar getOrDefault ["objectiveMaterializationFailures", 0],
+    _aar getOrDefault ["objectiveSelectionExhausted", 0]
+];
 
 private _text = format [
     "<t size='1.25' font='RobotoCondensedBold'>ОПЕРАТИВНАЯ СВОДКА</t><br/>" +
@@ -78,11 +91,12 @@ private _text = format [
     "%6<br/>%7<br/>%8<br/>%9<br/>%10<br/>%11<br/><br/>" +
     "<t font='RobotoCondensedBold'>ЛОГИСТИКА И РЕЗУЛЬТАТЫ</t><br/>" +
     "В пути поставок: %12; обнаружено поставок: %13<br/>" +
-    "Перехвачено / доставлено: %14 / %15<br/>" +
-    "BDA подтверждено / вероятно: %16 / %17<br/>" +
-    "Сохранённая история событий: %18<br/><br/>" +
-    "<t font='RobotoCondensedBold'>НАШ РЕЗЕРВ</t><br/>%19<br/>" +
-    "<t color='#b9e5ff'>Промежуточная оценка операции: %20</t>",
+    "Перехвачено / доставлено / отменено: %14 / %15 / %16<br/>" +
+    "BDA подтверждено / вероятно: %17 / %18<br/>" +
+    "%19<br/>%20<br/>" +
+    "Сохранённая история событий: %21<br/><br/>" +
+    "<t font='RobotoCondensedBold'>НАШ РЕЗЕРВ</t><br/>%22<br/>" +
+    "<t color='#b9e5ff'>Промежуточная оценка операции: %23</t>",
     _phaseNames getOrDefault [_aar getOrDefault ["phase", "RECON"], _aar getOrDefault ["phase", "RECON"]],
     _aar getOrDefault ["doctrine", "UNKNOWN"],
     _networkAssessment,
@@ -98,8 +112,11 @@ private _text = format [
     _knownDeliveries,
     _aar getOrDefault ["deliveriesInterdicted", 0],
     _aar getOrDefault ["deliveriesCompleted", 0],
+    _aar getOrDefault ["deliveriesCancelled", 0],
     _aar getOrDefault ["confirmedBDA", 0],
     _aar getOrDefault ["probableBDA", 0],
+    _isrAssessment,
+    _objectiveAssessment,
     count DRO2026_eventLog,
     _reserveAssessment,
     _aar getOrDefault ["score", 0]
