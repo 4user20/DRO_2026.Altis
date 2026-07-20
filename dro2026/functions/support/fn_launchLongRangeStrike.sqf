@@ -1,7 +1,7 @@
 params [
     "_origin", "_contact", ["_side", east], ["_preferFP5", false], ["_operator", objNull],
     ["_requestedType", "AUTO"], ["_decoy", false], ["_salvoIndex", 0], ["_salvoSize", 1],
-    ["_reservedStock", false], ["_reservationNodeId", "NODE_DRONE_REAR_01"]
+    ["_reservedStock", false], ["_reservationNodeId", "NODE_DRONE_REAR_01"], ["_siteId", ""]
 ];
 private _req = toUpperANSI _requestedType;
 private _refundReserved = {
@@ -21,8 +21,20 @@ private _refundReserved = {
         DRO2026_resources set ["enemyLongRangeStock", (DRO2026_resources getOrDefault ["enemyLongRangeStock", 0]) + 1];
     };
 };
+private _siteOperational = {
+    _siteId == "" || {[_siteId] call DRO2026_fnc_isSiteOperational}
+};
+private _contactOperational = {
+    private _targetObject = _contact getOrDefault ["target", objNull];
+    private _subjectId = _contact getOrDefault ["subjectId", ""];
+    !((_contact getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"]) &&
+    {isNull _targetObject || {alive _targetObject}} &&
+    {_subjectId == "" || {[_contact] call DRO2026_fnc_isLiveContactSubject}}
+};
 if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundReserved; objNull};
 if (!isNull _operator && {!alive _operator}) exitWith {call _refundReserved; objNull};
+if !(call _siteOperational) exitWith {call _refundReserved; objNull};
+if !(call _contactOperational) exitWith {call _refundReserved; objNull};
 private _target = _contact getOrDefault ["target", objNull];
 private _targetPos = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
 if (count _targetPos < 2) exitWith {call _refundReserved; objNull};
@@ -32,8 +44,8 @@ private _ammoClass = "";
 private _launcherClass = "";
 private _label = "ударный БПЛА";
 private _exactClass = if ((_req find "CLASS:") == 0) then {_requestedType select [6]} else {""};
-private _sideSuffix = if (_side == west) then {"WEST"} else {if (_side == resistance) then {"GUER"} else {"EAST"}};
-private _sideNumber = switch (_side) do {case east: {0}; case west: {1}; case resistance: {2}; default {-1}};
+private _sideSuffix = [_side] call DRO2026_fnc_getSideSuffix;
+private _sideNumber = [_side] call DRO2026_fnc_getSideNumber;
 private _role = format ["LONG_RANGE_%1", _sideSuffix];
 private _pool = (DRO2026_assetRegistry getOrDefault [_role, []]) select {
     private _cfg = configFile >> "CfgVehicles" >> _x;
@@ -52,12 +64,17 @@ private _pickVehicle = {
 };
 private _pickLauncher = {
     params ["_launcherRole"];
-    private _launchers = DRO2026_assetRegistry getOrDefault [_launcherRole, []];
+    private _launchers = (DRO2026_assetRegistry getOrDefault [_launcherRole, []]) select {
+        private _cfg = configFile >> "CfgVehicles" >> _x;
+        isClass _cfg && {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}
+    };
     if (count _launchers > 0) then {selectRandom _launchers} else {""}
 };
 private _pickAmmoFallback = {
     params ["_ammoRole"];
-    private _ammoPool = DRO2026_ammoRegistry getOrDefault [_ammoRole, []];
+    private _ammoPool = (DRO2026_ammoRegistry getOrDefault [_ammoRole, []]) select {
+        isClass (configFile >> "CfgAmmo" >> _x)
+    };
     if (count _ammoPool > 0) then {_ammoPool select 0} else {""}
 };
 
@@ -152,6 +169,8 @@ if (_vehicleClass != "") then {
     };
 };
 if (_vehicleClass == "" && {_ammoClass == ""}) exitWith {objNull};
+if !(call _siteOperational) exitWith {call _refundReserved; objNull};
+if !(call _contactOperational) exitWith {call _refundReserved; objNull};
 
 private _spawnDistance = if (_ammoClass != "") then {12000 + random 6000} else {8000 + random 5000};
 private _baseBearing = _targetPos getDir _origin;
@@ -179,7 +198,6 @@ if (_isProjectile) then {
 } else {
     _drone = createVehicle [_vehicleClass, ASLToAGL _spawnASL, [], 0, "FLY"];
     if (!isNull _drone) then {
-        // Orientation is controlled only through setVectorDirAndUp below.
         _drone setPosASL _spawnASL;
         _crewGroup = _side createVehicleCrew _drone;
         if (isNull _crewGroup || {isNull (driver _drone)}) then {
@@ -211,8 +229,17 @@ if (_side == playersSide && {_req == "FP5"}) then {
 _drone setVariable ["DRO2026_operator", _operator];
 _drone setVariable ["DRO2026_decoy", _decoy];
 _drone setVariable ["DRO2026_launchSide", _side];
+_drone setVariable ["DRO2026_siteId", _siteId, true];
 DRO2026_activeDrones pushBack _drone;
 DRO2026_managedVehicles pushBackUnique _drone;
+private _launchClass = if (_isProjectile) then {_ammoClass} else {_vehicleClass};
+private _eventSubject = if (_reservationNodeId != "") then {_reservationNodeId} else {if (_siteId != "") then {_siteId} else {"LONG_RANGE_LAUNCH"}};
+["DRONE_LAUNCHED", createHashMapFromArray [
+    ["role", "LONG_RANGE"], ["type", _requestedType], ["class", _launchClass], ["projectile", _isProjectile],
+    ["side", str _side], ["contactId", _contact getOrDefault ["id", ""]], ["subjectId", _contact getOrDefault ["subjectId", ""]],
+    ["siteId", _siteId], ["reservationNodeId", _reservationNodeId], ["decoy", _decoy],
+    ["salvoIndex", _salvoIndex], ["salvoSize", _salvoSize]
+], _eventSubject] call DRO2026_fnc_emitEvent;
 [_drone, _label, _side] spawn DRO2026_fnc_trackIncomingDrone;
 
 if (_decoy) then {
