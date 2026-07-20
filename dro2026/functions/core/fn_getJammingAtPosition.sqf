@@ -1,4 +1,5 @@
-params ["_position", ["_affectedSide", playersSide]];
+params ["_position", ["_affectedSide", playersSide], ["_platform", objNull]];
+if (!isNull _platform && {[_platform] call DRO2026_fnc_isFiberOpticDrone}) exitWith {0};
 if !(_position isEqualType []) exitWith {0};
 if (count _position < 2) exitWith {0};
 if !(missionNamespace getVariable ["DRO2026_networkBuilt", false]) exitWith {
