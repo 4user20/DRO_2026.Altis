@@ -70,9 +70,8 @@ private _spawnPosition = _origin getPos [25 + random 20, _direction];
 _spawnPosition set [2, 18 + random 8];
 private _drone = createVehicle [_droneClass, _spawnPosition, [], 0, "FLY"];
 if (isNull _drone) exitWith {call _refundFriendly; objNull};
-// FLY does not guarantee altitude for an empty airframe. Direction must be set
-// before the explicit position to avoid the setDir/setPos ordering issue.
-_drone setDir _direction;
+// FLY does not guarantee altitude for an empty airframe. Position is explicit;
+// orientation is controlled only through setVectorDirAndUp in the guidance loop.
 _drone setPosATL _spawnPosition;
 private _crewGroup = _side createVehicleCrew _drone;
 if (isNull _crewGroup || {isNull (driver _drone)}) exitWith {
