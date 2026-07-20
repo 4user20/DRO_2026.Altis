@@ -19,6 +19,7 @@ DRO2026_droneWarfareDirectorStarted = false;
 DRO2026_lastDroneAssignmentPass = -999;
 DRO2026_lastDroneIntelPass = -999;
 DRO2026_lastDroneInfosharePass = -999;
+DRO2026_lastDroneUnassignedPass = -999;
 DRO2026_activeConvoys = [];
 DRO2026_supplyLanes = [];
 DRO2026_supplyEvents = [];
