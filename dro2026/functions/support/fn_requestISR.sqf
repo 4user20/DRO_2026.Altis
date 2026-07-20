@@ -56,6 +56,10 @@ private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
 DRO2026_resources set ["friendlyISRStock", ((DRO2026_resources getOrDefault ["friendlyISRStock", 0]) - 1) max 0];
 DRO2026_lastISRRequest = time;
+["DRONE_LAUNCH_RESERVED", createHashMapFromArray [
+    ["role", "ISR"], ["count", 1], ["requestedType", _requestedType],
+    ["siteId", _siteId], ["position", +_position]
+], _siteId] call DRO2026_fnc_emitEvent;
 [_position, _origin, _operator, _requestedType, _siteId] spawn DRO2026_fnc_launchISR;
 private _profileLabel = if (_exactClass != "") then {_exactClass} else {_requestedType};
 [
