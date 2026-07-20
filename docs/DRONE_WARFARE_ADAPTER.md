@@ -43,7 +43,7 @@ The registry covers all `frtz_{B|O|I}_KVN_{AP|AT|AP_TI|AT_TI}{|_20KM|_25KM}` veh
 
 The adapter waits for `ddtReady` with a finite timeout. DDT absent or timed out means the existing DRO fallback remains active. Cycle/range settings are only filled when missing unless `DRO2026_DDT_OVERRIDE_SETTINGS = true`.
 
-Unassigned UAV takeover is disabled by default and cannot be enabled while the clean-room fallback is active. DDT's native jammer directly disconnects terminals, drains fuel and destroys crew without a fiber-optic hook; the adapter disables DDT jammer-pack recognition by default and lets DRO own EW. `DRO2026_fnc_getJammingAtPosition` explicitly returns zero for KVN/fiber-optic platforms, while physical damage, collision, hard-kill and cleanup remain effective.
+Unassigned UAV takeover is disabled by default. Even when explicitly enabled, DDT's native all-machine scanner remains at `-1`; a bounded DRO server dispatcher filters player/Zeus/DRO-controlled UAVs before invoking the supplied external DDT `AI_Unassigned.sqf`. DDT's native jammer directly disconnects terminals, drains fuel and destroys crew without a fiber-optic hook; the adapter disables DDT jammer-pack recognition by default and lets DRO own EW. `DRO2026_fnc_getJammingAtPosition` explicitly returns zero for KVN/fiber-optic platforms, while physical damage, collision, hard-kill and cleanup remain effective.
 
 ## Intel and infoshare
 
