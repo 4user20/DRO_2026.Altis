@@ -31,6 +31,7 @@ _marker setMarkerBrush "Border";
 _marker setMarkerColor _color;
 _marker setMarkerAlpha 0.55;
 _marker setMarkerText format [" %1", _title];
+
 private _antenna = createVehicle ["Land_TTowerSmall_1_F", _relayPosition, [], 0, "CAN_COLLIDE"];
 private _generator = createVehicle ["Land_PortableGenerator_01_F", _relayPosition getPos [8, 120], [], 0, "CAN_COLLIDE"];
 private _table = createVehicle ["Land_CampingTable_small_F", _relayPosition getPos [5, 210], [], 0, "CAN_COLLIDE"];
@@ -73,6 +74,8 @@ _group setVariable ["DRO2026_static", true];
 _group setBehaviourStrong "AWARE";
 [_group, _relayPosition, 65] call BIS_fnc_taskDefend;
 private _objects = [_antenna, _generator, _table, _controlVehicle] select {!isNull _x};
+private _critical = +_objects;
+_critical pushBackUnique _operator;
 private _extra = createHashMapFromArray [["operator", _operator], ["group", _group], ["relatedNodeId", _nodeId], ["background", false]];
 private _site = ["ISR_RELAY", _relayPosition, _antenna, _objects, _extra] call DRO2026_fnc_createSiteRecord;
 if !([_site, false] call DRO2026_fnc_validateSiteRecord) exitWith {
@@ -83,10 +86,13 @@ if !([_site, false] call DRO2026_fnc_validateSiteRecord) exitWith {
     ""
 };
 DRO2026_sites pushBack _site;
-private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _relayPosition], ["nodeId", _nodeId], ["targetPosition", _targetPosition]];
+private _meta = createHashMapFromArray [
+    ["type", "ISR_RECON"], ["position", _relayPosition], ["nodeId", _nodeId],
+    ["targetPosition", _targetPosition], ["critical", _critical], ["siteId", _site get "id"]
+];
 [_taskName, _desc, _title, _marker, "scout", _estimate, 0, [], _meta] call DRO2026_fnc_createObjectiveRecord;
-[_taskName, _relayPosition, _targetPosition, _nodeId, _nodeType, _marker, _antenna, _operator, _objects, _group] spawn {
-    params ["_task", "_relayPosition", "_targetPosition", "_nodeId", "_nodeType", "_marker", "_antenna", "_operator", "_objects", "_group"];
+[_taskName, _relayPosition, _targetPosition, _nodeId, _nodeType, _marker, _antenna, _operator, _objects, _group, _site] spawn {
+    params ["_task", "_relayPosition", "_targetPosition", "_nodeId", "_nodeType", "_marker", "_antenna", "_operator", "_objects", "_group", "_site"];
     waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
     private _observed = 0;
     private _finished = false;
@@ -120,6 +126,11 @@ private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _rel
         };
         sleep 2;
     };
+    if (missionNamespace getVariable ["DRO2026_missionEnding", false]) then {
+        _site set ["status", "CANCELLED"];
+        _site set ["physicalState", "DISABLED"];
+        _site set ["disabledAt", time];
+    };
     sleep 5;
     {if (!isNull _x) then {deleteVehicle _x}} forEach _objects;
     {if (!isNull _x) then {deleteVehicle _x}} forEach units _group;
@@ -127,9 +138,6 @@ private _meta = createHashMapFromArray [["type", "ISR_RECON"], ["position", _rel
 };
 [] spawn {
     waitUntil {sleep 1; missionNamespace getVariable ["playersReady", 0] == 1 || {missionNamespace getVariable ["DRO2026_missionEnding", false]}};
-    if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {
-        sleep 7;
-        ["NEW_TASK", "Штаб: Найдите физический разведывательный relay. Он выведет нас на конкретный стратегический объект."] call DRO2026_fnc_hqVoice;
-    };
+    if !(missionNamespace getVariable ["DRO2026_missionEnding", false]) then {sleep 7; ["NEW_TASK", "Штаб: Найдите физический разведывательный relay. Он выведет нас на конкретный стратегический объект."] call DRO2026_fnc_hqVoice};
 };
 _taskName
