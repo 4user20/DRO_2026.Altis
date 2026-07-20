@@ -33,6 +33,8 @@ private _destructiveTypes = [
     "EW_HUNT", "DRONE_SITE", "UAV_TEAM", "AIR_DEFENCE", "CUT_REAR"
 ];
 private _destructive = _type in _destructiveTypes;
+private _siteId = _meta getOrDefault ["siteId", ""];
+private _deliveryId = _meta getOrDefault ["deliveryId", ""];
 private _criticalValue = _meta getOrDefault ["critical", []];
 private _critical = if (_criticalValue isEqualType []) then {+_criticalValue} else {[]};
 {
@@ -51,9 +53,12 @@ private _matchedSites = 0;
     if (!isNull _operator) then {_refs pushBackUnique _operator};
     _refs = _refs select {_x isEqualType objNull && {!isNull _x}};
 
+    private _matchesIdentity = (_siteId != "" && {(_site getOrDefault ["id", ""]) == _siteId}) ||
+        {(_deliveryId != "") && {(_site getOrDefault ["deliveryId", ""]) == _deliveryId}};
     private _matchesCritical = count _critical > 0 && {(_critical findIf {_x in _refs}) >= 0};
-    private _matchesNode = count _critical == 0 && {_destructive} && {_nodeId != ""} && {(_site getOrDefault ["networkNodeId", ""]) == _nodeId};
-    if (_matchesCritical || {_matchesNode}) then {
+    private _hasExactSelector = _siteId != "" || {_deliveryId != ""} || {count _critical > 0};
+    private _matchesNode = !_hasExactSelector && {_destructive} && {_nodeId != ""} && {(_site getOrDefault ["networkNodeId", ""]) == _nodeId};
+    if (_matchesIdentity || {_matchesCritical} || {_matchesNode}) then {
         private _liveRefs = _refs select {alive _x};
         private _siteStatus = if (count _liveRefs == 0) then {"DESTROYED"} else {if (_destructive) then {"DISABLED"} else {"COMPLETED"}};
         private _sitePhysicalState = switch _siteStatus do {
