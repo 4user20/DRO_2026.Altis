@@ -19,6 +19,10 @@ if (_officerClass == "") exitWith {
     objNull
 };
 private _group = createGroup [_side, true];
+if (isNull _group) exitWith {
+    {if (!isNull _x) then {deleteVehicle _x}} forEach [_hq, _bunker, _tent];
+    objNull
+};
 private _officer = _group createUnit [_officerClass, _position getPos [3, random 360], [], 2, "NONE"];
 if (isNull _officer) exitWith {
     {if (!isNull _x) then {deleteVehicle _x}} forEach [_hq, _bunker, _tent];
