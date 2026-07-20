@@ -27,6 +27,18 @@ private _safeClass = {
     if ((_blocked findIf {(_lower find _x) >= 0}) >= 0) exitWith {""};
     _class
 };
+private _deleteMaterialized = {
+    params ["_objects"];
+    private _groups = [];
+    {
+        if (!isNull _x) then {
+            {if (!isNull _x) then {_groups pushBackUnique (group _x)}} forEach crew _x;
+            deleteVehicleCrew _x;
+            deleteVehicle _x;
+        };
+    } forEach _objects;
+    {if (!isNull _x) then {deleteGroup _x}} forEach _groups;
+};
 private _longRange = objNull;
 private _radar = objNull;
 if (_withLongRange) then {
@@ -50,10 +62,14 @@ private _recordPosition = if (_primary == _longRange) then {_longPosition} else 
 private _extra = createHashMapFromArray [
     ["radar", if (_radar in _objects) then {_radar} else {objNull}],
     ["shorad", if (_shortRange in _objects) then {_shortRange} else {objNull}],
-    ["background", true], ["networked", _withLongRange]
+    ["background", _siteType != "AIR_DEFENCE_SITE"], ["networked", _withLongRange]
 ];
 private _record = [_siteType, _recordPosition, _primary, _objects, _extra] call DRO2026_fnc_createSiteRecord;
-if ([_record, true] call DRO2026_fnc_validateSiteRecord) then {DRO2026_sites pushBack _record};
+if !([_record, true] call DRO2026_fnc_validateSiteRecord) exitWith {
+    [_objects] call _deleteMaterialized;
+    []
+};
+DRO2026_sites pushBack _record;
 if (_longRange in _objects && {_radar in _objects}) then {
     [_longRange, _radar] spawn {
         params ["_launcher", "_radar"];
