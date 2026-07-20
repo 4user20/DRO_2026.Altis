@@ -1,14 +1,21 @@
 params [["_requester", objNull], ["_rendered", ""]];
 
 if (_rendered != "" && {hasInterface}) exitWith {
+    if (isRemoteExecuted && {remoteExecutedOwner != 2}) exitWith {};
     hint parseText _rendered;
     ["STATUS_QUERY"] call DRO2026_fnc_hqVoice;
 };
 if (!isServer) exitWith {
     [player, ""] remoteExecCall ["DRO2026_fnc_showStatus", 2, false];
 };
-if (isNull _requester && {hasInterface}) then {_requester = player};
-if (isNull _requester) exitWith {};
+if (isNull _requester && {hasInterface} && {!isRemoteExecuted}) then {_requester = player};
+if (isRemoteExecuted) then {
+    private _owner = remoteExecutedOwner;
+    if (_owner <= 2 || {isNull _requester}) exitWith {_requester = objNull};
+    if (!(_requester isKindOf "Man") || {!isPlayer _requester} || {_requester isKindOf "VirtualMan_F"}) exitWith {_requester = objNull};
+    if ((owner _requester) != _owner) exitWith {_requester = objNull};
+};
+if (isNull _requester || {side (group _requester) != playersSide}) exitWith {};
 
 private _aar = [] call DRO2026_fnc_buildAAR;
 private _phaseNames = createHashMapFromArray [
@@ -121,4 +128,4 @@ private _text = format [
     _reserveAssessment,
     _aar getOrDefault ["score", 0]
 ];
-[objNull, _text] remoteExecCall ["DRO2026_fnc_showStatus", _requester, false];
+[objNull, _text] remoteExecCall ["DRO2026_fnc_showStatus", owner _requester, false];
