@@ -25,7 +25,7 @@ if (_siteIndex >= 0) exitWith {
     private _site = DRO2026_sites select _siteIndex;
     private _status = _site getOrDefault ["status", "ACTIVE"];
     private _object = _site getOrDefault ["object", objNull];
-    !(_status in ["DESTROYED", "DISABLED", "CANCELLED"]) && {isNull _object || {alive _object}}
+    !(_status in ["DESTROYED", "DISABLED", "CANCELLED", "COMPLETED"]) && {isNull _object || {alive _object}}
 };
 
 private _positionIndex = DRO2026_friendlyPositions findIf {
@@ -38,4 +38,4 @@ if (_positionIndex >= 0) exitWith {
 };
 
 private _node = DRO2026_networkNodes getOrDefault [_subjectId, createHashMap];
-count _node > 0 && {!((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"])}
+count _node > 0 && {!((_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED", "COMPLETED"])}
