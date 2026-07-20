@@ -1,7 +1,7 @@
 params [
     "_origin", "_contact", ["_side", east], ["_operator", objNull],
     ["_allowPlayerControl", false], ["_supportOwner", objNull], ["_requestedClass", ""],
-    ["_reservationNodeId", ""]
+    ["_reservationNodeId", ""], ["_siteId", ""]
 ];
 private _refundReservation = {
     if (_side == playersSide) then {
@@ -14,8 +14,13 @@ private _refundReservation = {
         };
     };
 };
+private _siteOperational = {
+    _siteId == "" || {[_siteId] call DRO2026_fnc_isSiteOperational}
+};
 if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundReservation; objNull};
 if (!isNull _operator && {!alive _operator}) exitWith {call _refundReservation; objNull};
+if !(call _siteOperational) exitWith {call _refundReservation; objNull};
+if !([_contact] call DRO2026_fnc_isLiveContactSubject) exitWith {call _refundReservation; objNull};
 private _target = _contact getOrDefault ["target", objNull];
 private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
 if (count _targetPosition < 2) exitWith {call _refundReservation; objNull};
@@ -94,6 +99,7 @@ _driver disableAI "AUTOTARGET";
 _drone setVariable ["DRO2026_operator", _operator];
 _drone setVariable ["DRO2026_manualControl", false, true];
 _drone setVariable ["DRO2026_supportOwner", _supportOwner, true];
+_drone setVariable ["DRO2026_siteId", _siteId, true];
 if (!isNull _operator) then {_operator setVariable ["DRO2026_activeUAV", _drone]};
 DRO2026_activeDrones pushBack _drone;
 DRO2026_managedVehicles pushBackUnique _drone;
@@ -135,6 +141,7 @@ private _targetLostAt = -1;
 while {
     alive _drone &&
     {time < _timeout} &&
+    {call _siteOperational} &&
     {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}
 } do {
     private _manual = _drone getVariable ["DRO2026_manualControl", false];
