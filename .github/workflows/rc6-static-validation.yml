@@ -1,0 +1,118 @@
+name: RC6 Static Validation
+
+on:
+  push:
+    branches:
+      - fix/post-merge-audit-hardening
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.sqf"
+      - "**/*.inc"
+      - "**/*.hpp"
+      - "**/*.ext"
+      - "**/*.sqm"
+      - "tools/**"
+      - ".github/workflows/rc6-static-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc6-static-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Python and RC6 contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: tools/requirements*.txt
+
+      - name: Repository preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' -- ':!*.md' ':!*.txt'; then
+            echo "Unresolved merge markers found" >&2
+            exit 1
+          fi
+          python -m compileall -q tools
+
+      - name: Run canonical RC6 validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation-artifacts
+          python tools/validate_all_rc6.py | tee validation-artifacts/validate_all_rc6.json
+
+      - name: Verify validator report shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("validation-artifacts/validate_all_rc6.json")
+          report = json.loads(path.read_text(encoding="utf-8"))
+          assert report.get("validator") == "all-rc6", report
+          assert report.get("failed") is False, report
+          results = report.get("results")
+          assert isinstance(results, list) and results, report
+          failed = [item for item in results if item.get("exitCode") != 0]
+          assert not failed, failed
+          print(f"Validated {len(results)} canonical RC6 stages")
+          PY
+
+      - name: Write validation summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## RC6 static validation"
+            echo
+            echo "- Revision: \`${GITHUB_SHA}\`"
+            echo "- Python: \`$(python --version 2>&1)\`"
+            if [[ -f validation-artifacts/validate_all_rc6.json ]]; then
+              python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads(Path("validation-artifacts/validate_all_rc6.json").read_text(encoding="utf-8"))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"- Overall failed: `{report.get('failed')}`\n")
+              summary.write("\n| Stage | Exit code |\n|---|---:|\n")
+              for item in report.get("results", []):
+                  command = str(item.get("command", "")).replace("|", "\\|")
+                  summary.write(f"| `{command}` | {item.get('exitCode')} |\n")
+          PY
+            else
+              echo "- Validator report was not produced"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc6-validation-${{ github.sha }}
+          path: validation-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
