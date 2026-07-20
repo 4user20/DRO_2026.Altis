@@ -90,7 +90,7 @@ if (_withLongRange) then {
         private _radarMax = (_radarRange param [1,260,[0]]) max _radarMin;
         private _radarPosition = [];
         for "_attempt" from 0 to 7 do {
-            private _bearingJitter = [-25,format ["AA_%1_RADAR_JITTER_%2",_siteType,_attempt],25] call DRO2026_fnc_seededRandom;
+            private _bearingJitter = [25,format ["AA_%1_RADAR_JITTER_%2",_siteType,_attempt],-25] call DRO2026_fnc_seededRandom;
             private _radarBearing = _baseBearing + 90 + _bearingJitter + (_attempt * 45);
             private _distance = (_radarMin + 45) + ([((_radarMax - _radarMin - 45) max 1),format ["AA_%1_RADAR_DISTANCE_%2",_siteType,_attempt],0] call DRO2026_fnc_seededRandom);
             private _candidate = [_longPosition,_distance,_radarBearing,_radarClass] call _safePosition;
