@@ -40,8 +40,14 @@ if (!isNil "AOLocations") then {
 };
 private _locationTypes = ["NameCityCapital","NameCity","NameVillage","NameLocal","CityCenter","Strategic","FlatAreaCity","FlatAreaCitySmall"];
 {
-    private _normalized = [locationPosition _x] call _normalizeATL;
-    if (count _normalized == 3) then {_candidatePositions pushBackUnique _normalized};
+    private _locationAGL = locationPosition _x;
+    if (_locationAGL isEqualType [] && {count _locationAGL >= 2}) then {
+        _candidatePositions pushBackUnique [
+            _locationAGL param [0,0,[0]],
+            _locationAGL param [1,0,[0]],
+            0
+        ];
+    };
 } forEach (nearestLocations [_anchor3D,_locationTypes,_maxDistance max 6000]);
 for "_index" from 0 to 80 do {
     _candidatePositions pushBack ([_anchor3D getPos [
@@ -69,7 +75,7 @@ private _evaluate = {
         ([_roads,[],{_candidate3D distance2D _x},"ASCEND"] call BIS_fnc_sortBy) select 0
     } else {objNull};
     if (_requireRoad && {isNull _road}) exitWith {};
-    private _connectedRoads = if (isNull _road) then {[]} else {roadsConnectedTo _road};
+    private _connectedRoads = if (isNull _road) then {[]} else {roadsConnectedTo [_road,_allowRoadFallback]};
     if (_requireRoad && {count _connectedRoads == 0} && {!_allowRoadFallback}) exitWith {};
 
     private _roadPosition = if (isNull _road) then {_candidate3D} else {[getPosATL _road] call _normalizeATL};
@@ -93,7 +99,7 @@ private _evaluate = {
         _slopePenalty - _roadPenalty * 5 - _bearingPenalty - _combatPenalty;
     if (_score > (_result getOrDefault ["score",-1e12])) then {
         private _positionATL = +_sideOffset;
-        private _positionASL = AGLToASL _positionATL;
+        private _positionASL = ATLToASL _positionATL;
         _result = createHashMapFromArray [
             ["ok",true],["code","OK"],["positionATL",_positionATL],["position",+_positionATL],
             ["positionASL",_positionASL],["road",_road],["roadFound",!isNull _road],
@@ -117,7 +123,7 @@ if !(_result getOrDefault ["ok",false]) then {
         _result set ["code","FALLBACK_SAFE_POSITION"];
         _result set ["positionATL",+_fallback];
         _result set ["position",+_fallback];
-        _result set ["positionASL",AGLToASL _fallback];
+        _result set ["positionASL",ATLToASL _fallback];
         _result set ["fallbackUsed",true];
         _result set ["fallbackReason","NO_ROAD_REQUIRED_SAFE_POSITION"];
     } else {
