@@ -12,6 +12,7 @@ private _safeConfigClass = {
     private _cfg = configFile >> "CfgVehicles" >> _class;
     if (!isClass _cfg) exitWith {false};
     if (getNumber (_cfg >> "scope") < 2) exitWith {false};
+    if (getNumber (_cfg >> "isBackpack") > 0) exitWith {false};
     if (_mustBeMan && {!(_class isKindOf "Man")}) exitWith {false};
     private _name = toLowerANSI _class;
     private _reasonIndex = _blockedTokens findIf {(_name find _x) >= 0};
@@ -46,8 +47,36 @@ private _filterFlatPool = {
     "pHeliClasses", "pPlaneClasses", "pUAVClasses", "pArtyClasses", "pMortarClasses", "pAmmoClasses", "pAPCClasses",
     "eCarClasses", "eCarNoTurretClasses", "eCarTurretClasses", "eTankClasses", "eAAClasses", "eStaticClasses",
     "eHeliClasses", "ePlaneClasses", "eUAVClasses", "eArtyClasses", "eMortarClasses", "eAmmoClasses", "eAPCClasses",
-    "civCarClasses"
+    "civCarClasses", "startVehicles"
 ];
+
+private _filterByContract = {
+    params ["_name","_contract",["_strict",true]];
+    private _pool = missionNamespace getVariable [_name,[]];
+    private _before = count _pool;
+    if (_strict) then {
+        _pool = _pool select {[_x,_contract] call DRO2026_fnc_isAssetAllowedForRole};
+    } else {
+        private _forbiddenRoles = [
+            "ARTILLERY_TUBE","ARTILLERY_TUBE_HEAVY","ARTILLERY_ROCKET","ARTILLERY_ROCKET_LIGHT","ARTILLERY_ROCKET_HEAVY","MORTAR",
+            "SAM_LONG_RANGE","SAM_MEDIUM_RANGE","SAM_SHORT_RANGE","SHORAD","EARLY_WARNING_RADAR","FIRE_CONTROL_RADAR",
+            "BALLISTIC_MISSILE_LAUNCHER","CRUISE_MISSILE_CARRIER","UAV_LAUNCHER","FPV_LAUNCHER","COMMAND","SIGNALS","STATIC_DEFENCE"
+        ];
+        _pool = _pool select {!(([_x] call DRO2026_fnc_getAssetPrimaryRole) in _forbiddenRoles)};
+    };
+    missionNamespace setVariable [_name,_pool];
+    if (_before != count _pool) then {
+        ["ROLE","LEGACY_POOL_FILTERED",createHashMapFromArray [
+            ["pool",_name],["contract",_contract],["before",_before],["after",count _pool]
+        ],_name] call DRO2026_fnc_logStructured;
+    };
+};
+
+["startVehicles","INSERTION_POOL",true] call _filterByContract;
+{[_x,"TRANSPORT_POOL",false] call _filterByContract} forEach [
+    "pCarClasses","pCarNoTurretClasses","pCarTurretClasses","eCarClasses","eCarNoTurretClasses","eCarTurretClasses"
+];
+{[_x,"ARTILLERY_POOL",true] call _filterByContract} forEach ["pArtyClasses","pMortarClasses","eArtyClasses","eMortarClasses"];
 
 // Weighted infantry pools must be filtered together with their weight arrays.
 {
