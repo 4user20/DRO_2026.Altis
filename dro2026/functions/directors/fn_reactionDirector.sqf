@@ -1,17 +1,33 @@
 if (!isServer) exitWith {};
 private _alertAnnounced = false;
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
+    private _now = time;
     if (DRO2026_alertLevel > 0.55 && {!_alertAnnounced}) then {["ALERT"] call DRO2026_fnc_hqVoice; _alertAnnounced = true};
     if (DRO2026_alertLevel < 0.35) then {_alertAnnounced = false};
 
+    {
+        private _edgeId = _x;
+        private _edge = DRO2026_networkEdges get _edgeId;
+        if (
+            (_edge getOrDefault ["status", "OPEN"]) == "PAUSED" &&
+            {_now >= (_edge getOrDefault ["pausedUntil", 1e12])}
+        ) then {
+            _edge set ["status", "OPEN"];
+            _edge deleteAt "pausedUntil";
+            _edge set ["lastUpdatedAt", _now];
+            DRO2026_networkEdges set [_edgeId, _edge];
+            ["ROUTE_RESUMED", createHashMapFromArray [["edgeId", _edgeId], ["risk", _edge getOrDefault ["risk", 0.12]]], "NODE_LOGISTICS_01"] call DRO2026_fnc_emitEvent;
+        };
+    } forEach keys DRO2026_networkEdges;
+
     private _intent = missionNamespace getVariable ["DRO2026_currentIntent", createHashMap];
     private _action = _intent getOrDefault ["action", ""];
-    private _ready = count _intent == 0 || {time >= (_intent getOrDefault ["earliestAt", 0]) && {time <= (_intent getOrDefault ["expiresAt", time])}};
+    private _ready = count _intent == 0 || {_now >= (_intent getOrDefault ["earliestAt", 0]) && {_now <= (_intent getOrDefault ["expiresAt", _now])}};
     private _known = DRO2026_contacts select {
         (_x getOrDefault ["owner", ""]) == "ENEMY" &&
         {(_x getOrDefault ["confidence", 0]) >= 0.58} &&
-        {(time - (_x getOrDefault ["lastSeen", 0])) < 260} &&
-        {!((_x getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"])}
+        {(_now - (_x getOrDefault ["lastSeen", 0])) < 260} &&
+        {[_x] call DRO2026_fnc_isLiveContactSubject}
     };
     private _contactId = _intent getOrDefault ["contactId", ""];
     if (_contactId != "") then {
@@ -33,17 +49,27 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _edge = DRO2026_networkEdges get _edgeId;
             private _risk = _edge getOrDefault ["risk", 0.12];
             private _pressure = _edge getOrDefault ["interdictionPressure", 0];
-            _edge set ["status", if (_risk > 0.75) then {"PAUSED"} else {"OPEN"}];
-            _edge set ["nextDeliveryAt", time + ((_edge getOrDefault ["travelTime", 600]) * (1.35 + _risk))];
+            private _delay = (_edge getOrDefault ["travelTime", 600]) * (1.35 + _risk);
+            private _resumeAt = _now + _delay;
+            if (_risk > 0.75) then {
+                _edge set ["status", "PAUSED"];
+                _edge set ["pausedUntil", _resumeAt];
+            } else {
+                _edge set ["status", "OPEN"];
+                _edge deleteAt "pausedUntil";
+            };
+            _edge set ["nextDeliveryAt", _resumeAt];
             _edge set ["interdictionPressure", (_pressure - 0.5) max 0];
             _edge set ["escortLevel", ((_edge getOrDefault ["escortLevel", 0]) + 1) min 3];
+            _edge set ["lastUpdatedAt", _now];
             DRO2026_networkEdges set [_edgeId, _edge];
-            ["ROUTE_ADAPTED", createHashMapFromArray [["edgeId", _edgeId], ["risk", _risk], ["escortLevel", _edge get "escortLevel"], ["status", _edge get "status"]], "NODE_LOGISTICS_01"] call DRO2026_fnc_emitEvent;
+            ["ROUTE_ADAPTED", createHashMapFromArray [["edgeId", _edgeId], ["risk", _risk], ["escortLevel", _edge get "escortLevel"], ["status", _edge get "status"], ["resumeAt", _resumeAt]], "NODE_LOGISTICS_01"] call DRO2026_fnc_emitEvent;
             _intent set ["status", "EXECUTED"];
-            _intent set ["executedAt", time];
+            _intent set ["executedAt", _now];
             missionNamespace setVariable ["DRO2026_currentIntent", _intent];
         } else {
             _intent set ["status", "CANCELLED"];
+            _intent set ["cancelReason", "NO_INTERDICTED_ROUTE"];
             missionNamespace setVariable ["DRO2026_currentIntent", _intent];
         };
     };
@@ -54,12 +80,22 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         [_contact] call DRO2026_fnc_orderEncirclement;
 
         if (_ready && {_action == "REINFORCE"}) then {
-            private _nonStatic = DRO2026_managedGroups select {!isNull _x && {side _x == enemySide} && {!(_x getVariable ["DRO2026_static", false])} && {count units _x > 0}};
+            private _nonStatic = DRO2026_managedGroups select {
+                private _leader = leader _x;
+                !isNull _x &&
+                {!isNull _leader} &&
+                {alive _leader} &&
+                {side _x == enemySide} &&
+                {!(_x getVariable ["DRO2026_static", false])} &&
+                {({alive _x} count units _x) > 0}
+            };
             private _hq = DRO2026_networkNodes getOrDefault ["NODE_ENEMY_HQ", createHashMap];
             private _stocks = _hq getOrDefault ["stocks", createHashMap];
             private _replacements = _stocks getOrDefault ["INFANTRY_REPLACEMENTS", 0];
             private _fuel = _stocks getOrDefault ["FUEL", 0];
-            private _canSpawn = count _nonStatic < 4 && {
+            private _canSpawn = !(missionNamespace getVariable ["DRO2026_missionEnding", false]) && {
+                count _nonStatic < 4
+            } && {
                 DRO2026_fpsAverage >= DRO2026_MIN_FPS_FOR_REINFORCEMENTS
             } && {
                 _replacements >= 4 && {_fuel >= 2}
@@ -74,7 +110,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                 private _spawn = [_rear, 150, 650, 5, 0, 0.45, 0, [], [_rear, _rear]] call BIS_fnc_findSafePos;
                 if (_spawn isEqualTo [0,0,0]) then {_spawn = _rear};
                 private _group = [_spawn, 3, 4, 100, false] call DRO2026_fnc_spawnGuard;
-                if (!isNull _group) then {
+                if (!isNull _group && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}) then {
                     _group setVariable ["DRO2026_static", false];
                     private _waypoint = _group addWaypoint [_targetPos getPos [450, random 360], 50];
                     _waypoint setWaypointType "MOVE";
@@ -88,6 +124,14 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                     ["REINFORCEMENT_DISPATCHED", createHashMapFromArray [["contactId", _contact getOrDefault ["id", ""]], ["group", groupId _group], ["wave", DRO2026_reinforcementWaves]], "NODE_ENEMY_HQ"] call DRO2026_fnc_emitEvent;
                     _intent set ["status", "EXECUTED"];
                     _intent set ["executedAt", time];
+                    missionNamespace setVariable ["DRO2026_currentIntent", _intent];
+                } else {
+                    if (!isNull _group) then {
+                        {if (!isNull _x) then {deleteVehicle _x}} forEach units _group;
+                        deleteGroup _group;
+                    };
+                    _intent set ["status", "CANCELLED"];
+                    _intent set ["cancelReason", "MATERIALIZATION_FAILED_OR_MISSION_ENDING"];
                     missionNamespace setVariable ["DRO2026_currentIntent", _intent];
                 };
             } else {
