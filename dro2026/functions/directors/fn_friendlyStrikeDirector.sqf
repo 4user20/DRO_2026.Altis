@@ -114,8 +114,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         private _operator = _site getOrDefault ["operator", objNull];
         if !([_siteId] call DRO2026_fnc_isSiteOperational) then {continue};
         DRO2026_resources set ["friendlyFPVStock", (_fpvStock - 1) max 0];
-        [_origin, _contact, playersSide, _operator, false, objNull, "", "", _siteId] spawn DRO2026_fnc_launchFPVStrike;
         ["FRIENDLY_AUTO_STRIKE", createHashMapFromArray [["mode", _mode], ["system", "FPV"], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId], ["state", "RESERVED"]], "FRIENDLY_HQ"] call DRO2026_fnc_emitEvent;
+        [_origin, _contact, playersSide, _operator, false, objNull, "", "", _siteId] spawn DRO2026_fnc_launchFPVStrike;
         ["ACK", "Штаб: автоматический защитный контур зарезервировал FPV по подтверждённой цели.", -2] call DRO2026_fnc_hqVoice;
         DRO2026_lastFriendlyStrike = time;
     } else {
@@ -130,8 +130,8 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         private _reserveStock = DRO2026_resources getOrDefault [_reservePool, 0];
         if (_reserveStock <= 0) then {continue};
         DRO2026_resources set [_reservePool, (_reserveStock - 1) max 0];
-        [_origin, _contact, playersSide, _preferFP5, _operator, _type, false, 0, 1, true, "", _siteId] spawn DRO2026_fnc_launchLongRangeStrike;
         ["FRIENDLY_AUTO_STRIKE", createHashMapFromArray [["mode", _mode], ["system", if (_preferFP5) then {"FP5"} else {"LONG_RANGE"}], ["contactId", _contact getOrDefault ["id", ""]], ["siteId", _siteId], ["state", "RESERVED"]], "FRIENDLY_HQ"] call DRO2026_fnc_emitEvent;
+        [_origin, _contact, playersSide, _preferFP5, _operator, _type, false, 0, 1, true, "", _siteId] spawn DRO2026_fnc_launchLongRangeStrike;
         ["ACK", "Штаб: автоматический контур зарезервировал дальний удар по высокоценной цели.", -2] call DRO2026_fnc_hqVoice;
         DRO2026_lastFriendlyStrike = time;
     };
