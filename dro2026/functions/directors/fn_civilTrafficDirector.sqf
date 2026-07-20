@@ -25,6 +25,10 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     if (isNull _vehicle) then {continue};
     _vehicle setDir (_source getDir _destination);
     private _group = createGroup [civilian, true];
+    if (isNull _group) then {
+        deleteVehicle _vehicle;
+        continue;
+    };
     private _driver = _group createUnit ["C_man_p_beggar_F_euro", _source, [], 0, "NONE"];
     if (isNull _driver) then {
         deleteVehicle _vehicle;
@@ -33,7 +37,11 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     };
     _driver moveInDriver _vehicle;
     if (driver _vehicle != _driver) then {
-        deleteVehicle _driver;
+        if (objectParent _driver == _vehicle) then {
+            _vehicle deleteVehicleCrew _driver;
+        } else {
+            deleteVehicle _driver;
+        };
         deleteVehicle _vehicle;
         deleteGroup _group;
         continue;
@@ -47,15 +55,17 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     _waypoint setWaypointSpeed "LIMITED";
     _waypoint setWaypointBehaviour "SAFE";
     DRO2026_civilTraffic pushBack (createHashMapFromArray [["vehicle", _vehicle], ["driver", _driver], ["group", _group], ["source", _source], ["destination", _destination]]);
-    [_vehicle, _driver, _group, _destination] spawn {
-        params ["_vehicle", "_driver", "_group", "_destination"];
+    [_vehicle, _group, _destination] spawn {
+        params ["_vehicle", "_group", "_destination"];
         waitUntil {
             sleep 5;
             !alive _vehicle || {!canMove _vehicle} || {_vehicle distance2D _destination < 75} ||
             {missionNamespace getVariable ["DRO2026_missionEnding", false]}
         };
-        if (!isNull _driver) then {deleteVehicle _driver};
-        if (!isNull _vehicle && {alive _vehicle}) then {deleteVehicle _vehicle};
+        if (!isNull _vehicle) then {
+            deleteVehicleCrew _vehicle;
+            if (alive _vehicle) then {deleteVehicle _vehicle};
+        };
         if (!isNull _group) then {deleteGroup _group};
     };
 };
