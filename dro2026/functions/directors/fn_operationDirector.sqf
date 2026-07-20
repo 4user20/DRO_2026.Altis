@@ -63,7 +63,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
         private _addIntent = {
             params ["_action", "_nodeId", "_contact", "_base", "_cost", "_minConfidence"];
             private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
-            if (count _node == 0 || {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED"]}) exitWith {};
+            if (count _node == 0 || {(_node getOrDefault ["status", "ACTIVE"]) in ["DESTROYED", "DISABLED", "CANCELLED"]}) exitWith {};
             private _confidence = _contact getOrDefault ["confidence", 0];
             if (_minConfidence > 0 && {_confidence < _minConfidence}) exitWith {};
             private _validTarget = true;
