@@ -63,7 +63,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
 
             if (
                 _physicalState == "VIRTUAL" &&
-                {!missionNamespace getVariable ["DRO2026_missionEnding", false]} &&
+                {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} &&
                 {(_detected || {_knownByPlayer})} &&
                 {count DRO2026_activeConvoys < DRO2026_ACTIVE_CONVOY_LIMIT}
             ) then {
