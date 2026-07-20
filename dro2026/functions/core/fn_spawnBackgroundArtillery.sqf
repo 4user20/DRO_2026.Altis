@@ -27,7 +27,13 @@ if ([_record, true] call DRO2026_fnc_validateSiteRecord) then {
     [_artillery, _positions, "", ""] spawn DRO2026_fnc_artilleryLoop;
     _artillery
 } else {
+    private _group = if (isNull (driver _artillery)) then {
+        if (isNull (gunner _artillery)) then {grpNull} else {group (gunner _artillery)}
+    } else {
+        group (driver _artillery)
+    };
     deleteVehicleCrew _artillery;
     deleteVehicle _artillery;
+    if (!isNull _group) then {deleteGroup _group};
     objNull
 }
