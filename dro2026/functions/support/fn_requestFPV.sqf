@@ -6,7 +6,8 @@ private _legacyFifth = _this param [4, ""];
 
 private _requester = objNull;
 if (_requesterOrManual isEqualType objNull) then {_requester = _requesterOrManual};
-if (_legacyFourth isEqualType objNull) then {_requester = _legacyFourth};
+if (_legacyFourth isEqualType objNull && {!isNull _legacyFourth}) then {_requester = _legacyFourth};
+if (_legacyFifth isEqualType objNull && {!isNull _legacyFifth}) then {_requester = _legacyFifth};
 
 private _legacyManual = (_requesterOrManual isEqualType true) && {_requesterOrManual};
 private _legacyQuantity = if (_legacyQuantityRaw isEqualType 0) then {round _legacyQuantityRaw} else {1};
@@ -84,7 +85,9 @@ if (!_shapeOk) exitWith {
     ["INVALID_REQUEST_SHAPE", format ["Unsupported FPV request shape: %1", typeName _requestOrPosition]] call _reject
 };
 
-private _channel = toUpperANSI (_request getOrDefault ["channel", "FPV"]);
+private _channelRaw = _request getOrDefault ["channel", "FPV"];
+if !(_channelRaw isEqualType "") exitWith {["INVALID_CHANNEL", "FPV request channel must be a String"] call _reject};
+private _channel = toUpperANSI _channelRaw;
 if (_channel != "FPV") exitWith {["INVALID_CHANNEL", "FPV handler received a non-FPV support request"] call _reject};
 
 if (!isServer) exitWith {
@@ -99,7 +102,9 @@ if (!isServer) exitWith {
 if (isNull _requester || {!alive _requester} || {!isPlayer _requester}) exitWith {["REQUESTER_INVALID", "Requester is not a live player"] call _reject};
 if (side (group _requester) != playersSide) exitWith {["REQUESTER_SIDE_DENIED", "FPV support is unavailable for this side"] call _reject};
 
-private _manualControl = toUpperANSI (_request getOrDefault ["controlMode", "AUTO"]) == "MANUAL";
+private _controlModeRaw = _request getOrDefault ["controlMode", "AUTO"];
+if !(_controlModeRaw isEqualType "") then {_controlModeRaw = "AUTO"};
+private _manualControl = toUpperANSI _controlModeRaw == "MANUAL";
 if (_manualControl && {!([_requester] call DRO2026_fnc_hasUAVTerminal)}) exitWith {["UAV_TERMINAL_REQUIRED", "A compatible UAV Terminal must be assigned before a manual FPV reservation"] call _reject};
 
 private _quantityRaw = _request getOrDefault ["count", 1];
@@ -115,7 +120,9 @@ private _allowedClasses = DRO2026_assetRegistry getOrDefault [_role, []];
 if (_requestedClass != "" && {!(_requestedClass in _allowedClasses)}) exitWith {["ASSET_NOT_ALLOWED", "Requested FPV class is not available for this side"] call _reject};
 if ((time - DRO2026_lastFPVRequest) < DRO2026_FPV_COOLDOWN) exitWith {["CHANNEL_COOLDOWN", "FPV team is preparing the next launch"] call _reject};
 
-private _targetMode = toUpperANSI (_request getOrDefault ["targetMode", "MAP_POINT"]);
+private _targetModeRaw = _request getOrDefault ["targetMode", "MAP_POINT"];
+if !(_targetModeRaw isEqualType "") then {_targetModeRaw = "MAP_POINT"};
+private _targetMode = toUpperANSI _targetModeRaw;
 private _targetPositionASL = _request getOrDefault ["targetPositionASL", []];
 if !(_targetPositionASL isEqualType []) then {_targetPositionASL = []};
 private _contactId = _request getOrDefault ["contactId", ""];
@@ -142,7 +149,9 @@ _contacts = [_contacts, [], {-(_x getOrDefault ["confidence", 0])}, "ASCEND"] ca
 private _contact = _contacts select 0;
 private _targetASL = _contact getOrDefault ["positionASL", _contact getOrDefault ["positionMean", _targetPositionASL]];
 
-private _sourceMode = toUpperANSI (_request getOrDefault ["sourceMode", "AUTO"]);
+private _sourceModeRaw = _request getOrDefault ["sourceMode", "AUTO"];
+if !(_sourceModeRaw isEqualType "") then {_sourceModeRaw = "AUTO"};
+private _sourceMode = toUpperANSI _sourceModeRaw;
 private _sourceNodeId = _request getOrDefault ["sourceNodeId", ""];
 private _sourceGroupNetId = _request getOrDefault ["sourceGroupNetId", ""];
 private _sites = DRO2026_sites select {
