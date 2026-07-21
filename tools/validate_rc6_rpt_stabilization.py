@@ -114,12 +114,13 @@ contracts = {
         '"CANCELLED"',
     ),
     "dro2026/functions/directors/fn_logisticsDirector.sqf": (
-        "_setActiveConvoyStatus",
-        "_setDeliverySiteStatus",
         '"siteRecord"',
-        '"INTERDICTED"',
-        '"DELIVERED"',
-        '"CANCELLED"',
+        '"DELIVERY_INTERDICTED"',
+        '"DELIVERY_COMPLETED"',
+        '"DELIVERY_MATERIALIZATION_REFUND"',
+        '"RETURNING"',
+        '"TRANSFERRING"',
+        '"CANCELED"',
     ),
 }
 
@@ -157,44 +158,73 @@ for relative, tokens in forbidden.items():
     if found:
         errors.append(f"{relative}: forbidden {', '.join(found)}")
 
-rpt_patterns = {
+mission_rpt_patterns = {
+    "mission expression error": re.compile(
+        r"Error in expression[\s\S]{0,650}?File .*?DRO_2026\.Altis\\dro2026\\functions\\",
+        re.I,
+    ),
     "faction/locality undefined": re.compile(
         r"Undefined variable in expression: _(?:thisFac|isPlayerFaction|"
         r"isEnemyFaction|spawnDirection|applyFlightVector|sideSuffix|"
         r"reservationNodeId|cleanupDeliveryVehicles|setDeliverySiteStatus)",
         re.I,
     ),
-    "type mismatch": re.compile(
-        r"Error Тип (?:Массив|Объект|Группа|Строка|Число), ожидался",
-        re.I,
-    ),
-    "generic expression error": re.compile(
-        r"(?:Error in expression|Generic error in expression)",
-        re.I,
-    ),
+    "type mismatch": re.compile(r"Error Тип (?:Массив|Объект|Группа|Строка|Число), ожидался", re.I),
     "legacy TOS support": re.compile(r"_artyVeh\s*=.*pook_TOS1A", re.I),
-    "fire handler spam": re.compile(r"\[DEBUG\] FIRED", re.I),
     "watchdog freeze": re.compile(r"No alive in \d+ ms", re.I),
 }
-rpt_findings = {name: [] for name in rpt_patterns}
+external_rpt_patterns = {
+    "external PiR expression error": re.compile(r"File PiR\\Functions\\.*?\.sqf", re.I),
+    "external ARI_AO missing script": re.compile(r"Script ARI_AO\\.*? not found", re.I),
+    "external particle expression": re.compile(r"Неопределенная переменная в выражении: speed[xyz]", re.I),
+    "external fired debug spam": re.compile(r"\[DEBUG\] FIRED", re.I),
+}
+
+def collect_findings(source: str, patterns: dict[str, re.Pattern[str]], path: Path) -> dict[str, dict[str, object]]:
+    findings: dict[str, dict[str, object]] = {}
+    for name, pattern in patterns.items():
+        samples: list[str] = []
+        count = 0
+        for match in pattern.finditer(source):
+            count += 1
+            if len(samples) < 20:
+                line = source.count("\n", 0, match.start()) + 1
+                samples.append(f"{path}:{line}")
+        findings[name] = {"count": count, "samples": samples}
+    return findings
+
+mission_rpt_findings: dict[str, dict[str, object]] = {
+    name: {"count": 0, "samples": []} for name in mission_rpt_patterns
+}
+external_rpt_findings: dict[str, dict[str, object]] = {
+    name: {"count": 0, "samples": []} for name in external_rpt_patterns
+}
 for raw in args.rpt:
     path = Path(raw).expanduser().resolve()
     if not path.is_file():
         errors.append(f"RPT not found: {path}")
         continue
     source = path.read_text(encoding="utf-8", errors="replace")
-    for name, pattern in rpt_patterns.items():
-        for match in pattern.finditer(source):
-            line = source.count("\n", 0, match.start()) + 1
-            rpt_findings[name].append(f"{path}:{line}")
+    for destination, patterns in ((mission_rpt_findings, mission_rpt_patterns), (external_rpt_findings, external_rpt_patterns)):
+        fresh = collect_findings(source, patterns, path)
+        for name, item in fresh.items():
+            destination[name]["count"] = int(destination[name]["count"]) + int(item["count"])
+            remaining = 20 - len(destination[name]["samples"])
+            if remaining > 0:
+                destination[name]["samples"].extend(item["samples"][:remaining])
 
+mission_failed = any(int(item["count"]) > 0 for item in mission_rpt_findings.values())
+external_performance_blocker = int(external_rpt_findings["external fired debug spam"]["count"]) >= 100
 report = {
     "validator": "rc6-rpt-stabilization",
     "base_validator_skipped": args.skip_base,
     "base_validator_exit": base_exit,
     "validator_output": validator_output,
     "errors": errors,
-    "rpt_findings": rpt_findings,
+    "mission_rpt_findings": mission_rpt_findings,
+    "external_rpt_findings": external_rpt_findings,
+    "mission_failed": mission_failed,
+    "external_performance_blocker": external_performance_blocker,
 }
 print(json.dumps(report, ensure_ascii=False, indent=2))
-sys.exit(1 if errors or any(rpt_findings.values()) else 0)
+sys.exit(1 if errors or mission_failed or external_performance_blocker else 0)

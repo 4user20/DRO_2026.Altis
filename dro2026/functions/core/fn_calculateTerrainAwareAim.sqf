@@ -1,55 +1,55 @@
 /*
-    Returns an ASL navigation point which keeps an aircraft above terrain and,
-    when a steep obstacle is directly ahead, biases the route toward the lower side.
+    Returns an ASL navigation point. The destination contract is PositionASL.
+    Terrain probing uses 2D ATL coordinates only; altitude remains ASL.
 */
 params [
     "_vehicle",
-    "_destinationAGL",
+    "_destinationASL",
     ["_clearance", 25],
     ["_lookAhead", [80, 160, 260]],
     ["_terminalDistance", 260],
     ["_lateralNoise", 6]
 ];
-if (isNull _vehicle || {count _destinationAGL < 2}) exitWith {AGLToASL _destinationAGL};
+if (isNull _vehicle || {count _destinationASL < 3}) exitWith {+_destinationASL};
 
 private _currentASL = getPosASL _vehicle;
-private _currentAGL = ASLToAGL _currentASL;
-private _distance = _vehicle distance2D _destinationAGL;
-private _bearing = _currentAGL getDir _destinationAGL;
-private _maxTerrain = getTerrainHeightASL _destinationAGL;
+private _currentATL = ASLToATL _currentASL;
+private _destinationATL = ASLToATL _destinationASL;
+private _distance = _currentASL distance2D _destinationASL;
+private _bearing = _currentATL getDir _destinationATL;
+private _maxTerrainASL = getTerrainHeightASL _destinationATL;
 private _steepestRise = 0;
 
 {
-    private _sample = _currentAGL getPos [_x min _distance, _bearing];
-    private _terrain = getTerrainHeightASL _sample;
-    _maxTerrain = _maxTerrain max _terrain;
-    _steepestRise = _steepestRise max (_terrain - (_currentASL select 2));
+    private _sampleATL = _currentATL getPos [_x min _distance, _bearing];
+    private _terrainASL = getTerrainHeightASL _sampleATL;
+    _maxTerrainASL = _maxTerrainASL max _terrainASL;
+    _steepestRise = _steepestRise max (_terrainASL - (_currentASL select 2));
 } forEach _lookAhead;
 
-private _aim2D = +_destinationAGL;
+private _aimATL = +_destinationATL;
 if (_distance > _terminalDistance && {_steepestRise > 35}) then {
     private _probeDistance = ((_lookAhead select ((count _lookAhead) - 1)) min (_distance * 0.55)) max 120;
-    private _left = _currentAGL getPos [_probeDistance, _bearing - 38];
-    private _right = _currentAGL getPos [_probeDistance, _bearing + 38];
-    private _leftTerrain = getTerrainHeightASL _left;
-    private _rightTerrain = getTerrainHeightASL _right;
-    _aim2D = if (_leftTerrain <= _rightTerrain) then {_left} else {_right};
-    _maxTerrain = _maxTerrain min ((_leftTerrain min _rightTerrain) + 25);
+    private _leftATL = _currentATL getPos [_probeDistance, _bearing - 38];
+    private _rightATL = _currentATL getPos [_probeDistance, _bearing + 38];
+    private _leftTerrainASL = getTerrainHeightASL _leftATL;
+    private _rightTerrainASL = getTerrainHeightASL _rightATL;
+    _aimATL = if (_leftTerrainASL <= _rightTerrainASL) then {_leftATL} else {_rightATL};
+    _maxTerrainASL = _maxTerrainASL min ((_leftTerrainASL min _rightTerrainASL) + 25);
 };
 
-private _targetASL = AGLToASL _destinationAGL;
-private _desiredAltitude = if (_distance <= _terminalDistance) then {
+private _desiredAltitudeASL = if (_distance <= _terminalDistance) then {
     private _blend = linearConversion [0, _terminalDistance, _distance, 0, 1, true];
-    ((_targetASL select 2) + 1.5) max ((getTerrainHeightASL _aim2D) + ((_clearance * _blend) max 5))
+    ((_destinationASL select 2) + 1.5) max ((getTerrainHeightASL _aimATL) + ((_clearance * _blend) max 5))
 } else {
-    _maxTerrain + _clearance
+    _maxTerrainASL + _clearance
 };
 
 private _seed = _vehicle getVariable ["DRO2026_noiseSeed", -1];
 if (_seed < 0) then {_seed = random 100; _vehicle setVariable ["DRO2026_noiseSeed", _seed]};
 private _noisePhase = (diag_tickTime * 1.7) + _seed;
 private _sideOffset = (sin (_noisePhase * 57.2958)) * _lateralNoise;
-private _noisePoint = _aim2D getPos [abs _sideOffset, _bearing + (if (_sideOffset >= 0) then {90} else {-90})];
-private _aimASL = AGLToASL _noisePoint;
-_aimASL set [2, _desiredAltitude];
+private _noiseATL = _aimATL getPos [abs _sideOffset, _bearing + (if (_sideOffset >= 0) then {90} else {-90})];
+private _aimASL = ATLToASL _noiseATL;
+_aimASL set [2, _desiredAltitudeASL];
 _aimASL

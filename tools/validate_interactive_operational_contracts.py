@@ -21,6 +21,12 @@ FILES = {
     "long_support": ROOT / "dro2026/functions/support/fn_requestLongRangeSupport.sqf",
     "air_support": ROOT / "dro2026/functions/support/fn_requestAirSupport.sqf",
     "logistics": ROOT / "dro2026/functions/directors/fn_logisticsDirector.sqf",
+    "standoff_weapon": ROOT / "dro2026/functions/core/fn_getStandoffWeapon.sqf",
+    "terrain_aim": ROOT / "dro2026/functions/core/fn_calculateTerrainAwareAim.sqf",
+    "fpv_controller": ROOT / "dro2026/functions/drone/fn_fpvAttackController.sqf",
+    "long_strike_controller": ROOT / "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
+    "support_setup": ROOT / "sunday_system/player_setup/addSupports.sqf",
+    "asset_discovery": ROOT / "dro2026/functions/core/fn_refreshFactionAssets.sqf",
 }
 
 errors: list[str] = []
@@ -100,6 +106,27 @@ required = {
         'DRO2026_fnc_findRoadAwarePosition', '"DELIVERY_MATERIALIZATION_REFUND"',
         'DRO2026_MAX_ACTIVE_LOGISTICS_JOBS_PER_SIDE',
     ],
+    "standoff_weapon": [
+        '_vehicle weaponsTurret _turretPath', '"NO_STANDOFF_WEAPON"',
+    ],
+    "terrain_aim": [
+        '"_destinationASL"', 'private _destinationATL = ASLToATL _destinationASL',
+        'private _aimASL = ATLToASL _noiseATL',
+    ],
+    "fpv_controller": [
+        'private _targetPositionASL', 'getPosASL _target', '"FPV_GUIDANCE_FINISHED"',
+    ],
+    "long_strike_controller": [
+        'private _targetPosASL', 'getPosASL _target', '_targetPosASL vectorDiff _spawnASL',
+    ],
+    "support_setup": [
+        'private _enabled = ["UAV", "ARTY", "CAS", "SUPPLY"]',
+        'DRO2026_fnc_publishSupportCatalog',
+    ],
+    "asset_discovery": [
+        'private _discoverLoadedPlayerSupport', 'private _discoverLoadedStrikeAmmo',
+        '"PLAYER_CAS_AIR"', 'format ["FPV_%1",_playerSuffix]', 'format ["LONG_RANGE_%1",_playerSuffix]',
+    ],
 }
 
 
@@ -119,6 +146,10 @@ for key, forbidden in {
     "strategic_strike": ["DRO2026_assetRegistry getOrDefault [_role", "selectRandom allUnits", "allPlayers"],
     "point_defence": ["doMove"],
     "dynamic_tasks": ['case "STRATEGIC_MUNITION_DETECTED": { private _munitionId'],
+    "standoff_weapon": ['weaponsTurret [_vehicle,_turretPath]'],
+    "terrain_aim": ['AGLToASL _destinationASL', '"_destinationAGL"'],
+    "fpv_controller": ['getPosATL _target) vectorAdd'],
+    "support_setup": ['if (random 1 > 0.30)', 'if (random 1 > 0.42)', 'if (random 1 > 0.48)'],
 }.items():
     text = texts.get(key, "")
     compact_text = compact(text)

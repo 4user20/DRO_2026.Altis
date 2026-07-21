@@ -4,6 +4,9 @@ missionNamespace setVariable ["DRO2026_strategicStrikeDirectorStarted",true];
 private _nodeId = "NODE_BALLISTIC_01";
 private _lastLaunch = -9999;
 private _launches = 0;
+private _intelIssued = false;
+private _lastBlockReason = "";
+private _lastBlockLogAt = -999;
 while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
     private _node = DRO2026_networkNodes getOrDefault [_nodeId,createHashMap];
     private _effects = [enemySide] call DRO2026_fnc_getOperationalEffects;
@@ -31,6 +34,15 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
     private _baseCooldown = missionNamespace getVariable ["DRO2026_ISKANDER_COOLDOWN",900];
     private _cooldown = (_baseCooldown * (1 / ((_strikeFactor max 0.28)))) min 2400;
     private _stateMachine = toUpperANSI (_node getOrDefault ["stateMachineState","HIDDEN"]);
+    if (!_intelIssued && {time > 240} && {_phase in ["SHAPING","DISRUPTION","DEEP_STRIKE","COUNTERATTACK","EXPLOITATION"]} && {count _node > 0} && {!(_status in ["DESTROYED","CANCELLED"])}) then {
+        private _nodeATL = +(_node getOrDefault ["position",[]]);
+        if (count _nodeATL > 1) then {
+            private _estimateATL = _nodeATL getPos [650 + random 850,random 360];
+            ["PLAYER",objNull,_estimateATL,0.64,"ВЕРОЯТНЫЙ РАЙОН ОТРК","SIGINT",1400,_nodeId,0.16,"ATL"] call DRO2026_fnc_addContact;
+            ["BALLISTIC_SITE_INTEL",createHashMapFromArray [["nodeId",_nodeId],["estimateASL",ATLToASL _estimateATL],["uncertainty",1400]],_nodeId] call DRO2026_fnc_emitEvent;
+            _intelIssued = true;
+        };
+    };
     private _ready = count _node > 0 && {!(_status in ["DESTROYED","DISABLED","CANCELLED"])} && {
         _stateMachine in ["HIDDEN","READY"]
     } && {
@@ -39,6 +51,38 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
         !isNull _launcher && {_ammoClass != ""}
     } && {
         _missiles >= 1 && {_fuel >= 1} && {_launches < _maxLaunches} && {_activeBallistic < 1} && {(time - _lastLaunch) >= _cooldown}
+    };
+    private _blockReason = "READY";
+    if (count _node == 0) then {_blockReason = "NODE_MISSING"} else {
+        if (_status in ["DESTROYED","DISABLED","CANCELLED"]) then {_blockReason = format ["NODE_%1",_status]} else {
+            if !(_stateMachine in ["HIDDEN","READY"]) then {_blockReason = format ["STATE_%1",_stateMachine]} else {
+                if !(_phase in ["SHAPING","DISRUPTION","DEEP_STRIKE","COUNTERATTACK","EXPLOITATION"]) then {_blockReason = format ["PHASE_%1",_phase]} else {
+                    if (isNull _launcher) then {_blockReason = "NO_PHYSICAL_LAUNCHER"} else {
+                        if (_ammoClass == "") then {_blockReason = "NO_LAUNCHER_AMMO"} else {
+                            if (_missiles < 1) then {_blockReason = "NO_BALLISTIC_STOCK"} else {
+                                if (_fuel < 1) then {_blockReason = "NO_FUEL"} else {
+                                    if (_launches >= _maxLaunches) then {_blockReason = "LAUNCH_LIMIT"} else {
+                                        if (_activeBallistic >= 1) then {_blockReason = "MISSILE_ALREADY_INBOUND"} else {
+                                            if ((time - _lastLaunch) < _cooldown) then {_blockReason = "COOLDOWN"};
+                                        };
+                                    };
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    if (_blockReason != _lastBlockReason || {(time - _lastBlockLogAt) >= 120}) then {
+        _lastBlockReason = _blockReason;
+        _lastBlockLogAt = time;
+        ["STRATEGIC","BALLISTIC_STATUS",createHashMapFromArray [
+            ["reason",_blockReason],["phase",_phase],["state",_stateMachine],["nodeStatus",_status],
+            ["physicalLaunchers",count _physicalLaunchers],["launcherClass",if (isNull _launcher) then {""} else {typeOf _launcher}],
+            ["ammoClass",_ammoClass],["missiles",_missiles],["fuel",_fuel],["activeBallistic",_activeBallistic],
+            ["launches",_launches],["cooldownRemaining",(_cooldown - (time - _lastLaunch)) max 0]
+        ],_nodeId] call DRO2026_fnc_logStructured;
     };
     if (_ready) then {
         private _target = [enemySide,"ISKANDER","TRACKED"] call DRO2026_fnc_selectStrategicTarget;
@@ -152,6 +196,12 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                     _currentNode set ["stateMachineState","HIDDEN"];
                     DRO2026_networkNodes set [_nodeId,_currentNode];
                 };
+            };
+        } else {
+            if (_lastBlockReason != "NO_TRACKED_STRATEGIC_TARGET") then {
+                _lastBlockReason = "NO_TRACKED_STRATEGIC_TARGET";
+                _lastBlockLogAt = time;
+                ["STRATEGIC","BALLISTIC_STATUS",createHashMapFromArray [["reason","NO_TRACKED_STRATEGIC_TARGET"],["phase",_phase],["launcherClass",typeOf _launcher],["ammoClass",_ammoClass]],_nodeId] call DRO2026_fnc_logStructured;
             };
         };
     };

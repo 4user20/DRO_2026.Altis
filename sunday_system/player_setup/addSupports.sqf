@@ -7,19 +7,14 @@ diag_log "DRO: Initialising support categories (RC6 catalog mode)";
 // system and, in the latest RPT, selected a known unstable heavy launcher before
 // the fire-spam freeze. RC6 keeps the startup choice at category level and
 // materialises a class only after an explicit server-authoritative request.
-private _enabled = [];
-if (randomSupports == 1) then {
-    if (!isNil "customSupports" && {customSupports isEqualType []}) then {
-        _enabled = customSupports apply {toUpperANSI _x};
-    };
-} else {
-    if (random 1 > 0.30) then {_enabled pushBack "UAV"};
-    if (random 1 > 0.42) then {_enabled pushBack "ARTY"};
-    if (random 1 > 0.48) then {_enabled pushBack "CAS"};
-    if (random 1 > 0.30) then {_enabled pushBack "SUPPLY"};
+private _enabled = ["UAV", "ARTY", "CAS", "SUPPLY"];
+// Custom settings may add future categories, but never remove the core testing
+// channels. Availability of each concrete asset is decided by the published
+// config-backed catalog, not by a random startup roll or selected faction.
+if (!isNil "customSupports" && {customSupports isEqualType []}) then {
+    {_enabled pushBackUnique (toUpperANSI _x)} forEach customSupports;
 };
 _enabled = _enabled arrayIntersect _enabled;
-if (count _enabled == 0) then {_enabled = ["UAV", "ARTY", "CAS"]};
 missionNamespace setVariable ["DRO2026_supportCategories", _enabled, true];
 
 [] call DRO2026_fnc_refreshFactionAssets;

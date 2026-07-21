@@ -1,6 +1,8 @@
 if (!isServer) exitWith {};
 private _lastEmissionContact = createHashMap;
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
+    private _airCandidates = (vehicles select {!isNull _x && {alive _x} && {_x isKindOf "Air"}}) + (DRO2026_activeDrones select {!isNull _x && {alive _x}});
+    _airCandidates = _airCandidates arrayIntersect _airCandidates;
     {
         private _nodeId = _x;
         private _node = DRO2026_networkNodes getOrDefault [_nodeId, createHashMap];
@@ -70,7 +72,6 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
             private _nodePos = _node getOrDefault ["position", [0,0,0]];
             private _coverage = if (_isLong) then {12500} else {4800};
             private _tracks = [];
-            private _airCandidates = (DRO2026_activeDrones + vehicles) arrayIntersect (DRO2026_activeDrones + vehicles);
             {
                 private _air = _x;
                 if (!isNull _air && {alive _air} && {_air isKindOf "Air"} && {_air distance2D _nodePos <= _coverage}) then {

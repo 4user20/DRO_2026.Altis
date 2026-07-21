@@ -170,7 +170,7 @@ required = {
         '"POINT_DEFENCE"', 'DRO2026_activeStrategicMunitions', 'aimedAtTarget', 'fireAtTarget',
     ],
     "standoff_weapon": [
-        'allTurrets [_vehicle,true]', 'weaponsTurret [_vehicle,_turretPath]',
+        'allTurrets [_vehicle,true]', '_vehicle weaponsTurret _turretPath',
         '"shotmissile","shotrocket"', '"NO_STANDOFF_WEAPON"',
     ],
     "standoff_mission": [

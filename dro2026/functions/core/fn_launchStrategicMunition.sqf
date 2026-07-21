@@ -86,7 +86,7 @@ if (_initialLength > 0.1) then {
             _aimASL set [2,_desiredAltitude];
         } else {
             private _clearance = if (_horizontal > 1400) then {65} else {if (_horizontal > 450) then {38} else {6}};
-            _aimASL = [_object,ASLToATL _targetASL,_clearance,[450,900,1500],800,20] call DRO2026_fnc_calculateTerrainAwareAim;
+            _aimASL = [_object,_targetASL,_clearance,[450,900,1500],800,20] call DRO2026_fnc_calculateTerrainAwareAim;
         };
         private _delta = _aimASL vectorDiff _currentASL;
         private _length = vectorMagnitude _delta;

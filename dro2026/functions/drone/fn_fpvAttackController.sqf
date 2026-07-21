@@ -8,8 +8,8 @@ if (_drone getVariable ["dro2026_fpvInitialized", false]) exitWith {"ALREADY_RUN
 _drone setVariable ["dro2026_fpvInitialized", true];
 
 private _target = _contact getOrDefault ["target", objNull];
-private _targetPosition = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
-if (count _targetPosition < 2) exitWith {_drone setVariable ["dro2026_fpvInitialized", false]; "NO_TARGET"};
+private _targetPositionASL = +(_contact getOrDefault ["positionASL", _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]]]);
+if (count _targetPositionASL < 3) exitWith {_drone setVariable ["dro2026_fpvInitialized", false]; "NO_TARGET"};
 private _fiberOptic = [_drone] call DRO2026_fnc_isFiberOpticDrone;
 private _timeout = time + 210;
 private _lastDistance = 1e10;
@@ -49,11 +49,11 @@ while {
         private _targetVelocity = velocity _target;
         private _distanceToTarget = _drone distance _target;
         private _leadTime = linearConversion [0, 1200, _distanceToTarget, 0.18, 1.15, true];
-        _targetPosition = (getPosATL _target) vectorAdd (_targetVelocity vectorMultiply _leadTime);
+        _targetPositionASL = (getPosASL _target) vectorAdd (_targetVelocity vectorMultiply _leadTime);
     };
 
-    private _distance2D = _drone distance2D _targetPosition;
-    private _distance3D = _drone distance _targetPosition;
+    private _distance2D = (getPosASL _drone) distance2D _targetPositionASL;
+    private _distance3D = (getPosASL _drone) distance _targetPositionASL;
     private _tick = if (_distance2D > 500) then {0.32} else {0.22};
     private _ewPressure = if (_fiberOptic) then {0} else {[getPosATL _drone, _side, _drone] call DRO2026_fnc_getJammingAtPosition};
     private _channelQuality = if (_fiberOptic) then {1} else {linearConversion [0, 1, _ewPressure, 1, DRO2026_FPV_MIN_CHANNEL_QUALITY, true]};
@@ -87,7 +87,7 @@ while {
         private _lateralNoise = if (_distance2D > 400) then {7} else {2.5};
         if (_fiberOptic) then {_lateralNoise = _lateralNoise * 0.55} else {_lateralNoise = _lateralNoise + ((1 - _channelQuality) * 8)};
         private _attackHeight = linearConversion [0, 500, _distance2D, 3.5, 20, true];
-        private _aimASL = [_drone, _targetPosition, _attackHeight, [70, 140, 240], 260, _lateralNoise] call DRO2026_fnc_calculateTerrainAwareAim;
+        private _aimASL = [_drone, _targetPositionASL, _attackHeight, [70, 140, 240], 260, _lateralNoise] call DRO2026_fnc_calculateTerrainAwareAim;
         if (_distance2D > 300 && {_wobbleBearing != 0}) then {
             private _currentAGL = ASLToAGL getPosASL _drone;
             private _aimAGL = ASLToAGL _aimASL;
@@ -135,4 +135,10 @@ while {
     uiSleep _tick;
 };
 _drone setVariable ["dro2026_fpvInitialized", false];
+["FPV_GUIDANCE_FINISHED",createHashMapFromArray [
+    ["result",_result],["class",typeOf _drone],["side",str _side],
+    ["dronePositionASL",if (isNull _drone) then {[]} else {getPosASL _drone}],
+    ["targetPositionASL",+_targetPositionASL],["contactId",_contact getOrDefault ["id",""]],
+    ["fiberOptic",_fiberOptic],["stuckCount",_stuckCount]
+],_contact getOrDefault ["id",""]] call DRO2026_fnc_emitEvent;
 _result

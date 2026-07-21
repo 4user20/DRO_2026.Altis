@@ -35,7 +35,7 @@ private _solutions = [];
                 } forEach _magazines;
             } forEach _muzzles;
         };
-    } forEach (weaponsTurret [_vehicle,_turretPath]);
+    } forEach (_vehicle weaponsTurret _turretPath);
 } forEach _turrets;
 if (count _solutions == 0) exitWith {createHashMapFromArray [["ok",false],["code","NO_STANDOFF_WEAPON"]]};
 _solutions = [_solutions,[],{-((_x getOrDefault ["range",0]) + ((_x getOrDefault ["hit",0]) * 3))},"ASCEND"] call BIS_fnc_sortBy;
