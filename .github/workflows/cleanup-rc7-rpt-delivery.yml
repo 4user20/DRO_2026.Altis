@@ -1,0 +1,33 @@
+name: Cleanup RC7 RPT delivery files
+
+on:
+  push:
+    branches:
+      - fix/rc7-rpt-fpv-support-runtime
+    paths:
+      - ".github/workflows/cleanup-rc7-rpt-delivery.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/rc7-rpt-fpv-support-runtime
+      - name: Remove generated delivery files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf tools/__pycache__
+          rm -f .github/workflows/cleanup-rc7-rpt-delivery.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(rc7): remove generated validation bytecode"
+          git push origin HEAD:fix/rc7-rpt-fpv-support-runtime
