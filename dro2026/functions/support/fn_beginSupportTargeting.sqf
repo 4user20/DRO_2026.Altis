@@ -23,12 +23,28 @@ if (count _position < 2) exitWith {
     };
 };
 
+private _requestFPV = {
+    params ["_targetPosition", "_manual", "_count", ["_assetClass", ""]];
+    private _requestId = format ["UI_FPV_%1_%2", floor (diag_tickTime * 1000), floor random 100000];
+    private _request = createHashMapFromArray [
+        ["requestId", _requestId],
+        ["channel", "FPV"],
+        ["assetClass", _assetClass],
+        ["count", if (_manual) then {1} else {_count}],
+        ["targetMode", "MAP_POINT"],
+        ["targetPositionASL", AGLToASL _targetPosition],
+        ["sourceMode", "AUTO"],
+        ["controlMode", if (_manual) then {"MANUAL"} else {"AUTO"}]
+    ];
+    [_request] call DRO2026_fnc_requestFPV
+};
+
 private _upper = toUpperANSI _mode;
 switch true do {
-    case ((_upper find "FPV_CLASS_AUTO:") == 0): {[_position, false, _quantity, _mode select [15]] call DRO2026_fnc_requestFPV};
-    case ((_upper find "FPV_CLASS_MANUAL:") == 0): {[_position, true, 1, _mode select [17]] call DRO2026_fnc_requestFPV};
-    case (_upper == "FPV_AUTO"): {[_position, false, _quantity] call DRO2026_fnc_requestFPV};
-    case (_upper == "FPV_MANUAL"): {[_position, true, 1] call DRO2026_fnc_requestFPV};
+    case ((_upper find "FPV_CLASS_AUTO:") == 0): {[_position, false, _quantity, _mode select [15]] call _requestFPV};
+    case ((_upper find "FPV_CLASS_MANUAL:") == 0): {[_position, true, 1, _mode select [17]] call _requestFPV};
+    case (_upper == "FPV_AUTO"): {[_position, false, _quantity, ""] call _requestFPV};
+    case (_upper == "FPV_MANUAL"): {[_position, true, 1, ""] call _requestFPV};
     case ((_upper find "ISR_CLASS:") == 0): {[_position, format ["CLASS:%1", _mode select [10]]] call DRO2026_fnc_requestISR};
     case (_upper == "ISR_AUTO"): {[_position, "AUTO"] call DRO2026_fnc_requestISR};
     case (_upper == "ISR_MICRO"): {[_position, "MICRO"] call DRO2026_fnc_requestISR};
