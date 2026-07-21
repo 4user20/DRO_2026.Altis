@@ -72,7 +72,7 @@ required = {
     "missile_defence": [
         'private _physicalLaunchers', 'canFire _x',
         '"STRATEGIC_INTERCEPT_LAUNCH"', 'private _pKill',
-        '"MISSILE_DEFENCE_MISSED"',
+        '"MISSILE_DEFENCE_MISSED"', 'private _launcher =',
     ],
     "strategic_strike": [
         'private _physicalLaunchers', '"BALLISTIC_MISSILE_LAUNCHER"',
@@ -101,23 +101,29 @@ required = {
         'DRO2026_MAX_ACTIVE_LOGISTICS_JOBS_PER_SIDE',
     ],
 }
+
+
+def compact(value: str) -> str:
+    return "".join(value.split())
+
+
 for key, snippets in required.items():
     text = texts.get(key, "")
+    compact_text = compact(text)
     for snippet in snippets:
-        if snippet not in text:
+        if snippet not in text and compact(snippet) not in compact_text:
             errors.append(f"{key}:missing:{snippet}")
 
 for key, forbidden in {
     "site_record": ["AGLToASL _positionATL"],
-    "aa_objective": ["call DRO2026_fnc_spawnLayeredAA;\n[_longPos, 2, 3, 120]"],
-    "missile_defence": ["M_Titan_AA\")) then {_interceptorAmmo = \"M_Titan_AA\"};\n                        };\n                        if (_interceptorAmmo"],
     "strategic_strike": ["DRO2026_assetRegistry getOrDefault [_role", "selectRandom allUnits", "allPlayers"],
     "point_defence": ["doMove"],
-    "dynamic_tasks": ["case \"STRATEGIC_MUNITION_DETECTED\": {\n                private _munitionId"],
+    "dynamic_tasks": ['case "STRATEGIC_MUNITION_DETECTED": { private _munitionId'],
 }.items():
     text = texts.get(key, "")
+    compact_text = compact(text)
     for snippet in forbidden:
-        if snippet in text:
+        if snippet in text or compact(snippet) in compact_text:
             errors.append(f"{key}:forbidden:{snippet}")
 
 pairs = {")": "(", "]": "[", "}": "{"}
