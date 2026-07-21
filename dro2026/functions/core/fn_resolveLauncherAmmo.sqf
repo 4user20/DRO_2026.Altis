@@ -12,7 +12,7 @@ private _blockedTokens = [
     "smoke", "flare", "chaff", "countermeasure", "cmflare",
     "fake", "dummy", "horn", "safeweapon", "laserdesignator"
 ];
-private _preferredTokens = ["missile", "rocket", "ballistic", "iskander", "scud", "cruise", "warhead"];
+private _preferredTokens = ["missile", "rocket", "ballistic", "iskander", "scud", "cruise", "warhead", "fp1", "fp2", "fp5", "bm35", "bulava", "shahed", "geran"];
 private _candidates = [];
 
 {
@@ -50,14 +50,19 @@ private _candidates = [];
                         _simulation
                     ];
                     private _blocked = (_blockedTokens findIf {(_haystack find _x) >= 0}) >= 0;
-                    private _score = if (_blocked) then {-100000} else {0};
+                    private _preferredCount = {(_haystack find _x) >= 0} count _preferredTokens;
+                    private _strategicSimulation =
+                        (_simulation find "shotmissile") >= 0 ||
+                        {(_simulation find "shotrocket") >= 0} ||
+                        {(_simulation find "shotbomb") >= 0};
+                    private _strategicCandidate = _strategicSimulation || {_preferredCount > 0};
+                    private _score = if (_blocked || {!_strategicCandidate}) then {-100000} else {0};
 
-                    if (!_blocked) then {
+                    if (!_blocked && {_strategicCandidate}) then {
                         if ((_simulation find "shotmissile") >= 0) then {_score = _score + 900};
                         if ((_simulation find "shotrocket") >= 0) then {_score = _score + 700};
                         if ((_simulation find "shotbomb") >= 0) then {_score = _score + 500};
-                        if ((_simulation find "shotshell") >= 0) then {_score = _score + 250};
-                        _score = _score + (250 * ({(_haystack find _x) >= 0} count _preferredTokens));
+                        _score = _score + (250 * _preferredCount);
                         _score = _score + (((getNumber (_ammoCfg >> "hit")) min 1000) * 0.35);
                         _score = _score + (((getNumber (_ammoCfg >> "indirectHit")) min 500) * 0.20);
                         _score = _score + (((getNumber (_ammoCfg >> "indirectHitRange")) min 100) * 1.5);
