@@ -21,8 +21,10 @@ if !(_capabilities isEqualType []) then {_capabilities = []};
 
 private _existing = DRO2026_networkNodes getOrDefault [_id, createHashMap];
 private _createdAt = _existing getOrDefault ["createdAt", time];
+private _defaultPlayerKnowledge = if (_side == playersSide) then {"CONFIRMED"} else {"UNKNOWN"};
+private _defaultEnemyKnowledge = if (_side == enemySide) then {"CONFIRMED"} else {"UNKNOWN"};
 private _record = createHashMapFromArray [
-    ["schema", 1],
+    ["schema", 2],
     ["id", _id],
     ["type", _type],
     ["side", _side],
@@ -34,8 +36,8 @@ private _record = createHashMapFromArray [
     ["stocks", _stocks],
     ["capabilities", +_capabilities],
     ["emissionState", _existing getOrDefault ["emissionState", "PASSIVE"]],
-    ["knownByPlayer", _existing getOrDefault ["knownByPlayer", "UNKNOWN"]],
-    ["knownByEnemy", _existing getOrDefault ["knownByEnemy", "CONFIRMED"]],
+    ["knownByPlayer", _existing getOrDefault ["knownByPlayer", _defaultPlayerKnowledge]],
+    ["knownByEnemy", _existing getOrDefault ["knownByEnemy", _defaultEnemyKnowledge]],
     ["createdAt", _createdAt],
     ["lastUpdatedAt", time],
     ["destroyedAt", _existing getOrDefault ["destroyedAt", -1]]

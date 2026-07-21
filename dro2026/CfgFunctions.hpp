@@ -71,10 +71,29 @@ class CfgFunctions
             class buildWaypointFlightPlan {};
             class buildAssetDescriptors {};
             class dumpAssetClass {};
+            class normalizePositionASL {};
             class findRoadAwarePosition {};
             class createSiteComponents {};
             class evaluateSiteComponents {};
             class transferLogisticsCargo {};
+            class initStrategicOperationData {};
+            class registerStrategicAssets {};
+            class seededRandom {};
+            class getAssetPrimaryRole {};
+            class isAssetAllowedForRole {};
+            class selectStrategicSite {};
+            class buildStrategicPlan {};
+            class transitionContactState {};
+            class evaluateEndgame {};
+            class getOperationalEffects {};
+            class selectStrategicTarget {};
+            class registerStrategicMunition {};
+            class resolveStrategicImpact {};
+            class launchStrategicMunition {};
+            class spawnOperationalNodeSite {};
+            class spawnPointDefenceGroup {};
+            class getStandoffWeapon {};
+            class executeStandoffAirMission {};
             class clientInit {postInit = 1;};
         };
         class Directors
@@ -98,6 +117,10 @@ class CfgFunctions
             class reactionDirector {};
             class orderEncirclement {};
             class dynamicObjectiveDirector {};
+            class capabilityEffectsDirector {};
+            class strategicStrikeDirector {};
+            class missileDefenceDirector {};
+            class pointDefenceDirector {};
         };
         class Drone
         {

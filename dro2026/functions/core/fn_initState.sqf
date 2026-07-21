@@ -52,10 +52,45 @@ DRO2026_eventLog = [];
 DRO2026_eventSequence = 0;
 DRO2026_actionIntents = [];
 DRO2026_siteHistory = [];
+DRO2026_seedStreams = createHashMap;
+DRO2026_strategicPlan = [];
+DRO2026_strategicPlanBuilt = false;
+DRO2026_endgameState = createHashMap;
+DRO2026_endgameReadyEmitted = false;
+
+// Interactive strategic warfare state. These limits prevent AA/OTRK/aviation saturation.
+DRO2026_activeStrategicMunitions = [];
+DRO2026_capabilityEffectsDirectorStarted = false;
+DRO2026_strategicStrikeDirectorStarted = false;
+DRO2026_missileDefenceDirectorStarted = false;
+DRO2026_pointDefenceDirectorStarted = false;
+DRO2026_enemyAirDirectorStarted = false;
+DRO2026_activeEnemyAirMissions = 0;
+DRO2026_enemyDecisionIntervalMultiplier = 1;
+DRO2026_enemySensorIntervalMultiplier = 1;
+DRO2026_enemyDispatchIntervalMultiplier = 1;
+DRO2026_friendlyDecisionIntervalMultiplier = 1;
+DRO2026_friendlyDispatchIntervalMultiplier = 1;
+if (isNil "DRO2026_MAX_ISKANDER_LAUNCHES") then {DRO2026_MAX_ISKANDER_LAUNCHES = 2};
+if (isNil "DRO2026_ISKANDER_COOLDOWN") then {DRO2026_ISKANDER_COOLDOWN = 900};
+missionNamespace setVariable ["DRO2026_MAX_ISKANDER_LAUNCHES",DRO2026_MAX_ISKANDER_LAUNCHES];
+missionNamespace setVariable ["DRO2026_ISKANDER_COOLDOWN",DRO2026_ISKANDER_COOLDOWN];
+missionNamespace setVariable ["DRO2026_activeStrategicMunitions",DRO2026_activeStrategicMunitions];
+missionNamespace setVariable ["DRO2026_activeEnemyAirMissions",0];
+
+private _configuredSeed = missionNamespace getVariable ["DRO2026_OPERATION_SEED",-1];
+private _existingSeed = missionNamespace getVariable ["DRO2026_operationSeed",-1];
+private _operationSeed = if (_configuredSeed isEqualType 0 && {_configuredSeed > 0}) then {_configuredSeed} else {
+    if (_existingSeed isEqualType 0 && {_existingSeed > 0}) then {_existingSeed} else {1 + floor random 2147483000}
+};
+missionNamespace setVariable ["DRO2026_operationSeed",_operationSeed,true];
+
+private _doctrineIndex = floor ([4,"DOCTRINE",0] call DRO2026_fnc_seededRandom);
+private _doctrines = ["DRONE_HEAVY","ARTILLERY_HEAVY","DEFENSIVE_NETWORK","MOBILE_RESERVES"];
 DRO2026_operationState = createHashMapFromArray [
-    ["schema", 1],
-    ["phase", "RECON"],
-    ["doctrine", selectRandom ["DRONE_HEAVY", "ARTILLERY_HEAVY", "DEFENSIVE_NETWORK", "MOBILE_RESERVES"]],
+    ["schema", 3],
+    ["phase", "DEPLOYMENT"],
+    ["doctrine", _doctrines param [_doctrineIndex,"DEFENSIVE_NETWORK"]],
     ["alertState", "GREEN"],
     ["playerNoise", 0],
     ["civilianTrust", 55],
@@ -63,7 +98,11 @@ DRO2026_operationState = createHashMapFromArray [
     ["activeOpportunities", []],
     ["completedEffects", []],
     ["startedAt", time],
-    ["lastPhaseChange", time]
+    ["lastPhaseChange", time],
+    ["operationSeed",_operationSeed],
+    ["endgameReady",false],
+    ["strategicMunitionsActive",0],
+    ["iskanderLaunches",0]
 ];
 
 DRO2026_voiceQueue = [];
@@ -127,5 +166,7 @@ DRO2026_voiceMap = createHashMapFromArray [
     ["RADIO_END", [["dro2026\audio\racia2\A18.ogg", 1.6, "Штаб: Конец связи."]]]
 ];
 
+[] call DRO2026_fnc_initStrategicOperationData;
 [] call DRO2026_fnc_registerAssets;
-[format ["Состояние инициализировано, версия %1", DRO2026_VERSION]] call DRO2026_fnc_log;
+["STRATEGIC","OPERATION_SEED",createHashMapFromArray [["seed",_operationSeed],["version",DRO2026_VERSION],["maxIskanderLaunches",DRO2026_MAX_ISKANDER_LAUNCHES]],"OPERATION"] call DRO2026_fnc_logStructured;
+[format ["Состояние инициализировано, версия %1, seed %2", DRO2026_VERSION, _operationSeed]] call DRO2026_fnc_log;

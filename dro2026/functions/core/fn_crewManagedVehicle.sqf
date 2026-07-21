@@ -1,5 +1,11 @@
 params ["_vehicle", "_side"];
 if (isNull _vehicle || {!(_vehicle isKindOf "AllVehicles")}) exitWith {false};
+if (!local _vehicle) exitWith {
+    ["ROLE","CREW_LOCALITY_REJECTED",createHashMapFromArray [
+        ["class",typeOf _vehicle],["netId",netId _vehicle],["owner",owner _vehicle]
+    ],"CREW"] call DRO2026_fnc_logStructured;
+    false
+};
 private _crewable =
     count (fullCrew [_vehicle, "driver", true]) > 0 ||
     {count (fullCrew [_vehicle, "gunner", true]) > 0} ||
@@ -15,6 +21,7 @@ if (isNull _group || {count crew _vehicle == 0}) exitWith {
     deleteVehicle _vehicle;
     false
 };
+_group addVehicle _vehicle;
 [_group, false] call DRO2026_fnc_registerManagedGroup;
 DRO2026_managedVehicles pushBackUnique _vehicle;
 true

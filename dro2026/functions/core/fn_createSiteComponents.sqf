@@ -18,6 +18,37 @@ private _spawn = {
 };
 private _typeKey = toUpperANSI _type;
 switch true do {
+    case ((_typeKey find "LOGISTICS") >= 0 || {(_typeKey find "WAREHOUSE") >= 0} || {(_typeKey find "DEPOT") >= 0}): {
+        ["Land_Cargo20_military_green_F",18,25,"stocks",90] call _spawn;
+        ["Land_Cargo20_military_green_F",20,335,"stocks",90] call _spawn;
+        ["Land_Cargo10_military_green_F",29,5,"stocks",90] call _spawn;
+        ["Land_Pallet_MilBoxes_F",10,300,"stocks"] call _spawn;
+        ["Land_Pallets_stack_F",13,245,"stocks"] call _spawn;
+        ["Land_dp_transformer_F",24,190,"generators"] call _spawn;
+        ["Land_Pod_Heli_Transport_04_repair_F",30,150,"staticProps"] call _spawn;
+        ["Land_DataTerminal_01_F",8,55,"terminals"] call _spawn;
+        ["Land_SatelliteAntenna_01_F",22,75,"antennas"] call _spawn;
+        ["CamoNet_OPFOR_big_F",0,0,"camouflage"] call _spawn;
+    };
+    case ((_typeKey find "BALLISTIC") >= 0 || {(_typeKey find "ISKANDER") >= 0}): {
+        ["Land_DataTerminal_01_F",7,20,"terminals"] call _spawn;
+        ["Land_SatelliteAntenna_01_F",18,60,"antennas"] call _spawn;
+        ["Land_PortableGenerator_01_F",14,210,"generators"] call _spawn;
+        ["Land_Cargo10_military_green_F",24,260,"stocks",90] call _spawn;
+        ["Land_Pallet_MilBoxes_F",13,305,"stocks"] call _spawn;
+        ["CamoNet_OPFOR_big_F",0,0,"camouflage"] call _spawn;
+        ["Land_TentA_F",18,225,"staticProps"] call _spawn;
+    };
+    case ((_typeKey find "FARP") >= 0): {
+        ["Land_HelipadSquare_F",0,0,"staticProps"] call _spawn;
+        ["Land_Pod_Heli_Transport_04_fuel_F",28,150,"stocks"] call _spawn;
+        ["Land_Pod_Heli_Transport_04_repair_F",30,210,"staticProps"] call _spawn;
+        ["Land_Pallet_MilBoxes_F",20,270,"stocks"] call _spawn;
+        ["Land_PortableGenerator_01_F",18,235,"generators"] call _spawn;
+        ["Land_DataTerminal_01_F",13,40,"terminals"] call _spawn;
+        ["Land_TentDome_F",24,315,"staticProps"] call _spawn;
+        ["CamoNet_OPFOR_open_F",12,330,"camouflage"] call _spawn;
+    };
     case ((_typeKey find "FPV") >= 0): {
         ["Land_SatelliteAntenna_01_F",9,35,"antennas"] call _spawn; ["Land_Laptop_unfolded_F",4,5,"terminals"] call _spawn;
         ["Land_PortableGenerator_01_F",11,210,"generators"] call _spawn; ["Land_Pallet_MilBoxes_F",8,285,"stocks"] call _spawn;
