@@ -2,6 +2,8 @@ if (!isServer) exitWith {};
 if (missionNamespace getVariable ["DRO2026_pointDefenceDirectorStarted",false]) exitWith {};
 missionNamespace setVariable ["DRO2026_pointDefenceDirectorStarted",true];
 while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
+    private _airCandidates = (vehicles select {!isNull _x && {alive _x} && {_x isKindOf "Air"}}) + (DRO2026_activeDrones select {!isNull _x && {alive _x}});
+    _airCandidates = _airCandidates arrayIntersect _airCandidates;
     private _sites = DRO2026_sites select {
         (_x getOrDefault ["type",""]) == "POINT_DEFENCE" &&
         {!((toUpperANSI (_x getOrDefault ["status","ACTIVE"])) in ["DESTROYED","DISABLED","CANCELLED"])}
@@ -39,7 +41,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
                         _targets pushBack [_air,_priority,_air distance2D _vehicle];
                     };
                 };
-            } forEach ((DRO2026_activeDrones + vehicles) arrayIntersect (DRO2026_activeDrones + vehicles));
+            } forEach _airCandidates;
             {
                 private _munition = _x getOrDefault ["object",objNull];
                 if (!isNull _munition && {(_x getOrDefault ["launchSide",sideUnknown]) == _hostileSide} && {_munition distance2D _vehicle <= 2100}) then {
@@ -78,5 +80,6 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
             };
         };
     } forEach _sites;
-    sleep 1.5;
+    private _budget = missionNamespace getVariable ["DRO2026_spawnBudgetFactor",1];
+    sleep (2.25 + ((1 - _budget) * 2.75));
 };

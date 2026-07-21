@@ -93,7 +93,7 @@ if ("UAV" in _categories) then {
     ["STRIKE_FP2", "Дальний удар — FP-2", [format ["LAUNCHER_FP2_%1", _sideSuffix], "STRIKE_AMMO_FP2"] call _hasUsableLauncher, 10] call _profile;
     ["STRIKE_BM35", "Дальний удар — BM-35 / Italmas", [format ["LAUNCHER_BM35_%1", _sideSuffix], "STRIKE_AMMO_BM35"] call _hasUsableLauncher, 10] call _profile;
     ["STRIKE_BULAVA", "Дальний удар — Bulava", [format ["LAUNCHER_BULAVA_%1", _sideSuffix], ""] call _hasUsableLauncher, 10] call _profile;
-    ["STRIKE_FP5", "Дальний удар — FP-5 Flamingo", playersSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _hasUsableLauncher}, 1] call _profile;
+    ["STRIKE_FP5", "Дальний удар — FP-5 Flamingo", [format ["LAUNCHER_FP5_%1", _sideSuffix], "STRIKE_AMMO_FP5"] call _hasUsableLauncher, 1] call _profile;
     if (count (DRO2026_assetRegistry getOrDefault [_longRole, []]) > 0) then {
         ["UAV", "STRIKE_AUTO", "", "Дальний удар — смешанный пакет", "Автоматический выбор из доступного пула выбранной стороны.", DRO2026_MAX_DRONES_PER_SALVO] call _add;
         ["UAV", "STRIKE_DECOY", "", "Дальний запуск — БПЛА-обманки", "Провоцирует работу ПВО и занимает каналы сопровождения.", DRO2026_MAX_DRONES_PER_SALVO] call _add;

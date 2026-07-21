@@ -36,8 +36,8 @@ if (!isNull _operator && {!alive _operator}) exitWith {call _refundReserved; obj
 if !(call _siteOperational) exitWith {call _refundReserved; objNull};
 if !(call _contactOperational) exitWith {call _refundReserved; objNull};
 private _target = _contact getOrDefault ["target", objNull];
-private _targetPos = _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]];
-if (count _targetPos < 2) exitWith {call _refundReserved; objNull};
+private _targetPosASL = +(_contact getOrDefault ["positionASL", _contact getOrDefault ["positionMean", _contact getOrDefault ["position", []]]]);
+if (count _targetPosASL < 3) exitWith {call _refundReserved; objNull};
 
 private _vehicleClass = "";
 private _ammoClass = "";
@@ -121,7 +121,7 @@ if (_exactClass != "") then {
         };
         case "FP5": {
             _label = "FP-5 Flamingo";
-            _launcherClass = ["LAUNCHER_FP5_WEST"] call _pickLauncher;
+            _launcherClass = [format ["LAUNCHER_FP5_%1", _sideSuffix]] call _pickLauncher;
             _ammoClass = [_launcherClass] call DRO2026_fnc_resolveLauncherAmmo;
             if (_ammoClass == "") then {_ammoClass = ["STRIKE_AMMO_FP5"] call _pickAmmoFallback};
         };
@@ -173,11 +173,11 @@ if !(call _siteOperational) exitWith {call _refundReserved; objNull};
 if !(call _contactOperational) exitWith {call _refundReserved; objNull};
 
 private _spawnDistance = if (_ammoClass != "") then {12000 + random 6000} else {8000 + random 5000};
-private _baseBearing = _targetPos getDir _origin;
+private _baseBearing = (ASLToATL _targetPosASL) getDir _origin;
 private _formationOffset = (_salvoIndex - ((_salvoSize - 1) / 2)) * 7;
 private _spawn2D = [];
 for "_attempt" from 0 to 30 do {
-    private _candidate = _targetPos getPos [_spawnDistance, _baseBearing + _formationOffset + (-18 + random 36)];
+    private _candidate = (ASLToATL _targetPosASL) getPos [_spawnDistance, _baseBearing + _formationOffset + (-18 + random 36)];
     if ((_candidate select 0) > 350 && {(_candidate select 1) > 350} && {(_candidate select 0) < (worldSize - 350)} && {(_candidate select 1) < (worldSize - 350)}) exitWith {_spawn2D = _candidate};
     _spawnDistance = (_spawnDistance * 0.92) max 6500;
 };
@@ -275,7 +275,7 @@ private _applyFlightVector = {
     _object setVectorDirAndUp [_flightDirection, _up];
     _object setVelocity (_flightDirection vectorMultiply _speed);
 };
-private _initialDelta = (AGLToASL _targetPos) vectorDiff _spawnASL;
+private _initialDelta = _targetPosASL vectorDiff _spawnASL;
 if (_isProjectile) then {
     [_drone, "FPV_TERMINAL", "PROJECTILE_GUIDANCE_REQUIRED", "NONE"] call DRO2026_fnc_setFlightAuthority;
     [_drone, _initialDelta, _speed] call _applyFlightVector;
@@ -283,13 +283,13 @@ if (_isProjectile) then {
     [_drone, "ARMA_AI", "WAYPOINT_MACRO_ROUTE", "NONE"] call DRO2026_fnc_setFlightAuthority;
     private _initialLength = vectorMagnitude _initialDelta;
     if (_initialLength > 0.01) then {_drone setVelocity ((_initialDelta vectorMultiply (1 / _initialLength)) vectorMultiply (_speed max 32))};
-    [_crewGroup, _drone, _spawnASL, AGLToASL _targetPos, if (_decoy) then {"SEARCH"} else {"STRIKE"}, 800 + random 500, 280 + random 160] call DRO2026_fnc_buildWaypointFlightPlan;
+    [_crewGroup, _drone, _spawnASL, _targetPosASL, if (_decoy) then {"SEARCH"} else {"STRIKE"}, 800 + random 500, 280 + random 160] call DRO2026_fnc_buildWaypointFlightPlan;
 };
 private _timeout = time + 760;
 private _terminalDeadline = -1;
 while {alive _drone && {time < _timeout} && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}} do {
-    if (!isNull _target && {alive _target}) then {_targetPos = getPosATL _target};
-    private _distance = _drone distance2D _targetPos;
+    if (!isNull _target && {alive _target}) then {_targetPosASL = getPosASL _target};
+    private _distance = (getPosASL _drone) distance2D _targetPosASL;
     private _authority = _drone getVariable ["DRO2026_flightAuthority", "NONE"];
     if (!_isProjectile && {_distance < 950} && {_authority == "ARMA_AI"}) then {
         if ([_drone, "FPV_TERMINAL", "FINAL_INGRESS", "ARMA_AI"] call DRO2026_fnc_setFlightAuthority) then {_terminalDeadline = time + 45; if (!isNull (driver _drone)) then {(driver _drone) disableAI "PATH"}};
@@ -298,7 +298,7 @@ while {alive _drone && {time < _timeout} && {!(missionNamespace getVariable ["DR
     if (_terminalActive) then {
         if (!_isProjectile && {_terminalDeadline > 0 && {time > _terminalDeadline}}) exitWith {};
         private _clearance = if (_distance > 350) then {45} else {8};
-        private _aimASL = [_drone, _targetPos, _clearance, [350,750,1300], 700, 18] call DRO2026_fnc_calculateTerrainAwareAim;
+        private _aimASL = [_drone, _targetPosASL, _clearance, [350,750,1300], 700, 18] call DRO2026_fnc_calculateTerrainAwareAim;
         private _delta = _aimASL vectorDiff getPosASL _drone; private _length = vectorMagnitude _delta;
         if (_length > 0.1) then {private _vector = _delta vectorMultiply (1 / _length); private _pulse = 1 + ((sin ((diag_tickTime + _salvoIndex) * 38)) * 0.035); [_drone,_vector,_speed*_pulse] call _applyFlightVector};
     };

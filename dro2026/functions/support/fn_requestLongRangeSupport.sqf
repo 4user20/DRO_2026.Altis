@@ -53,7 +53,7 @@ private _available = if (_exactClass != "") then {
         case "FP2": {([_longRole, ["fp2"]] call _roleHasToken) || {[_fp2LauncherRole, "STRIKE_AMMO_FP2"] call _launcherHasAmmo}};
         case "BM35": {([_longRole, ["bm35"]] call _roleHasToken) || {[_bm35LauncherRole, "STRIKE_AMMO_BM35"] call _launcherHasAmmo}};
         case "BULAVA": {[_bulavaLauncherRole, ""] call _launcherHasAmmo};
-        case "FP5": {_requestSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _launcherHasAmmo}};
+        case "FP5": {[format ["LAUNCHER_FP5_%1", _sideSuffix], "STRIKE_AMMO_FP5"] call _launcherHasAmmo};
         case "SHAHED": {([_longRole, ["shahed", "geran"]] call _roleHasToken) || {count (DRO2026_ammoRegistry getOrDefault ["STRIKE_AMMO_SHAHED", []]) > 0}};
         case "AUTO": {((DRO2026_assetRegistry getOrDefault [_longRole, []]) findIf {private _cfg = configFile >> "CfgVehicles" >> _x; isClass _cfg && {_x isKindOf "Air"} && {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}}) >= 0};
         default {false};

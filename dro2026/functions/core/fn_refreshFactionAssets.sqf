@@ -76,6 +76,108 @@ private _explicitEnemyAir = switch (enemySide) do {
 };
 ["ENEMY_CAS_AIR", _explicitEnemyAir, false, _enemySideNumber, true] call _appendFiltered;
 
+private _discoverLoadedPlayerSupport = {
+    private _root = configFile >> "CfgVehicles";
+    private _fpvRole = format ["FPV_%1",_playerSuffix];
+    private _longRole = format ["LONG_RANGE_%1",_playerSuffix];
+    private _blockedTokens = ["spawner","module","logic","dummy","placeholder","_root","site_","pook_sam","azncontrol","pook_tos1a"];
+    private _fpvTokens = ["fpv","uafpv","kvn","crocus"];
+    private _longTokens = ["fp1","fp-1","fp2","fp-2","bm35","bm-35","italmas","shahed","geran","flamingo","fp5","fp-5","bulava"];
+    private _ignoredWeapons = ["horn","laserdesignator","smokelauncher","flarelauncher","cmflare","fakeweapon","safe"];
+    for "_index" from 0 to ((count _root) - 1) do {
+        private _cfg = _root select _index;
+        if (isClass _cfg && {getNumber (_cfg >> "scope") >= 2} && {getNumber (_cfg >> "side") == _playerSideNumber}) then {
+            private _class = configName _cfg;
+            private _hay = toLowerANSI format ["%1 %2",_class,getText (_cfg >> "displayName")];
+            private _blocked = (_blockedTokens findIf {(_hay find _x) >= 0}) >= 0;
+            if (!_blocked) then {
+                private _isAir = _class isKindOf "Air";
+                private _isUav = getNumber (_cfg >> "isUav") > 0;
+                if (_isAir && {_isUav}) then {
+                    if ((_fpvTokens findIf {(_hay find _x) >= 0}) >= 0) then {
+                        private _pool = DRO2026_assetRegistry getOrDefault [_fpvRole,[]];
+                        _pool pushBackUnique _class;
+                        DRO2026_assetRegistry set [_fpvRole,_pool];
+                    } else {
+                        if ((_longTokens findIf {(_hay find _x) >= 0}) >= 0) then {
+                            private _pool = DRO2026_assetRegistry getOrDefault [_longRole,[]];
+                            _pool pushBackUnique _class;
+                            DRO2026_assetRegistry set [_longRole,_pool];
+                        } else {
+                            private _pool = DRO2026_assetRegistry getOrDefault ["PLAYER_ISR_UAV",[]];
+                            _pool pushBackUnique _class;
+                            DRO2026_assetRegistry set ["PLAYER_ISR_UAV",_pool];
+                        };
+                    };
+                };
+                if (_isAir) then {
+                    private _weapons = [];
+                    {
+                        if (configName _x == "weapons") then {_weapons append getArray _x};
+                    } forEach (configProperties [_cfg,"isArray _x",true]);
+                    _weapons = (_weapons select {
+                        private _weaponLower = toLowerANSI _x;
+                        isClass (configFile >> "CfgWeapons" >> _x) && {
+                            (_ignoredWeapons findIf {(_weaponLower find _x) >= 0}) < 0
+                        }
+                    }) arrayIntersect _weapons;
+                    if (count _weapons > 0) then {
+                        private _pool = DRO2026_assetRegistry getOrDefault ["PLAYER_CAS_AIR",[]];
+                        _pool pushBackUnique _class;
+                        DRO2026_assetRegistry set ["PLAYER_CAS_AIR",_pool];
+                    };
+                };
+                if (getNumber (_cfg >> "artilleryScanner") > 0) then {
+                    private _role = if ((_hay find "mortar") >= 0) then {"PLAYER_ARTILLERY_MORTAR"} else {
+                        if ((_hay find "mlrs") >= 0 || {(_hay find "mrl") >= 0} || {(_hay find "rocket") >= 0}) then {"PLAYER_ARTILLERY_MLRS"} else {"PLAYER_ARTILLERY_SPG"}
+                    };
+                    private _pool = DRO2026_assetRegistry getOrDefault [_role,[]];
+                    _pool pushBackUnique _class;
+                    DRO2026_assetRegistry set [_role,_pool];
+                };
+                if (!_isAir && {(_longTokens findIf {(_hay find _x) >= 0}) >= 0}) then {
+                    {
+                        _x params ["_token","_profile"];
+                        if ((_hay find _token) >= 0) then {
+                            private _role = format ["LAUNCHER_%1_%2",_profile,_playerSuffix];
+                            private _pool = DRO2026_assetRegistry getOrDefault [_role,[]];
+                            _pool pushBackUnique _class;
+                            DRO2026_assetRegistry set [_role,_pool];
+                        };
+                    } forEach [["fp1","FP1"],["fp-1","FP1"],["fp2","FP2"],["fp-2","FP2"],["bm35","BM35"],["bm-35","BM35"],["bulava","BULAVA"],["flamingo","FP5"],["fp5","FP5"],["fp-5","FP5"]];
+                };
+            };
+        };
+    };
+};
+call _discoverLoadedPlayerSupport;
+
+private _discoverLoadedStrikeAmmo = {
+    private _root = configFile >> "CfgAmmo";
+    for "_index" from 0 to ((count _root) - 1) do {
+        private _cfg = _root select _index;
+        if (isClass _cfg) then {
+            private _class = configName _cfg;
+            private _hay = toLowerANSI format ["%1 %2",_class,getText (_cfg >> "displayName")];
+            private _role = "";
+            if ((_hay find "fp1") >= 0 || {(_hay find "fp-1") >= 0}) then {_role = "STRIKE_AMMO_FP1"};
+            if ((_hay find "fp2") >= 0 || {(_hay find "fp-2") >= 0}) then {_role = "STRIKE_AMMO_FP2"};
+            if ((_hay find "bm35") >= 0 || {(_hay find "bm-35") >= 0} || {(_hay find "italmas") >= 0}) then {_role = "STRIKE_AMMO_BM35"};
+            if ((_hay find "flamingo") >= 0 || {(_hay find "fp5") >= 0} || {(_hay find "fp-5") >= 0}) then {_role = "STRIKE_AMMO_FP5"};
+            if ((_hay find "shahed") >= 0 || {(_hay find "geran") >= 0}) then {_role = "STRIKE_AMMO_SHAHED"};
+            if (_role != "") then {
+                private _simulation = toLowerANSI getText (_cfg >> "simulation");
+                if (_simulation in ["shotmissile","shotrocket","shotbomb","shotdirectionalbomb"]) then {
+                    private _pool = DRO2026_ammoRegistry getOrDefault [_role,[]];
+                    _pool pushBackUnique _class;
+                    DRO2026_ammoRegistry set [_role,_pool];
+                };
+            };
+        };
+    };
+};
+call _discoverLoadedStrikeAmmo;
+
 private _discoverPointDefence = {
     params ["_sideNumber","_suffix"];
     private _role = format ["SHORAD_%1",_suffix];
