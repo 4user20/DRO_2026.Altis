@@ -69,8 +69,9 @@ require(
     "launcher_ammo_rejects_nonlethal_effects",
     '"smoke", "flare", "chaff"' in resolver
     and '"fake", "dummy", "horn"' in resolver
+    and 'private _strategicCandidate = _strategicSimulation || {_preferredCount > 0};' in resolver
     and 'if ((_simulation find "shotmissile") >= 0)' in resolver,
-    "Smoke, countermeasure and dummy ammo must not be selected as strategic launch ammunition.",
+    "Only strategic missile/rocket/bomb candidates may pass; smoke, countermeasure, dummy and ordinary gun ammo must be rejected.",
 )
 
 failed = [check for check in checks if not check["passed"]]
