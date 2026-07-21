@@ -39,6 +39,12 @@ require(
     "HashMap, Array and String inputs must be normalized or rejected structurally before typed engine params can fail.",
 )
 require(
+    "fpv_server_requester_not_overwritten",
+    'if (_legacyFourth isEqualType objNull && {!isNull _legacyFourth})' in request
+    and 'if (_legacyFifth isEqualType objNull && {!isNull _legacyFifth})' in request,
+    "Omitted legacy arguments must not overwrite the authenticated requester with objNull.",
+)
+require(
     "fpv_request_correlation",
     "FPV_REQUEST_ACCEPTED" in request
     and "FPV_LAUNCH_ABORTED" in request
