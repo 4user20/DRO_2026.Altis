@@ -79,6 +79,21 @@ jobs:
           print(f"Validated {len(results)} canonical RC6 stages")
           PY
 
+      - name: Build validated mission snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot_root="release-artifact/DRO_2026.Altis_RC7_${GITHUB_SHA:0:12}"
+          mkdir -p "$snapshot_root"
+          rsync -a ./ "$snapshot_root/" \
+            --exclude '.git/' \
+            --exclude 'release-artifact/' \
+            --exclude 'validation-artifacts/' \
+            --exclude '__pycache__/' \
+            --exclude '*.pyc'
+          printf '%s\n' "$GITHUB_SHA" > "$snapshot_root/VALIDATED_COMMIT.txt"
+          cp validation-artifacts/validate_all_rc6.json "$snapshot_root/VALIDATION_REPORT.json"
+
       - name: Write validation summary
         if: always()
         shell: bash
@@ -114,4 +129,14 @@ jobs:
           name: rc6-validation-${{ github.sha }}
           path: validation-artifacts/
           if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload validated mission snapshot
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DRO-2026-RC7-validated-${{ github.sha }}
+          path: release-artifact/
+          if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
