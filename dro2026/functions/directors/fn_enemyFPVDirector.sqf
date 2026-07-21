@@ -2,6 +2,7 @@ if (!isServer) exitWith {};
 while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
     sleep 10;
     if (missionNamespace getVariable ["DRO2026_missionEnding", false]) exitWith {};
+    if (missionNamespace getVariable ["DRO2026_heavySystemsPaused", false]) then {continue};
     private _intent = missionNamespace getVariable ["DRO2026_currentIntent", createHashMap];
     private _intentAction = _intent getOrDefault ["action", ""];
     private _networkReady = missionNamespace getVariable ["DRO2026_networkBuilt", false];

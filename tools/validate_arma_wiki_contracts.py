@@ -307,7 +307,7 @@ def main() -> int:
             "_applyFlightVector",
             "vectorCrossProduct",
             "setVectorDirAndUp",
-            "side-correct registry",
+            "installed-assets catalog",
             "setPosATL _spawnPosition",
             "_reservationNodeId",
             "FPV_LAUNCH_REFUND",
@@ -330,7 +330,7 @@ def main() -> int:
         "dro2026/functions/support/fn_launchLongRangeStrike.sqf",
         required=(
             "_selectionValid",
-            "_exactClass in _pool",
+            "installed-assets catalog",
             "_applyFlightVector",
             "vectorCrossProduct",
             "setVectorDirAndUp",

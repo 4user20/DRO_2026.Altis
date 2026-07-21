@@ -1,36 +1,19 @@
 params ["_basePos"];
 if (!isServer) exitWith {};
-diag_log "DRO: Initialising support categories (RC6 catalog mode)";
+diag_log "DRO: Initialising support categories (RC7 installed-assets catalog mode)";
 
-// Legacy code randomly selected and physically spawned one artillery/CAS/UAV class
-// during mission generation. That prevented the player from choosing a concrete
-// system and, in the latest RPT, selected a known unstable heavy launcher before
-// the fire-spam freeze. RC6 keeps the startup choice at category level and
-// materialises a class only after an explicit server-authoritative request.
-private _enabled = [];
-if (randomSupports == 1) then {
-    if (!isNil "customSupports" && {customSupports isEqualType []}) then {
-        _enabled = customSupports apply {toUpperANSI _x};
-    };
-} else {
-    if (random 1 > 0.30) then {_enabled pushBack "UAV"};
-    if (random 1 > 0.42) then {_enabled pushBack "ARTY"};
-    if (random 1 > 0.48) then {_enabled pushBack "CAS"};
-    if (random 1 > 0.30) then {_enabled pushBack "SUPPLY"};
+// Baseline support channels are deterministic. randomSupports/customSupports may add
+// channels, but can no longer hide UAV/CAS and leave the player with a mortar-only panel.
+private _enabled = ["UAV", "ARTY", "CAS"];
+if (randomSupports == 1 && {!isNil "customSupports"} && {customSupports isEqualType []}) then {
+    {_enabled pushBackUnique (toUpperANSI _x)} forEach customSupports;
 };
-_enabled = _enabled arrayIntersect _enabled;
-if (count _enabled == 0) then {_enabled = ["UAV", "ARTY", "CAS"]};
+if (!isNil "pHeliClasses" && {count pHeliClasses > 0}) then {_enabled pushBackUnique "SUPPLY"};
 missionNamespace setVariable ["DRO2026_supportCategories", _enabled, true];
 
 [] call DRO2026_fnc_refreshFactionAssets;
 [] call DRO2026_fnc_publishSupportCatalog;
 
-// The unified panel action and communication item are installed exactly once by
-// clientInit after playersReady/catalogReady. Do not remoteExec the menu item here:
-// that previously produced duplicate JIP entries and persisted stale catalog state.
-
-// Supply drop remains a legacy category for now, but no artillery, CAS or UAV is
-// spawned here. This keeps startup light and avoids hidden random class choices.
 if ("SUPPLY" in _enabled) then {
     private _availableDropClasses = [];
     {
@@ -44,4 +27,4 @@ if ("SUPPLY" in _enabled) then {
     };
 };
 
-diag_log format ["DRO: support categories enabled = %1; concrete selection delegated to RC6 catalog", _enabled];
+diag_log format ["DRO: support categories enabled = %1; all installed registered assets are exposed", _enabled];

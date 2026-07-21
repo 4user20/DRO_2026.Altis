@@ -181,7 +181,8 @@ private _materialize = {
 
 while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
     private _now = time;
-    [] call DRO2026_fnc_syncNetworkState;
+    // Network synchronization is centralized in the performance governor.
+    // Running the same physical-site scan here doubled the cost during active convoys.
     {
         private _job = _x;
         private _state = _job getOrDefault ["state","FAILED"];
@@ -266,6 +267,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
     DRO2026_activeConvoys = DRO2026_logisticsJobs select {!((_x getOrDefault ["state","FAILED"]) in _terminalStates)};
     DRO2026_supplyLanes = DRO2026_logisticsJobs;
 
+    if !(missionNamespace getVariable ["DRO2026_heavySystemsPaused", false]) then {
     {
         private _edgeId = _x;
         private _edge = DRO2026_networkEdges get _edgeId;
@@ -319,6 +321,7 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
             };
         };
     } forEach keys DRO2026_networkEdges;
+    };
 
     private _enemyLog = DRO2026_networkNodes getOrDefault ["NODE_LOGISTICS_01",createHashMap];
     private _enemyArt = DRO2026_networkNodes getOrDefault ["NODE_ARTILLERY_01",createHashMap];

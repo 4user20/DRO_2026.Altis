@@ -46,18 +46,19 @@ private _bulavaLauncherRole = ["BULAVA"] call _launcherRole;
 private _available = if (_exactClass != "") then {
     private _cfg = configFile >> "CfgVehicles" >> _exactClass;
     private _mode = format ["STRIKE_CLASS:%1", _exactClass];
-    (_exactClass in (DRO2026_assetRegistry getOrDefault [_longRole, []])) && {isClass _cfg} && {_exactClass isKindOf "Air"} && {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}} && {[_mode,_exactClass] call DRO2026_fnc_supportCatalogContains}
+    isClass _cfg && {_exactClass isKindOf "Air"} && {[_mode,_exactClass] call DRO2026_fnc_supportCatalogContains}
 } else {
-    switch _requestUpper do {
-        case "FP1": {[_fp1LauncherRole, "STRIKE_AMMO_FP1"] call _launcherHasAmmo};
-        case "FP2": {([_longRole, ["fp2"]] call _roleHasToken) || {[_fp2LauncherRole, "STRIKE_AMMO_FP2"] call _launcherHasAmmo}};
-        case "BM35": {([_longRole, ["bm35"]] call _roleHasToken) || {[_bm35LauncherRole, "STRIKE_AMMO_BM35"] call _launcherHasAmmo}};
-        case "BULAVA": {[_bulavaLauncherRole, ""] call _launcherHasAmmo};
-        case "FP5": {_requestSide == west && {["LAUNCHER_FP5_WEST", "STRIKE_AMMO_FP5"] call _launcherHasAmmo}};
-        case "SHAHED": {([_longRole, ["shahed", "geran"]] call _roleHasToken) || {count (DRO2026_ammoRegistry getOrDefault ["STRIKE_AMMO_SHAHED", []]) > 0}};
-        case "AUTO": {((DRO2026_assetRegistry getOrDefault [_longRole, []]) findIf {private _cfg = configFile >> "CfgVehicles" >> _x; isClass _cfg && {_x isKindOf "Air"} && {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}}) >= 0};
-        default {false};
-    }
+    private _catalogMode = switch _requestUpper do {
+        case "FP1": {"STRIKE_FP1"}; case "FP2": {"STRIKE_FP2"}; case "BM35": {"STRIKE_BM35"};
+        case "BULAVA": {"STRIKE_BULAVA"}; case "FP5": {"STRIKE_FP5"};
+        case "AUTO": {if (_decoy) then {"STRIKE_DECOY"} else {"STRIKE_AUTO"}};
+        default {""};
+    };
+    if (_requestUpper == "SHAHED") then {
+        private _allLong = [];
+        {_allLong append (DRO2026_assetRegistry getOrDefault [format ["LONG_RANGE_%1",_x],[]])} forEach ["WEST","EAST","GUER"];
+        (_allLong findIf {private _name = toLowerANSI _x; (_name find "shahed") >= 0 || {(_name find "geran") >= 0}}) >= 0
+    } else {_catalogMode != "" && {[_catalogMode,""] call DRO2026_fnc_supportCatalogContains}}
 };
 if (!_available) exitWith {[format ["Штаб: профиль %1 недоступен выбранной стороне или отсутствует в опубликованном каталоге. Ресурс не списан.", _requestedType], _requester] call DRO2026_fnc_supportMessage};
 if ((time - DRO2026_lastLongSupportRequest) < DRO2026_LONG_SUPPORT_COOLDOWN) exitWith {[format ["Штаб: Канал дальнего удара занят. Ожидайте %1 сек.", ceil (DRO2026_LONG_SUPPORT_COOLDOWN - (time - DRO2026_lastLongSupportRequest))], _requester] call DRO2026_fnc_supportMessage};
