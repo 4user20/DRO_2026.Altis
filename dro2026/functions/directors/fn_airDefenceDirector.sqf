@@ -35,6 +35,10 @@ while {!(missionNamespace getVariable ["DRO2026_missionEnding", false])} do {
                         } else {
                             _gunner disableAI "TARGET";
                             _gunner disableAI "AUTOTARGET";
+                            if (local _asset && {someAmmo _asset}) then {
+                                _asset setVehicleAmmo 0;
+                                ["AA_PHYSICAL_UNLOADED",createHashMapFromArray [["nodeId",_nodeId],["asset",typeOf _asset],["reason",if (_missiles <= 0) then {"NO_ABSTRACT_STOCK"} else {_status}]],_nodeId] call DRO2026_fnc_emitEvent;
+                            };
                         };
                     };
                     if !(_asset getVariable ["DRO2026_AAStockEH", false]) then {
