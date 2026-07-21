@@ -29,9 +29,14 @@ private _quantity = (_request getOrDefault ["count", 1]) max 1 min 10;
 if (_manualControl) then {_quantity = 1};
 private _requestedClass = _request getOrDefault ["assetClass", ""];
 private _requestSide = side (group _requester);
-private _role = switch _requestSide do {case west: {"FPV_WEST"}; case resistance: {"FPV_GUER"}; default {"FPV_EAST"}};
-private _allowedClasses = DRO2026_assetRegistry getOrDefault [_role, []];
-if (_requestedClass != "" && {!(_requestedClass in _allowedClasses)}) exitWith {["ASSET_NOT_ALLOWED", "Requested FPV class is not available for this side"] call _reject};
+private _requestedClassAllowed = true;
+if (_requestedClass != "") then {
+    private _modePrefix = if (_manualControl) then {"FPV_CLASS_MANUAL:"} else {"FPV_CLASS_AUTO:"};
+    private _catalogAllowed = [format ["%1%2", _modePrefix, _requestedClass], _requestedClass] call DRO2026_fnc_supportCatalogContains;
+    private _cfg = configFile >> "CfgVehicles" >> _requestedClass;
+    _requestedClassAllowed = _catalogAllowed && {isClass _cfg} && {_requestedClass isKindOf "Air"};
+};
+if (!_requestedClassAllowed) exitWith {["ASSET_NOT_ALLOWED", "Requested FPV class is not present in the published installed-assets catalog"] call _reject};
 if ((time - DRO2026_lastFPVRequest) < DRO2026_FPV_COOLDOWN) exitWith {["CHANNEL_COOLDOWN", "FPV team is preparing the next launch"] call _reject};
 private _targetMode = _request getOrDefault ["targetMode", "MAP_POINT"];
 private _targetPositionASL = _request getOrDefault ["targetPositionASL", []];

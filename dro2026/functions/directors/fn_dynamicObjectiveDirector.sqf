@@ -2,6 +2,7 @@ if (!isServer) exitWith {};
 if (missionNamespace getVariable ["DRO2026_dynamicObjectiveDirectorStarted",false]) exitWith {};
 missionNamespace setVariable ["DRO2026_dynamicObjectiveDirectorStarted",true];
 private _lastEventAt = -1;
+private _otrkHintCreated = false;
 private _createTask = {
     params ["_kind","_sourceId","_title","_description","_positionASL",["_uncertainty",250],["_contactId",""],["_icon","scout"]];
     private _tasks = missionNamespace getVariable ["DRO2026_dynamicTasks",[]];
@@ -52,6 +53,16 @@ private _profileForNode = {
 };
 
 while {!(missionNamespace getVariable ["DRO2026_missionEnding",false])} do {
+    if (!_otrkHintCreated && {time > 360}) then {
+        private _node = DRO2026_networkNodes getOrDefault ["NODE_BALLISTIC_01",createHashMap];
+        private _status = toUpperANSI (_node getOrDefault ["status","DISABLED"]);
+        private _pATL = _node getOrDefault ["position",[]];
+        if (count _node > 0 && {count _pATL > 1} && {!(_status in ["DESTROYED","DISABLED","CANCELLED"])}) then {
+            private _pASL = [_pATL,"ATL",objNull] call DRO2026_fnc_normalizePositionASL;
+            ["OTRK_HUNT","NODE_BALLISTIC_01","Проверить вероятный район ОТРК","Радиоразведка и агентурные данные указывают на вероятный район мобильной ОТРК. Координаты неточны: проведите БПЛА-разведку и уничтожьте пусковую до подготовки удара.",_pASL,1200,"","scout"] call _createTask;
+            _otrkHintCreated = true;
+        };
+    };
     private _events = [_lastEventAt,[
         "DELIVERY_MATERIALIZED","DELIVERY_COMPLETED","DELIVERY_INTERDICTED","DRONE_LAUNCHED","CONTACT_UPDATED",
         "STRATEGIC_MUNITION_DETECTED","STRATEGIC_STRIKE_ORDERED","STRATEGIC_MUNITION_INTERCEPTED",

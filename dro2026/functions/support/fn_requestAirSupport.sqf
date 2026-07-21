@@ -8,8 +8,8 @@ if (isNull _requester && {hasInterface}) then {_requester = player};
 if (!isNull _requester && {side (group _requester) != playersSide}) exitWith {["Штаб: авиационная поддержка недоступна для этой стороны.", _requester] call DRO2026_fnc_supportMessage};
 if (count _positionASL < 2) exitWith {["Штаб: не задана точка удара.",_requester] call DRO2026_fnc_supportMessage};
 
-private _allowedClasses = DRO2026_assetRegistry getOrDefault ["PLAYER_CAS_AIR", []];
-if !(_class in _allowedClasses) exitWith {[format ["Штаб: авиационный класс %1 не входит в реестр выбранной фракции.", _class], _requester] call DRO2026_fnc_supportMessage};
+private _catalogMode = format ["AIR:%1", _class];
+if !([_catalogMode, _class] call DRO2026_fnc_supportCatalogContains) exitWith {[format ["Штаб: авиационный класс %1 отсутствует в опубликованном каталоге.", _class], _requester] call DRO2026_fnc_supportMessage};
 if (!isClass (configFile >> "CfgVehicles" >> _class) || {!(_class isKindOf "Air")}) exitWith {[format ["Штаб: авиационный класс %1 недоступен.", _class], _requester] call DRO2026_fnc_supportMessage};
 if (time < DRO2026_supportFireLockUntil || {DRO2026_activeHeavySupport >= DRO2026_MAX_CONCURRENT_HEAVY_SUPPORT}) exitWith {["Штаб: тяжёлый огневой канал занят.", _requester] call DRO2026_fnc_supportMessage};
 

@@ -80,9 +80,10 @@ private _pickAmmoFallback = {
 
 private _selectionValid = true;
 if (_exactClass != "") then {
-    if !(_exactClass in _pool) then {
+    private _catalogAllowed = [format ["STRIKE_CLASS:%1", _exactClass], _exactClass] call DRO2026_fnc_supportCatalogContains;
+    if (!_catalogAllowed || {!isClass (configFile >> "CfgVehicles" >> _exactClass)} || {!(_exactClass isKindOf "Air")}) then {
         _selectionValid = false;
-        [format ["Отменён exact launch: %1 отсутствует в side-correct registry", _exactClass]] call DRO2026_fnc_log;
+        [format ["Отменён exact launch: %1 отсутствует в installed-assets catalog", _exactClass]] call DRO2026_fnc_log;
     } else {
         _vehicleClass = _exactClass;
         _label = getText (configFile >> "CfgVehicles" >> _exactClass >> "displayName");
@@ -162,8 +163,8 @@ if (_vehicleClass == "" && {_ammoClass == ""}) exitWith {
 };
 if (_vehicleClass != "") then {
     private _vehicleCfg = configFile >> "CfgVehicles" >> _vehicleClass;
-    if (!isClass _vehicleCfg || {!(_vehicleClass isKindOf "Air")} || {_sideNumber >= 0 && {getNumber (_vehicleCfg >> "side") != _sideNumber}}) exitWith {
-        [format ["Отменён запуск %1: %2 не является доступным Air-классом выбранной стороны", _req, _vehicleClass]] call DRO2026_fnc_log;
+    if (!isClass _vehicleCfg || {!(_vehicleClass isKindOf "Air")} || {_exactClass == "" && {_sideNumber >= 0 && {getNumber (_vehicleCfg >> "side") != _sideNumber}}}) exitWith {
+        [format ["Отменён запуск %1: %2 не является доступным Air-классом", _req, _vehicleClass]] call DRO2026_fnc_log;
         call _refundReserved;
         _vehicleClass = "";
     };

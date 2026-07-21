@@ -13,11 +13,8 @@ private _lowerClass = toLowerANSI _class;
 if ((_lowerClass find "pook_tos1a") >= 0) exitWith {
     ["Штаб: TOS-1A скрыт из поддержки: текущая версия аддона вызвала продолжительный Fired-handler spam в RPT.", _requester] call DRO2026_fnc_supportMessage;
 };
-private _allowedClasses = [];
-{_allowedClasses append (DRO2026_assetRegistry getOrDefault [_x, []])} forEach ["PLAYER_ARTILLERY_MORTAR", "PLAYER_ARTILLERY_SPG", "PLAYER_ARTILLERY_MLRS"];
-_allowedClasses = _allowedClasses arrayIntersect _allowedClasses;
-if !(_class in _allowedClasses) exitWith {
-    [format ["Штаб: артсистема %1 не входит в реестр выбранной фракции.", _class], _requester] call DRO2026_fnc_supportMessage;
+if !([format ["ARTY:%1", _class], _class] call DRO2026_fnc_supportCatalogContains) exitWith {
+    [format ["Штаб: артсистема %1 отсутствует в опубликованном installed-assets catalog.", _class], _requester] call DRO2026_fnc_supportMessage;
 };
 if (!isClass (configFile >> "CfgVehicles" >> _class)) exitWith {
     [format ["Штаб: артсистема %1 недоступна.", _class], _requester] call DRO2026_fnc_supportMessage;

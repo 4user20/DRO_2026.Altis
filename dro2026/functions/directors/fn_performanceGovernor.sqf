@@ -6,11 +6,14 @@ enableDynamicSimulationSystem true;
 "Prop" setDynamicSimulationDistance DRO2026_PROP_ACTIVATION_DISTANCE;
 "IsMoving" setDynamicSimulationDistanceCoef 1.5;
 private _lastTelemetryAt = -999;
+private _lastNetworkSyncAt = -999;
 
 while {!DRO2026_missionEnding} do {
     private _fps = diag_fps;
     DRO2026_fpsAverage = (DRO2026_fpsAverage * 0.82) + (_fps * 0.18);
-    DRO2026_spawnBudgetFactor = linearConversion [17, 42, DRO2026_fpsAverage, 0.25, 1, true];
+    DRO2026_spawnBudgetFactor = linearConversion [17, 42, DRO2026_fpsAverage, 0.20, 1, true];
+    private _heavyPaused = DRO2026_fpsAverage < 16;
+    missionNamespace setVariable ["DRO2026_heavySystemsPaused", _heavyPaused];
 
     DRO2026_managedGroups = DRO2026_managedGroups select {!isNull _x && {count units _x > 0}};
     DRO2026_managedVehicles = DRO2026_managedVehicles select {!isNull _x && {alive _x}};
@@ -34,7 +37,10 @@ while {!DRO2026_missionEnding} do {
         if (isNull _object && {count _objects > 0}) then {_site set ["object", _objects select 0]};
         _site set ["lastCompactedAt", time];
     } forEach DRO2026_sites;
-    [] call DRO2026_fnc_syncNetworkState;
+    if ((time - _lastNetworkSyncAt) >= 20) then {
+        _lastNetworkSyncAt = time;
+        [] call DRO2026_fnc_syncNetworkState;
+    };
 
     if (count DRO2026_contacts > 160) then {
         DRO2026_contacts = [DRO2026_contacts, [], {
@@ -73,7 +79,8 @@ while {!DRO2026_missionEnding} do {
             ["fps",diag_fps],["fpsMin",diag_fpsMin],["activeScripts",diag_activeSQFScripts],
             ["allUnits",count allUnits],["vehicles",count vehicles],["groups",count allGroups],
             ["contacts",count DRO2026_contacts],["droneMissions",count DRO2026_activeDrones],
-            ["logisticsJobs",count DRO2026_logisticsJobs],["dynamicTasks",count DRO2026_dynamicTasks]
+            ["logisticsJobs",count DRO2026_logisticsJobs],["dynamicTasks",count DRO2026_dynamicTasks],
+            ["spawnBudgetFactor",DRO2026_spawnBudgetFactor],["heavySystemsPaused",missionNamespace getVariable ["DRO2026_heavySystemsPaused",false]]
         ]] call DRO2026_fnc_logStructured;
     };
     sleep 10;
