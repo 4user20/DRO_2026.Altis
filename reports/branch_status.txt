@@ -1,4 +1,0 @@
-base=8234bb34658d0352e967fe2e282a0f231408f0de
-branch=fix/rc8-mp-support-guidance-freeze
-runtime_status=NOT_RUNTIME_VERIFIED
-source_rpt=Arma3_x64_2026-07-22_16-18-53.rpt
