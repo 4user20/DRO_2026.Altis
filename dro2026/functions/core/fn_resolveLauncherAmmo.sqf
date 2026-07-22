@@ -10,6 +10,16 @@ if (_launcherOrClass isEqualType objNull) then {
 private _cfgVehicle = configFile >> "CfgVehicles" >> _launcherClass;
 if (_launcherClass == "" || {!isClass _cfgVehicle}) exitWith {""};
 
+// Callers that only know the class still benefit from the physical launcher
+// already registered by the operation layer. This is essential for modded
+// launchers whose inherited config omits the runtime-loaded turret magazine.
+if (isNull _launcher && {isServer}) then {
+    private _physicalCandidates = (missionNamespace getVariable ["DRO2026_managedVehicles",[]]) select {
+        !isNull _x && {alive _x} && {local _x} && {typeOf _x == _launcherClass}
+    };
+    if (count _physicalCandidates > 0) then {_launcher = _physicalCandidates select 0};
+};
+
 private _weapons = [];
 {
     _weapons append (getArray _x);
