@@ -70,11 +70,11 @@ while {!DRO2026_missionEnding} do {
     if ((missionNamespace getVariable ["DRO2026_PERF_TELEMETRY",false]) && {(time - _lastTelemetryAt) >= 60}) then {
         _lastTelemetryAt = time;
         ["PERF","SNAPSHOT",createHashMapFromArray [
-            ["fps",diag_fps],["fpsMin",diag_fpsMin],["activeScripts",diag_activeSQFScripts],
+            ["fps",diag_fps],["fpsMin",diag_fpsMin],["activeScripts",count diag_activeSQFScripts],
             ["allUnits",count allUnits],["vehicles",count vehicles],["groups",count allGroups],
             ["contacts",count DRO2026_contacts],["droneMissions",count DRO2026_activeDrones],
             ["logisticsJobs",count DRO2026_logisticsJobs],["dynamicTasks",count DRO2026_dynamicTasks]
-        ]] call DRO2026_fnc_logStructured;
+        ], 1, "PERF", 0] call DRO2026_fnc_telemetryRecord;
     };
     sleep 10;
 };
