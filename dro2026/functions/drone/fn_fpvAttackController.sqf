@@ -18,6 +18,8 @@ private _stuckCount = 0;
 private _guidanceLostUntil = -1;
 private _lastWobbleUpdate = -10;
 private _wobbleBearing = 0;
+private _recoveryUntil = -1;
+private _recoveryAimASL = [];
 private _operatorQuality = if (!isNull _operator) then {0.65 + ((skill _operator) * 0.35)} else {0.72};
 private _result = "ABORTED";
 
@@ -72,23 +74,33 @@ while {
         private _progress = _lastDistance - _distance2D;
         if (_progress < (4 max (_lastDistance * 0.02))) then {
             _stuckCount = _stuckCount + 1;
-            private _recovery = (getPosATL _drone) getPos [55, (getDir _drone) + selectRandom [-70, 70]];
-            _recovery set [2, ((getPosATL _drone) select 2) + 16];
-            (driver _drone) doMove _recovery;
+            private _currentATL = getPosATL _drone;
+            private _recoveryATL = _currentATL getPos [70, (getDir _drone) + selectRandom [-55,55]];
+            _recoveryAimASL = ATLToASL _recoveryATL;
+            _recoveryAimASL set [2, ((getPosASL _drone) select 2) + 24];
+            _recoveryUntil = time + 3.5;
+            ["FPV_VECTOR_RECOVERY",createHashMapFromArray [["vehicleNetId",netId _drone],["distance",_distance2D],["stuckCount",_stuckCount],["recoveryAimASL",+_recoveryAimASL]],_contact getOrDefault ["id",""]] call DRO2026_fnc_emitEvent;
         } else {
             _stuckCount = 0;
+            _recoveryUntil = -1;
+            _recoveryAimASL = [];
         };
         _lastDistance = _distance2D;
         _lastProgressCheck = time;
     };
-    if (_stuckCount >= 2) exitWith {_result = "STUCK"};
+    if (_stuckCount >= 3) exitWith {_result = "STUCK"};
 
     if (time > _guidanceLostUntil) then {
         private _lateralNoise = if (_distance2D > 400) then {7} else {2.5};
         if (_fiberOptic) then {_lateralNoise = _lateralNoise * 0.55} else {_lateralNoise = _lateralNoise + ((1 - _channelQuality) * 8)};
         private _attackHeight = linearConversion [0, 500, _distance2D, 3.5, 20, true];
-        private _aimASL = [_drone, _targetPositionASL, _attackHeight, [70, 140, 240], 260, _lateralNoise] call DRO2026_fnc_calculateTerrainAwareAim;
-        if (_distance2D > 300 && {_wobbleBearing != 0}) then {
+        private _aimASL = if (_recoveryUntil > time && {count _recoveryAimASL == 3}) then {
+            +_recoveryAimASL
+        } else {
+            _recoveryUntil = -1;
+            [_drone, _targetPositionASL, _attackHeight, [70, 140, 240], 260, _lateralNoise, true] call DRO2026_fnc_calculateTerrainAwareAim
+        };
+        if (_distance2D > 300 && {_wobbleBearing != 0} && {_recoveryUntil < 0}) then {
             private _currentAGL = ASLToAGL getPosASL _drone;
             private _aimAGL = ASLToAGL _aimASL;
             private _offset = _currentAGL getPos [(_currentAGL distance2D _aimAGL) min 120, (_currentAGL getDir _aimAGL) + _wobbleBearing];
@@ -139,6 +151,7 @@ _drone setVariable ["dro2026_fpvInitialized", false];
     ["result",_result],["class",typeOf _drone],["side",str _side],
     ["dronePositionASL",if (isNull _drone) then {[]} else {getPosASL _drone}],
     ["targetPositionASL",+_targetPositionASL],["contactId",_contact getOrDefault ["id",""]],
+    ["subjectMode",_contact getOrDefault ["subjectMode","RESOLVABLE"]],
     ["fiberOptic",_fiberOptic],["stuckCount",_stuckCount]
 ],_contact getOrDefault ["id",""]] call DRO2026_fnc_emitEvent;
 _result
