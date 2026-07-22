@@ -57,7 +57,7 @@ check(
 )
 check(
     "long-range position target",
-    '["subjectMode","POSITION_ONLY"]' in long_request and '"Long-range package reserved and launch sequence started"' in long_request,
+    '"subjectMode","POSITION_ONLY"' in long_request and '"Long-range package reserved and launch sequence started"' in long_request,
     "long-range map points must be first-class and return a structured reservation result",
 )
 check(
@@ -68,8 +68,9 @@ check(
 check(
     "single-owner terminal handoff",
     all(f'disableAI "{feature}"' in long_launch for feature in ["MOVE", "PATH", "TARGET", "AUTOTARGET", "FSM"])
-    and 'while {count waypoints _crewGroup > 0}' in long_launch,
-    "terminal vector guidance must clear AI route and disable conflicting AI features",
+    and 'for "_waypointIndex" from ((count waypoints _crewGroup) - 1) to 0 step -1 do' in long_launch
+    and 'deleteWaypoint [_crewGroup, _waypointIndex]' in long_launch,
+    "terminal vector guidance must clear a bounded waypoint snapshot in reverse order and disable conflicting AI features",
 )
 check(
     "terminal progress watchdog",
