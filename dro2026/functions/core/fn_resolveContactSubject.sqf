@@ -2,6 +2,24 @@ params [["_contact", createHashMap, [createHashMap]]];
 if (count _contact == 0) exitWith {[false, objNull, "CONTACT_EMPTY", "EXPIRED"]};
 private _state = toUpperANSI (_contact getOrDefault ["state", _contact getOrDefault ["bdaState", "DETECTED"]]);
 if (_state in ["DESTROYED","EXPIRED","CONFIRMED_DESTROYED","PROBABLY_DESTROYED","CANCELLED","COMPLETED"]) exitWith {[false,objNull,"CONTACT_TERMINAL",_state]};
+
+private _subjectMode = toUpperANSI (_contact getOrDefault ["subjectMode",""]);
+private _positionOnly = (_contact getOrDefault ["positionOnly",false]) || {_subjectMode == "POSITION_ONLY"};
+if (_positionOnly) exitWith {
+    private _positionASL = _contact getOrDefault ["positionASL",_contact getOrDefault ["positionMean",[]]];
+    private _positionValid = _positionASL isEqualType [] && {count _positionASL == 3} && {(_positionASL findIf {!(_x isEqualType 0)}) < 0};
+    private _expiresAt = _contact getOrDefault ["expiresAt",(_contact getOrDefault ["lastSeenAt",time]) + (_contact getOrDefault ["positionTtl",240])];
+    if (!_positionValid) then {
+        [false,objNull,"POSITION_INVALID","EXPIRED"]
+    } else {
+        if (_expiresAt >= 0 && {time > _expiresAt}) then {
+            [false,objNull,"POSITION_EXPIRED","EXPIRED"]
+        } else {
+            [true,objNull,"POSITION_ONLY_ACTIVE",_state]
+        }
+    }
+};
+
 private _subject = _contact getOrDefault ["subjectObject", _contact getOrDefault ["target", objNull]];
 if (!isNull _subject) exitWith {[alive _subject, _subject, if (alive _subject) then {"OBJECT_LIVE"} else {"OBJECT_DESTROYED"}, if (alive _subject) then {_state} else {"DESTROYED"}]};
 private _subjectNetId = _contact getOrDefault ["subjectNetId", ""];
