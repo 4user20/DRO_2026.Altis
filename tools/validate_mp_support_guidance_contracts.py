@@ -27,6 +27,8 @@ long_launch = read("dro2026/functions/support/fn_launchLongRangeStrike.sqf")
 terrain = read("dro2026/functions/core/fn_calculateTerrainAwareAim.sqf")
 fpv_controller = read("dro2026/functions/drone/fn_fpvAttackController.sqf")
 sanitation = read("dro2026/functions/core/fn_sanitizeLegacyPools.sqf")
+layered_aa = read("dro2026/functions/core/fn_spawnLayeredAA.sqf")
+launcher_ammo = read("dro2026/functions/core/fn_resolveLauncherAmmo.sqf")
 
 check(
     "position-only contact schema",
@@ -93,6 +95,21 @@ check(
     "broken insertion class quarantined",
     'B_UAArmy_CAT1A2_01' in sanitation and 'DRO2026_runtimeBlockedVehicleClasses' in sanitation,
     "the class producing one CBA invalid-turret warning per second must not enter legacy pools",
+)
+check(
+    "S-300 fire-control radar contract",
+    all(token in layered_aa for token in ['"S300_RS_F_UCG"', '"FIRE_CONTROL_RADAR"', '"COMPONENT_VALIDATION_FAILED"', '"radarValidated"']),
+    "S-300 must prefer its fire-control radar and explain component-level rollback",
+)
+check(
+    "runtime launcher ammo probe",
+    all(token in launcher_ammo for token in ['magazinesAllTurrets', 'weaponsTurret', 'DRO2026_managedVehicles', '_runtimeAmmoCount']),
+    "physical turret magazines with positive ammo are stronger evidence than class-only config traversal",
+)
+check(
+    "ordinary launcher ammo remains blocked",
+    all(token in launcher_ammo for token in ['"smoke"', '"countermeasure"', '"horn"', '"fake"']),
+    "runtime probing must remain fail-closed against non-strategic ammo",
 )
 
 payload = {
