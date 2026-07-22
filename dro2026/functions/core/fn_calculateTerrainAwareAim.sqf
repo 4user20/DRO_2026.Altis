@@ -57,16 +57,20 @@ private _desiredAltitudeASL = if (_distance <= _terminalDistance) then {
     _maxTerrainASL + _clearance
 };
 
-if (_lateralNoise > 0) then {
+private _aimASL = if (_lateralNoise > 0) then {
     private _seed = _vehicle getVariable ["DRO2026_noiseSeed", -1];
     if (_seed < 0) then {_seed = random 100; _vehicle setVariable ["DRO2026_noiseSeed", _seed]};
     private _noisePhase = (diag_tickTime * 1.7) + _seed;
     private _sideOffset = (sin (_noisePhase * 57.2958)) * _lateralNoise;
     if (abs _sideOffset > 0.01) then {
         private _noiseATL = _aimATL getPos [abs _sideOffset, _bearing + (if (_sideOffset >= 0) then {90} else {-90})];
-        _aimATL = _noiseATL;
-    };
+        private _aimASL = ATLToASL _noiseATL;
+        _aimASL
+    } else {
+        ATLToASL _aimATL
+    }
+} else {
+    ATLToASL _aimATL
 };
-private _aimASL = ATLToASL _aimATL;
 _aimASL set [2, _desiredAltitudeASL];
 _aimASL
