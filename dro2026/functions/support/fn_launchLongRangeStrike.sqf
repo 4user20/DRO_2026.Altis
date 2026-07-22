@@ -275,7 +275,11 @@ private _applyFlightVector = {
 };
 private _takeTerminalAuthority = {
     if (!isNull _crewGroup) then {
-        while {count waypoints _crewGroup > 0} do {deleteWaypoint ((waypoints _crewGroup) select 0)};
+        // Bohemia documents immediate waypoint re-indexing; delete the bounded
+        // snapshot from last to first instead of looping on a changing array.
+        for "_waypointIndex" from ((count waypoints _crewGroup) - 1) to 0 step -1 do {
+            deleteWaypoint [_crewGroup, _waypointIndex];
+        };
     };
     private _driver = driver _drone;
     if (!isNull _driver && {local _driver}) then {
@@ -365,7 +369,9 @@ if (_terminalResult == "RUNNING") then {
     ["dronePositionASL",if (isNull _drone) then {[]} else {getPosASL _drone}],["targetPositionASL",+_targetPosASL],
     ["contactId",_contact getOrDefault ["id",""]],["subjectMode",_contact getOrDefault ["subjectMode","RESOLVABLE"]]
 ],_eventSubject] call DRO2026_fnc_emitEvent;
-[_drone, "NONE", _terminalResult, _drone getVariable ["DRO2026_flightAuthority", "NONE"]] call DRO2026_fnc_setFlightAuthority;
+if (!isNull _drone) then {
+    [_drone, "NONE", _terminalResult, _drone getVariable ["DRO2026_flightAuthority", "NONE"]] call DRO2026_fnc_setFlightAuthority;
+};
 private _activeIndex = DRO2026_activeDrones find _drone;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
 if (!isNull _drone) then {
