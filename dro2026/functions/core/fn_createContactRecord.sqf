@@ -39,7 +39,7 @@ if (_id == "") then {
         if (_id == "") then {
             _id = format ["C_%1_%2",floor (diag_tickTime * 1000),floor random 1000000];
             _target setVariable ["DRO2026_contactId",_id,true];
-        };
+        }
     } else {
         _id = format ["P_%1_%2_%3",round (_position select 0),round (_position select 1),_normalizedOwner];
     };
@@ -47,19 +47,38 @@ if (_id == "") then {
 if (_id == "") exitWith {createHashMap};
 
 private _stableSubjectId = _metadata getOrDefault ["stableSubjectId",""];
-if ((_subjectNetId find "NODE_") == 0) then {
-    if (_stableSubjectId == "") then {_stableSubjectId = _subjectNetId};
+private _requestedSubjectMode = toUpperANSI (_metadata getOrDefault ["subjectMode",""]);
+private _positionOnly = (_requestedSubjectMode == "POSITION_ONLY") || {
+    _requestedSubjectMode == "" &&
+    {isNull _target} &&
+    {_subjectNetId == ""} &&
+    {_stableSubjectId == ""} &&
+    {toUpperANSI _source == "PLAYER_DESIGNATION"}
+};
+private _subjectMode = if (_positionOnly) then {"POSITION_ONLY"} else {
+    if (_requestedSubjectMode != "") then {_requestedSubjectMode} else {if (!isNull _target) then {"OBJECT"} else {"RESOLVABLE"}}
+};
+
+if (_positionOnly) then {
+    // A map designation is a valid positional target, not a fake object/netId.
+    // Keep its stable designation identifier separate from subject resolution.
     _subjectNetId = "";
-};
-if (_subjectNetId == "" && {!isNull _target}) then {_subjectNetId = netId _target};
-if (_stableSubjectId == "" && {!isNull _target}) then {
-    _stableSubjectId = _target getVariable ["DRO2026_networkNodeId",""];
-    if (_stableSubjectId == "") then {
-        _stableSubjectId = _target getVariable ["DRO2026_stableSubjectId",_id];
-        _target setVariable ["DRO2026_stableSubjectId",_stableSubjectId,true];
+    _stableSubjectId = "";
+} else {
+    if ((_subjectNetId find "NODE_") == 0) then {
+        if (_stableSubjectId == "") then {_stableSubjectId = _subjectNetId};
+        _subjectNetId = "";
     };
+    if (_subjectNetId == "" && {!isNull _target}) then {_subjectNetId = netId _target};
+    if (_stableSubjectId == "" && {!isNull _target}) then {
+        _stableSubjectId = _target getVariable ["DRO2026_networkNodeId",""];
+        if (_stableSubjectId == "") then {
+            _stableSubjectId = _target getVariable ["DRO2026_stableSubjectId",_id];
+            _target setVariable ["DRO2026_stableSubjectId",_stableSubjectId,true];
+        };
+    };
+    if (_stableSubjectId == "") then {_stableSubjectId = if (_subjectNetId != "") then {_subjectNetId} else {_id}};
 };
-if (_stableSubjectId == "") then {_stableSubjectId = if (_subjectNetId != "") then {_subjectNetId} else {_id}};
 
 private _profile = switch (toUpperANSI _source) do {
     case "VISUAL": {[1.00,24,0.0025,5]}; case "MICRO_UAV": {[0.92,45,0.0045,10]};
@@ -79,11 +98,15 @@ if (_uncertaintyRadius < 0 || {_uncertaintyGrowth < 0}) exitWith {createHashMap}
 private _networkOwner = _metadata getOrDefault ["networkOwner",if (!isNull _target) then {owner _target} else {-1}];
 private _sourceObject = _metadata getOrDefault ["sourceObject",objNull];
 private _sourceId = _metadata getOrDefault ["sourceId",toUpperANSI _source];
+private _positionTtl = (_metadata getOrDefault ["positionTtl",240]) max 15;
+private _expiresAt = if (_positionOnly) then {time + _positionTtl} else {-1};
 private _record = createHashMapFromArray [
-    ["schema",4],["contactId",_id],["id",_id],["ownerKey",_normalizedOwner],["owner",_normalizedOwner],
+    ["schema",5],["contactId",_id],["id",_id],["ownerKey",_normalizedOwner],["owner",_normalizedOwner],
     ["object",_target],["subjectObject",_target],["target",_target],
     ["netId",_subjectNetId],["subjectNetId",_subjectNetId],["targetNetId",_subjectNetId],
     ["stableSubjectId",_stableSubjectId],["subjectId",_stableSubjectId],
+    ["subjectMode",_subjectMode],["positionOnly",_positionOnly],["designationId",if (_positionOnly) then {_id} else {""}],
+    ["expiresAt",_expiresAt],["positionTtl",_positionTtl],
     ["sourceId",_sourceId],["sourceObject",_sourceObject],["networkOwner",_networkOwner],
     ["subjectType",_classification],["classification",_classification],["kind",_classification],
     ["side",if (!isNull _target) then {side _target} else {sideUnknown}],
@@ -101,9 +124,9 @@ private _record = createHashMapFromArray [
 ];
 private _protectedKeys = [
     "schema","contactId","id","ownerKey","owner","object","subjectObject","target",
-    "netId","subjectNetId","targetNetId","stableSubjectId","subjectId","state",
-    "terminalReason","terminalAt","positionSpace","positionASL","position","positionMean",
-    "lastKnownPosition","createdAt","lastConfirmedAt","lastSeenAt","lastUpdatedAt"
+    "netId","subjectNetId","targetNetId","stableSubjectId","subjectId","subjectMode","positionOnly",
+    "designationId","expiresAt","positionTtl","state","terminalReason","terminalAt","positionSpace",
+    "positionASL","position","positionMean","lastKnownPosition","createdAt","lastConfirmedAt","lastSeenAt","lastUpdatedAt"
 ];
 {
     if !(_x in _protectedKeys) then {_record set [_x,_metadata get _x]};
