@@ -28,7 +28,11 @@ for path in (ROOT/'dro2026').rglob('*.sqf'):
 if writers != ['dro2026/functions/core/fn_setFlightAuthority.sqf']:
     errors.append(f'flightAuthority writers must be canonical only, got {writers}')
 require('dro2026/functions/core/fn_buildWaypointFlightPlan.sqf','"MOVE"','"LOITER"','"DESTROY"','_waypoint setWaypointType _type','setCurrentWaypoint')
-require('dro2026/functions/support/fn_launchLongRangeStrike.sqf','DRO2026_fnc_buildWaypointFlightPlan','ARMA_AI','FPV_TERMINAL','950')
+require(
+    'dro2026/functions/support/fn_launchLongRangeStrike.sqf',
+    'DRO2026_fnc_buildWaypointFlightPlan','ARMA_AI','FPV_TERMINAL',
+    'LONG_RANGE_TERMINAL_STARTED','NO_TERMINAL_PROGRESS','LONG_RANGE_GUIDANCE_FINISHED'
+)
 require('dro2026/functions/support/fn_launchISR.sqf','DRO2026_fnc_buildWaypointFlightPlan','LOITER','setCurrentWaypoint')
 logistics=require('dro2026/functions/directors/fn_logisticsDirector.sqf','DRO2026_fnc_findRoadAwarePosition','DRO2026_fnc_transferLogisticsCargo','DELIVERY_MATERIALIZATION_REFUND','RETURNING','reservationSettled','DRO2026_MAX_ACTIVE_LOGISTICS_JOBS_PER_SIDE')
 if re.search(r'now\s*>=\s*_eta[\s\S]{0,350}changeNetworkNodeStock',logistics,re.I): errors.append('logistics: virtual ETA must not mutate stock')
