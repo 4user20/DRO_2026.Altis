@@ -1,0 +1,17 @@
+scope,classification,severity,pattern,count,last_run_count,ownership,status
+final_mp_run,CONFIRMED_RUNTIME,P0,SUBJECT_UNRESOLVED map designation,2,1,DRO,fixed_in_branch
+final_mp_run,CONFIRMED_RUNTIME,P0,long-range salvo cancelled after map click,1,1,DRO,fixed_in_branch
+final_mp_run,CONFIRMED_STATIC,P0,FPV MAP_POINT required pre-existing contact,1,1,DRO,fixed_in_branch
+final_mp_run,CONFIRMED_STATIC,P0,server fabricated long-range ACCEPTED,1,1,DRO,fixed_in_branch
+final_mp_run,CONFIRMED_RUNTIME,P0,ARMA_AI to FPV_TERMINAL conflicting controllers,3,1,DRO,fixed_in_branch
+final_mp_run,CONFIRMED_STATIC,P0,dynamic terminal lateral detour/noise oscillation,1,1,DRO,fixed_in_branch
+final_mp_run,CONFIRMED_RUNTIME,P0,watchdog No alive,73,69,engine/mixed,runtime_retest_required
+final_mp_run,CONFIRMED_RUNTIME,P0,process exception 80000101,1,1,engine/mixed,runtime_retest_required
+final_mp_run,CONFIRMED_RUNTIME,P1,B_UAArmy_CAT1A2_01 invalid turret warning,596,596,external_config,DRO_class_quarantined
+final_mp_run,CONFIRMED_RUNTIME,P1,external DEBUG FIRED spam,217,217,external_addon,unresolved_external
+final_mp_run,CONFIRMED_RUNTIME,P1,incomplete S300 battery,1,1,DRO/mod_contract,improved_in_branch_runtime_retest
+final_mp_run,CONFIRMED_RUNTIME,P1,pook 9K720 NO_LAUNCHER_AMMO,12,4,DRO/mod_contract,physical_probe_added_runtime_retest
+final_mp_run,CONFIRMED_RUNTIME,P1,backpack empty class,18,18,legacy/mod_data,unresolved
+final_mp_run,EXTERNAL_ADDON,P1,ARI_AO nuclear script missing,4,2,external_addon,unresolved_external
+final_mp_run,EXTERNAL_ADDON,P1,MK82 cloudlet expression errors,8,8,external_addon,unresolved_external
+final_mp_run,EXTERNAL_ADDON,P2,frtz FP1 camPos2 config error,1,1,external_addon,unresolved_external
