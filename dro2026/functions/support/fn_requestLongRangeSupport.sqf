@@ -83,7 +83,13 @@ private _siteId = _site getOrDefault ["id", ""];
 private _operator = _site getOrDefault ["operator", objNull];
 private _origin = _site getOrDefault ["position", ["FRIENDLY_DRONE_REAR"] call DRO2026_fnc_getTheaterNode];
 
-private _baseContact = ["PLAYER",objNull,_position,0.86,"НАЗНАЧЕННАЯ_ТОЧКА","","PLAYER_DESIGNATION",24,"",0,2,createHashMapFromArray [["positionSpace","ASL"],["subjectMode","POSITION_ONLY"],["positionTtl",420],["requestId",_requestId]]] call DRO2026_fnc_createContactRecord;
+// Preserve the canonical coordinate-space base contract, then add the new
+// position-only identity/TTL fields. This keeps ASL ownership explicit.
+private _positionMetadata = createHashMapFromArray [["positionSpace","ASL"]];
+_positionMetadata set ["subjectMode","POSITION_ONLY"];
+_positionMetadata set ["positionTtl",420];
+_positionMetadata set ["requestId",_requestId];
+private _baseContact = ["PLAYER",objNull,_position,0.86,"НАЗНАЧЕННАЯ_ТОЧКА","","PLAYER_DESIGNATION",24,"",0,2,_positionMetadata] call DRO2026_fnc_createContactRecord;
 if (count _baseContact == 0) exitWith {["TARGET_RECORD_FAILED","Штаб: не удалось сформировать запись назначенной цели. Ресурс не списан."] call _fail};
 private _contacts = DRO2026_contacts select {
     (_x getOrDefault ["owner", ""]) == "PLAYER" && {(_x getOrDefault ["confidence", 0]) >= 0.45} && {(time - (_x getOrDefault ["lastSeen", 0])) < 360} &&
@@ -102,7 +108,9 @@ private _siteContacts = DRO2026_sites select {
 if (count _siteContacts > 0) then {
     private _record = _siteContacts select 0;
     private _subjectId = _record getOrDefault ["networkNodeId", _record getOrDefault ["id", ""]];
-    _baseContact = ["PLAYER",_record getOrDefault ["object",objNull],_record getOrDefault ["position",_position],0.92,_record getOrDefault ["type","ЦЕЛЬ"],"","PLAYER_DESIGNATION",90,"",0,-1,createHashMapFromArray [["positionSpace","ATL"],["stableSubjectId",_subjectId],["subjectMode","SITE"]]] call DRO2026_fnc_createContactRecord;
+    private _siteMetadata = createHashMapFromArray [["positionSpace","ATL"],["stableSubjectId",_subjectId]];
+    _siteMetadata set ["subjectMode","SITE"];
+    _baseContact = ["PLAYER",_record getOrDefault ["object",objNull],_record getOrDefault ["position",_position],0.92,_record getOrDefault ["type","ЦЕЛЬ"],"","PLAYER_DESIGNATION",90,"",0,-1,_siteMetadata] call DRO2026_fnc_createContactRecord;
 };
 if (count _baseContact == 0) exitWith {["TARGET_INVALID","Штаб: цель не прошла проверку контактной модели. Ресурс не списан."] call _fail};
 
@@ -150,4 +158,4 @@ DRO2026_resources set [_costPool, (_stock - _launchCount) max 0];
 };
 private _launchLabel = if (_decoy) then {"БПЛА-обманка"} else {if (_exactClass != "") then {_exactClass} else {_requestedType}};
 ["ACK",format ["Штаб: запрос на %1 принят; зарезервировано аппаратов %2. Фактический запуск подтверждается после materialization.", _launchLabel, _launchCount],if (!isNull _requester) then {_requester} else {-2}] call DRO2026_fnc_hqVoice;
-[true,"RESERVED","Long-range package reserved and launch sequence started",_requestId,createHashMapFromArray [["count",_launchCount],["siteId",_siteId],["contactId",_baseContact getOrDefault ["id",""]],["subjectMode",_baseContact getOrDefault ["subjectMode","RESOLVABLE"]]]] call DRO2026_fnc_makeResult
+[true,"RESERVED","Long-range package reserved and launch sequence started",_requestId,createHashMapFromArray [["count",_launchCount],["siteId",_siteId],["contactId",_baseContact getOrDefault ["id","" ]],["subjectMode",_baseContact getOrDefault ["subjectMode","RESOLVABLE"]]]] call DRO2026_fnc_makeResult
