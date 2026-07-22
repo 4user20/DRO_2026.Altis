@@ -41,8 +41,7 @@ private _result = switch _channel do {
         private _assetClass = _normalized getOrDefault ["assetClass", ""];
         private _type = if (_assetClass == "") then {_normalized getOrDefault ["assetId", "AUTO"]} else {format ["CLASS:%1", _assetClass]};
         private _decoy = toUpperANSI (_normalized getOrDefault ["assetId", ""]) == "DECOY";
-        [_normalized getOrDefault ["targetPositionASL", []], _type, _decoy, _normalized getOrDefault ["count", 1], _requester] call DRO2026_fnc_requestLongRangeSupport;
-        [true, "ACCEPTED", "Long-range strike request accepted for processing", _requestId, createHashMap] call DRO2026_fnc_makeResult
+        [_normalized getOrDefault ["targetPositionASL", []], _type, _decoy, _normalized getOrDefault ["count", 1], _requester, _requestId] call DRO2026_fnc_requestLongRangeSupport
     };
     case "ARTILLERY": {
         [_normalized getOrDefault ["targetPositionASL", []], _normalized getOrDefault ["assetClass", ""], _normalized getOrDefault ["count", 1], _requester] call DRO2026_fnc_requestArtillery;
@@ -54,7 +53,8 @@ private _result = switch _channel do {
     };
     case "INTERCEPTOR": {[_normalized, _requester] call DRO2026_fnc_requestInterceptor};
     default {[false, "CHANNEL_NOT_IMPLEMENTED", format ["Channel %1 is not implemented", _channel], _requestId, createHashMap] call DRO2026_fnc_makeResult};
-};if !(_result isEqualType createHashMap) then {_result = [false, "INVALID_HANDLER_RESULT", "Support handler returned an invalid result", _requestId, createHashMap] call DRO2026_fnc_makeResult};
+};
+if !(_result isEqualType createHashMap) then {_result = [false, "INVALID_HANDLER_RESULT", "Support handler returned an invalid result", _requestId, createHashMap] call DRO2026_fnc_makeResult};
 _processed set [_requestId, _result];
 if (count _processed > 256) then {
     private _keys = keys _processed;
