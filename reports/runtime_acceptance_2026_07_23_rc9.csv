@@ -1,0 +1,11 @@
+id,scenario,expected_evidence,status
+RC9-01,Telemetry build loaded,RPT contains D26T and RC9/current-main version,PENDING
+RC9-02,FPV map point,REQUEST_RECEIVED then FPV_REQUEST_ACCEPTED then materialization and guidance result,PENDING
+RC9-03,Physical SHORAD,At least two EAST SHORAD formations in OCAP and SHORAD_FORMATION_MATERIALIZED events,PENDING
+RC9-04,Broken class quarantine,No CAT1A2 and no b_afougf_old_ZU23 spawn or warning,PENDING
+RC9-05,Mod-first convoy,CONVOY_CLASS_SELECTED vanillaFallback false when mod classes exist,PENDING
+RC9-06,Logistics continuity,No LOGISTICS_CLASS_REJECTED for TRANSPORT_PERSONNEL,PENDING
+RC9-07,MP header,No roles versus maxPlayer mismatch,PENDING
+RC9-08,S300 battery,Complete battery or precise component rollback,PENDING
+RC9-09,POOK ballistic,Resolved ammo and launch or explicit script-adapter evidence,PENDING
+RC9-10,Soak,60 minutes hosted MP without native exception or unbounded RPT growth,PENDING
