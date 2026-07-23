@@ -1,0 +1,17 @@
+category,finding,count,severity,ownership,remediation
+AIR_DEFENCE,Strategic plan SHORAD entries were never physically materialized,5,critical,MISSION,Add bounded materializeStrategicSHORAD
+AIR_DEFENCE,Only layered long-range formation materialized and shorad=false,1,high,MISSION,Create separate missile and gun SHORAD layers
+CONVOY,LOGISTICS_CLASS_REJECTED for vanilla personnel transport,5,high,MISSION,Role-aware mod-first convoy selector
+CONFIG,B_UAArmy_CAT1A2_01 invalid turret warnings,5102,high,ADDON_WITH_MISSION_SELECTION,Runtime blocklist
+CONFIG,b_afougf_old_ZU23 invalid turret warnings,5059,high,ADDON_WITH_MISSION_SELECTION,Runtime blocklist and AA pool filtering
+CONFIG,B_MRAP_01_hmg_F invalid turret warnings,420,medium,ADDON,Reduce selection through mod-first policy
+CONTACT,SUBJECT_UNRESOLVED contacts including map points,14,high,MISSION_PREVIOUS_BUILD,Already fixed on main with POSITION_ONLY
+FPV,No support ingress or FPV request telemetry in old build,0,high,RUNTIME_GAP,Retest current main with D26T
+BALLISTIC,POOK launcher has no resolved ammo and never launches,40,high,ADDON_ADAPTER_GAP,Retest runtime probing then add explicit adapter if script-only
+MAP,Role count differs from maxPlayer header,1,medium,MISSION,Set maxPlayers to 8
+ADDON,External DEBUG FIRED spam,1019,medium,ADDON,Fix source PBO
+ADDON,ARI_AO missing nuclear script,66,high,ADDON,Repair or remove broken addon feature
+ADDON,Slash config value warnings,233,medium,ADDON,Repair source config
+ADDON,Slash size not array,35,medium,ADDON,Repair source config
+ADDON,Empty backpack class,15,medium,ADDON,Repair source loadout
+ADDON,ExhaustSmoke cloudlet errors,12,medium,ADDON,Repair source config

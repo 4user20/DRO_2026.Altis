@@ -21,6 +21,10 @@ if ((DRO2026_sites findIf {(_x getOrDefault ["type", ""]) == "FRIENDLY_LAYERED_A
     ] call DRO2026_fnc_spawnLayeredAA;
 };
 
+// Strategic SHORAD entries were previously virtual only. Materialize a bounded
+// front/operational/rear layer so low-altitude defence exists physically.
+[enemySide, missionNamespace getVariable ["DRO2026_PHYSICAL_SHORAD_SITE_LIMIT",3]] call DRO2026_fnc_materializeStrategicSHORAD;
+
 if ((DRO2026_sites findIf {(_x getOrDefault ["type", ""]) == "STRATEGIC_DRONE_SITE"}) < 0) then {
     ["STRATEGIC_DRONE_SITE", "ENEMY_DRONE_REAR", enemySide] call DRO2026_fnc_spawnStrategicDroneSite;
 };

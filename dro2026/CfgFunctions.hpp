@@ -97,6 +97,8 @@ class CfgFunctions
             class launchStrategicMunition {};
             class spawnOperationalNodeSite {};
             class spawnPointDefenceGroup {};
+            class selectConvoyClass {};
+            class materializeStrategicSHORAD {};
             class getStandoffWeapon {};
             class executeStandoffAirMission {};
             class clientInit {postInit = 1;};

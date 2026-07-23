@@ -12,9 +12,10 @@ if (count _position < 2) exitWith {objNull};
 private _suffix = [_side] call DRO2026_fnc_getSideSuffix;
 private _pool = DRO2026_assetRegistry getOrDefault [format ["SHORAD_%1",_suffix],[]];
 private _sideNumber = [_side] call DRO2026_fnc_getSideNumber;
+private _runtimeBlocked = missionNamespace getVariable ["DRO2026_runtimeBlockedVehicleClasses",[]];
 _pool = _pool select {
     private _cfg = configFile >> "CfgVehicles" >> _x;
-    isClass _cfg && {getNumber (_cfg >> "scope") >= 1} && {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}
+    isClass _cfg && {getNumber (_cfg >> "scope") >= 1} && {!(_x in _runtimeBlocked)} && {_sideNumber < 0 || {getNumber (_cfg >> "side") == _sideNumber}}
 };
 private _gunPool = _pool select {
     private _name = toLowerANSI _x;
@@ -28,9 +29,12 @@ private _empty = _spawn findEmptyPosition [0,35,_class];
 if (count _empty >= 2) then {_spawn = _empty};
 private _vehicle = createVehicle [_class,_spawn,[],0,"NONE"];
 if (isNull _vehicle) exitWith {objNull};
+_vehicle enableDynamicSimulation true;
 _vehicle setDir (_spawn getDir _position);
 _vehicle setVehiclePosition [_spawn,[],0,"NONE"];
 if !([_vehicle,_side] call DRO2026_fnc_crewManagedVehicle) exitWith {objNull};
+private _crewGroup = if (count crew _vehicle > 0) then {group (crew _vehicle select 0)} else {grpNull};
+if (!isNull _crewGroup) then {_crewGroup enableDynamicSimulation true};
 _vehicle setVariable ["DRO2026_networkNodeId",_nodeId,true];
 _vehicle setVariable ["DRO2026_pointDefence",true,true];
 _vehicle setVariable ["DRO2026_pointDefenceRounds",0];

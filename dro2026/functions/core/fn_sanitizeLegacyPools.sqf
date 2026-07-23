@@ -7,8 +7,21 @@ private _blockedSubcatTokens = [
 ];
 // Classes proven broken by the current runtime modset. Keep this list configurable
 // so a repaired addon can explicitly remove an entry in a later build.
-private _blockedClasses = missionNamespace getVariable ["DRO2026_runtimeBlockedVehicleClasses", ["B_UAArmy_CAT1A2_01"]];
+private _blockedClasses = missionNamespace getVariable ["DRO2026_runtimeBlockedVehicleClasses", ["B_UAArmy_CAT1A2_01","b_afougf_old_ZU23"]];
+missionNamespace setVariable ["DRO2026_runtimeBlockedVehicleClasses",+_blockedClasses,true];
 private _exclusionStats = createHashMap;
+// Remove quarantined classes from every runtime registry role as well as the
+// legacy arrays below. This keeps all materializers from reselecting a class
+// known to produce an RPT warning storm.
+{
+    private _registryKey = _x;
+    private _beforeRegistry = +(DRO2026_assetRegistry getOrDefault [_registryKey,[]]);
+    private _afterRegistry = _beforeRegistry select {!(_x in _blockedClasses)};
+    if (count _afterRegistry != count _beforeRegistry) then {
+        DRO2026_assetRegistry set [_registryKey,_afterRegistry];
+        ["ROLE","RUNTIME_CLASS_QUARANTINED",createHashMapFromArray [["registry",_registryKey],["before",count _beforeRegistry],["after",count _afterRegistry]],_registryKey] call DRO2026_fnc_logStructured;
+    };
+} forEach (keys DRO2026_assetRegistry);
 private _safeConfigClass = {
     params ["_class", ["_mustBeMan", false]];
     if !(_class isEqualType "") exitWith {false};

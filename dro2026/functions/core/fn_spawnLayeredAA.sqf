@@ -20,10 +20,11 @@ private _shortFallback = switch (_side) do {
     default {"O_APC_Tracked_02_AA_F"};
 };
 private _blocked = ["spawner","module","logic","site_","samsite","sam_site","azncontrol","unit_scanner","pook_sam","pook_azncontrol"];
+private _runtimeBlocked = missionNamespace getVariable ["DRO2026_runtimeBlockedVehicleClasses",[]];
 private _safeClass = {
     params ["_role","_fallback",["_allowNeutral",false],["_expectedRoles",[]]];
     private _class = [_role,_fallback,_side,_allowNeutral] call DRO2026_fnc_getSideRoleClass;
-    if (_class == "") exitWith {""};
+    if (_class == "" || {_class in _runtimeBlocked}) exitWith {""};
     private _lower = toLowerANSI _class;
     if ((_blocked findIf {(_lower find _x) >= 0}) >= 0) exitWith {""};
     if !([_class,"AIR_DEFENCE_POOL"] call DRO2026_fnc_isAssetAllowedForRole) exitWith {""};
@@ -151,9 +152,11 @@ if (_shortClass != "") then {
 {
     if (!isNull _x) then {
         private _role = if (_x in _launchers) then {"LAUNCHER"} else {if (_x isEqualTo _radar) then {"FIRE_CONTROL_RADAR"} else {"SHORAD"}};
+        _x enableDynamicSimulation true;
         if ([_x,_side] call DRO2026_fnc_crewManagedVehicle) then {
             _objects pushBack _x;
-            _x enableDynamicSimulation true;
+            private _crewGroup = if (count crew _x > 0) then {group (crew _x select 0)} else {grpNull};
+            if (!isNull _crewGroup) then {_crewGroup enableDynamicSimulation true};
             ["COMPONENT_VALIDATED",_role,typeOf _x,_x,""] call _componentEvent;
         } else {
             ["COMPONENT_VALIDATION_FAILED",_role,typeOf _x,_x,"CREW_OR_LOCALITY"] call _componentEvent;
