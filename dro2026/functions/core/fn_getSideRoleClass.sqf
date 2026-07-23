@@ -1,5 +1,12 @@
 params ["_role","_fallback","_side",["_allowNeutral",false]];
 private _expected = [_side] call DRO2026_fnc_getSideNumber;
+private _roleUpper = toUpperANSI _role;
+if ((_roleUpper find "CONVOY_CARGO_") == 0) exitWith {
+    [_role,_side,"GENERAL",_fallback,"CARGO",format ["ROLE_CLASS_%1_%2",_roleUpper,_expected]] call DRO2026_fnc_selectConvoyClass
+};
+if ((_roleUpper find "CONVOY_ESCORT_") == 0) exitWith {
+    [_role,_side,"GENERAL",_fallback,"ESCORT",format ["ROLE_CLASS_%1_%2",_roleUpper,_expected]] call DRO2026_fnc_selectConvoyClass
+};
 private _candidates = +(DRO2026_assetRegistry getOrDefault [_role,[]]);
 if (_fallback != "") then {_candidates pushBackUnique _fallback};
 private _valid = _candidates select {
