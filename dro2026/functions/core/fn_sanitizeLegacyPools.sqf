@@ -8,6 +8,7 @@ private _blockedSubcatTokens = [
 // Classes proven broken by the current runtime modset. Keep this list configurable
 // so a repaired addon can explicitly remove an entry in a later build.
 private _blockedClasses = missionNamespace getVariable ["DRO2026_runtimeBlockedVehicleClasses", ["B_UAArmy_CAT1A2_01","b_afougf_old_ZU23"]];
+missionNamespace setVariable ["DRO2026_runtimeBlockedVehicleClasses",+_blockedClasses,true];
 private _exclusionStats = createHashMap;
 // Remove quarantined classes from every runtime registry role as well as the
 // legacy arrays below. This keeps all materializers from reselecting a class
