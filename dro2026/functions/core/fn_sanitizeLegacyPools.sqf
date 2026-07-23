@@ -5,10 +5,18 @@ private _blockedTokens = [
 private _blockedSubcatTokens = [
     "samsite", "sam_site", "azncontrol", "module", "logic", "spawner", "control", "unit_scanner", "pook_sam"
 ];
+// Classes proven broken by the current runtime modset. Keep this list configurable
+// so a repaired addon can explicitly remove an entry in a later build.
+private _blockedClasses = missionNamespace getVariable ["DRO2026_runtimeBlockedVehicleClasses", ["B_UAArmy_CAT1A2_01"]];
 private _exclusionStats = createHashMap;
 private _safeConfigClass = {
     params ["_class", ["_mustBeMan", false]];
     if !(_class isEqualType "") exitWith {false};
+    if (_class in _blockedClasses) exitWith {
+        private _reason = format ["runtime-class:%1",_class];
+        _exclusionStats set [_reason, (_exclusionStats getOrDefault [_reason, 0]) + 1];
+        false
+    };
     private _cfg = configFile >> "CfgVehicles" >> _class;
     if (!isClass _cfg) exitWith {false};
     if (getNumber (_cfg >> "scope") < 2) exitWith {false};

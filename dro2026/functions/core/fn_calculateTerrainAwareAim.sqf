@@ -1,6 +1,10 @@
 /*
     Returns an ASL navigation point. The destination contract is PositionASL.
     Terrain probing uses 2D ATL coordinates only; altitude remains ASL.
+
+    _allowLateralAvoidance=false is intended for committed terminal ingress. In
+    that mode the controller climbs over terrain instead of choosing a new left
+    or right detour every guidance tick.
 */
 params [
     "_vehicle",
@@ -8,7 +12,8 @@ params [
     ["_clearance", 25],
     ["_lookAhead", [80, 160, 260]],
     ["_terminalDistance", 260],
-    ["_lateralNoise", 6]
+    ["_lateralNoise", 6],
+    ["_allowLateralAvoidance", true]
 ];
 if (isNull _vehicle || {count _destinationASL < 3}) exitWith {+_destinationASL};
 
@@ -28,14 +33,21 @@ private _steepestRise = 0;
 } forEach _lookAhead;
 
 private _aimATL = +_destinationATL;
-if (_distance > _terminalDistance && {_steepestRise > 35}) then {
+if (_allowLateralAvoidance && {_distance > _terminalDistance} && {_steepestRise > 35}) then {
     private _probeDistance = ((_lookAhead select ((count _lookAhead) - 1)) min (_distance * 0.55)) max 120;
     private _leftATL = _currentATL getPos [_probeDistance, _bearing - 38];
     private _rightATL = _currentATL getPos [_probeDistance, _bearing + 38];
     private _leftTerrainASL = getTerrainHeightASL _leftATL;
     private _rightTerrainASL = getTerrainHeightASL _rightATL;
-    _aimATL = if (_leftTerrainASL <= _rightTerrainASL) then {_leftATL} else {_rightATL};
-    _maxTerrainASL = _maxTerrainASL min ((_leftTerrainASL min _rightTerrainASL) + 25);
+    private _avoidanceSide = _vehicle getVariable ["DRO2026_terrainAvoidanceSide",0];
+    if (_avoidanceSide == 0) then {
+        _avoidanceSide = if (_leftTerrainASL <= _rightTerrainASL) then {-1} else {1};
+        _vehicle setVariable ["DRO2026_terrainAvoidanceSide",_avoidanceSide];
+    };
+    _aimATL = if (_avoidanceSide < 0) then {_leftATL} else {_rightATL};
+    _maxTerrainASL = _maxTerrainASL min ((if (_avoidanceSide < 0) then {_leftTerrainASL} else {_rightTerrainASL}) + 25);
+} else {
+    if (_distance <= _terminalDistance || {_steepestRise < 20}) then {_vehicle setVariable ["DRO2026_terrainAvoidanceSide",0]};
 };
 
 private _desiredAltitudeASL = if (_distance <= _terminalDistance) then {
@@ -45,11 +57,20 @@ private _desiredAltitudeASL = if (_distance <= _terminalDistance) then {
     _maxTerrainASL + _clearance
 };
 
-private _seed = _vehicle getVariable ["DRO2026_noiseSeed", -1];
-if (_seed < 0) then {_seed = random 100; _vehicle setVariable ["DRO2026_noiseSeed", _seed]};
-private _noisePhase = (diag_tickTime * 1.7) + _seed;
-private _sideOffset = (sin (_noisePhase * 57.2958)) * _lateralNoise;
-private _noiseATL = _aimATL getPos [abs _sideOffset, _bearing + (if (_sideOffset >= 0) then {90} else {-90})];
-private _aimASL = ATLToASL _noiseATL;
+private _aimASL = if (_lateralNoise > 0) then {
+    private _seed = _vehicle getVariable ["DRO2026_noiseSeed", -1];
+    if (_seed < 0) then {_seed = random 100; _vehicle setVariable ["DRO2026_noiseSeed", _seed]};
+    private _noisePhase = (diag_tickTime * 1.7) + _seed;
+    private _sideOffset = (sin (_noisePhase * 57.2958)) * _lateralNoise;
+    if (abs _sideOffset > 0.01) then {
+        private _noiseATL = _aimATL getPos [abs _sideOffset, _bearing + (if (_sideOffset >= 0) then {90} else {-90})];
+        private _aimASL = ATLToASL _noiseATL;
+        _aimASL
+    } else {
+        ATLToASL _aimATL
+    }
+} else {
+    ATLToASL _aimATL
+};
 _aimASL set [2, _desiredAltitudeASL];
 _aimASL

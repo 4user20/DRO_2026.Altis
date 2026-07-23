@@ -39,4 +39,10 @@ private _record = createHashMapFromArray [
 {_record set [_x,_extra get _x]} forEach keys _extra;
 _networkNodeId = _record getOrDefault ["networkNodeId",""];
 if (_networkNodeId != "") then {{_x setVariable ["DRO2026_networkNodeId",_networkNodeId,true]} forEach _objects};
+["SITE", "RECORD_CREATED", createHashMapFromArray [
+    ["siteId", _record getOrDefault ["id",""]], ["type",_type],
+    ["networkNodeId",_record getOrDefault ["networkNodeId",""]],
+    ["physicalState",_record getOrDefault ["physicalState",""]],
+    ["objects",count _objects], ["positionATL",+_positionATL]
+], 2, _record getOrDefault ["id",_type], 0] call DRO2026_fnc_telemetryRecord;
 _record

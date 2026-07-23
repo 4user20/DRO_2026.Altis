@@ -23,6 +23,8 @@ preflight_validators = [
     "validate_strategic_operational_contracts.py",
     "validate_interactive_operational_contracts.py",
     "validate_rpt_forensic_contracts.py",
+    "validate_mp_support_guidance_contracts.py",
+    "validate_telemetry_contracts.py",
 ]
 commands: list[list[str]] = [
     [sys.executable, str(ROOT / "tools" / filename)]

@@ -58,6 +58,11 @@ class CfgFunctions
             class resolveLauncherAmmo {};
             class makeResult {};
             class logStructured {};
+            class telemetryRecord {};
+            class isTelemetryOwnedObject {};
+            class telemetryObjectSnapshot {};
+            class telemetryMark {};
+            class startTelemetry {};
             class normalizeSupportRequest {};
             class resolveRemoteRequester {};
             class quarantineContact {};

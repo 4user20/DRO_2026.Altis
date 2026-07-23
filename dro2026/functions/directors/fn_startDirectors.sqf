@@ -17,6 +17,14 @@ missionNamespace setVariable ["DRO2026_directorsStarted", true];
 } forEach allGroups;
 {private _object = _x getOrDefault ["object", objNull]; if (!isNull _object) then {DRO2026_managedVehicles pushBackUnique _object}} forEach DRO2026_sites;
 
+[] spawn DRO2026_fnc_startTelemetry;
+["DIRECTOR", "START_BATCH", createHashMapFromArray [["directors", [
+    "capabilityEffects", "missileDefence", "pointDefence", "strategicStrike",
+    "operation", "airDefence", "performanceGovernor", "sensor", "droneWarfare",
+    "enemyFPV", "enemyISR", "longRangeDrone", "friendlyStrike", "logistics",
+    "dynamicObjective", "civilTraffic", "civilianIntel", "enemyAir", "reaction"
+]]], 1, "DIRECTORS", 0] call DRO2026_fnc_telemetryRecord;
+
 // Effects are authoritative inputs for all other directors; start them before action generation.
 [] spawn DRO2026_fnc_capabilityEffectsDirector;
 [] spawn DRO2026_fnc_missileDefenceDirector;

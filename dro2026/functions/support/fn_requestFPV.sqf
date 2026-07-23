@@ -77,6 +77,11 @@ if (_requestId == "") then {
 
 private _reject = {
     params ["_code", "_message"];
+    if (isServer) then {
+        ["FPV_REQUEST_REJECTED", createHashMapFromArray [
+            ["requestId", _requestId], ["code", _code], ["message", _message], ["requestShape", _requestShape]
+        ], _requestId] call DRO2026_fnc_emitEvent;
+    };
     if (!isNull _requester) then {[_message, _requester] call DRO2026_fnc_supportMessage};
     [false, _code, _message, _requestId, createHashMap] call DRO2026_fnc_makeResult
 };
@@ -136,7 +141,7 @@ private _contacts = DRO2026_contacts select {
 };
 
 if (_targetMode == "CONTACT") then {
-    _contacts = _contacts select {(_x getOrDefault ["id", ""]) == _contactId}
+    _contacts = _contacts select {(_x getOrDefault ["id", ""]) == _contactId};
 } else {
     _contacts = _contacts select {
         count _targetPositionASL > 1 &&
@@ -144,9 +149,21 @@ if (_targetMode == "CONTACT") then {
     };
 };
 
-if (count _contacts == 0) exitWith {["CONTACT_REQUIRED", "No fresh live confirmed target is available"] call _reject};
-_contacts = [_contacts, [], {-(_x getOrDefault ["confidence", 0])}, "ASCEND"] call BIS_fnc_sortBy;
-private _contact = _contacts select 0;
+private _contact = createHashMap;
+if (count _contacts > 0) then {
+    _contacts = [_contacts, [], {-(_x getOrDefault ["confidence", 0])}, "ASCEND"] call BIS_fnc_sortBy;
+    _contact = _contacts select 0;
+} else {
+    if (_targetMode != "MAP_POINT" || {count _targetPositionASL < 3}) exitWith {};
+    _contact = [
+        "PLAYER", objNull, _targetPositionASL, 0.9, "НАЗНАЧЕННАЯ ТОЧКА", "", "PLAYER_DESIGNATION", 24, "", 0, 2,
+        createHashMapFromArray [
+            ["positionSpace","ASL"], ["subjectMode","POSITION_ONLY"], ["positionTtl",240],
+            ["requestId",_requestId], ["targetMode","MAP_POINT"]
+        ]
+    ] call DRO2026_fnc_createContactRecord;
+};
+if (count _contact == 0) exitWith {["CONTACT_REQUIRED", "No valid target contact or map designation is available"] call _reject};
 private _targetASL = _contact getOrDefault ["positionASL", _contact getOrDefault ["positionMean", _targetPositionASL]];
 
 private _sourceModeRaw = _request getOrDefault ["sourceMode", "AUTO"];
@@ -154,14 +171,16 @@ if !(_sourceModeRaw isEqualType "") then {_sourceModeRaw = "AUTO"};
 private _sourceMode = toUpperANSI _sourceModeRaw;
 private _sourceNodeId = _request getOrDefault ["sourceNodeId", ""];
 private _sourceGroupNetId = _request getOrDefault ["sourceGroupNetId", ""];
+private _supportRadius = missionNamespace getVariable ["DRO2026_FPV_SUPPORT_RADIUS",9000];
+if (_requestedClass != "" && {[_requestedClass] call DRO2026_fnc_isFiberOpticDrone}) then {_supportRadius = 26000};
 private _sites = DRO2026_sites select {
-    (_x getOrDefault ["type", ""]) == "FRIENDLY_FPV_SITE" &&
+    (_x getOrDefault ["type", ""]) in ["FRIENDLY_FPV_SITE","FRIENDLY_DRONE_SITE"] &&
     {[_x getOrDefault ["id", ""]] call DRO2026_fnc_isSiteOperational} &&
-    {(_x getOrDefault ["position", [0,0,0]]) distance2D _targetASL <= 4800}
+    {(_x getOrDefault ["position", [0,0,0]]) distance2D _targetASL <= _supportRadius}
 };
 if (_sourceMode == "NODE") then {_sites = _sites select {(_x getOrDefault ["networkNodeId", ""]) == _sourceNodeId}};
 if (_sourceMode == "NEAREST_GROUP" && {_sourceGroupNetId != ""}) then {_sites = _sites select {netId (_x getOrDefault ["group", grpNull]) == _sourceGroupNetId}};
-if (count _sites == 0) exitWith {["NO_CAPABLE_SOURCE", "No ready FPV group can execute this request"] call _reject};
+if (count _sites == 0) exitWith {["NO_CAPABLE_SOURCE", format ["No ready FPV or drone site is within %1 m of the target",round _supportRadius]] call _reject};
 
 _sites = [_sites, [], {(_x getOrDefault ["position", [0,0,0]]) distance2D _targetASL}, "ASCEND"] call BIS_fnc_sortBy;
 private _site = _sites select 0;
@@ -178,10 +197,12 @@ if (_launchCount <= 0) exitWith {["INSUFFICIENT_STOCK", "FPV stock exhausted or 
     ["requestShape", _requestShape],
     ["targetMode", _targetMode],
     ["contactId", _contact getOrDefault ["id", ""]],
+    ["subjectMode", _contact getOrDefault ["subjectMode","RESOLVABLE"]],
     ["requestedClass", _requestedClass],
     ["manual", _manualControl],
     ["count", _launchCount],
-    ["siteId", _siteId]
+    ["siteId", _siteId],
+    ["siteType", _site getOrDefault ["type",""]]
 ], _requestId] call DRO2026_fnc_emitEvent;
 
 DRO2026_resources set ["friendlyFPVStock", _stock - _launchCount];

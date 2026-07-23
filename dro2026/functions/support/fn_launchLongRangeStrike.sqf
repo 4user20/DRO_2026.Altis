@@ -25,11 +25,8 @@ private _siteOperational = {
     _siteId == "" || {[_siteId] call DRO2026_fnc_isSiteOperational}
 };
 private _contactOperational = {
-    private _targetObject = _contact getOrDefault ["target", objNull];
-    private _subjectId = _contact getOrDefault ["subjectId", ""];
     !((_contact getOrDefault ["bdaState", "DETECTED"]) in ["PROBABLY_DESTROYED", "CONFIRMED_DESTROYED"]) &&
-    {isNull _targetObject || {alive _targetObject}} &&
-    {_subjectId == "" || {[_contact] call DRO2026_fnc_isLiveContactSubject}}
+    {[_contact] call DRO2026_fnc_isLiveContactSubject}
 };
 if ((count DRO2026_activeDrones) >= DRO2026_PHYSICAL_DRONE_LIMIT) exitWith {call _refundReserved; objNull};
 if (!isNull _operator && {!alive _operator}) exitWith {call _refundReserved; objNull};
@@ -237,6 +234,7 @@ private _eventSubject = if (_reservationNodeId != "") then {_reservationNodeId} 
 ["DRONE_LAUNCHED", createHashMapFromArray [
     ["role", "LONG_RANGE"], ["type", _requestedType], ["class", _launchClass], ["projectile", _isProjectile],
     ["side", str _side], ["contactId", _contact getOrDefault ["id", ""]], ["subjectId", _contact getOrDefault ["subjectId", ""]],
+    ["subjectMode",_contact getOrDefault ["subjectMode","RESOLVABLE"]],
     ["siteId", _siteId], ["reservationNodeId", _reservationNodeId], ["decoy", _decoy],
     ["salvoIndex", _salvoIndex], ["salvoSize", _salvoSize], ["flightAuthority", if (_isProjectile) then {"FPV_TERMINAL"} else {"ARMA_AI"}]
 ], _eventSubject] call DRO2026_fnc_emitEvent;
@@ -275,6 +273,23 @@ private _applyFlightVector = {
     _object setVectorDirAndUp [_flightDirection, _up];
     _object setVelocity (_flightDirection vectorMultiply _speed);
 };
+private _takeTerminalAuthority = {
+    if (!isNull _crewGroup) then {
+        // Bohemia documents immediate waypoint re-indexing; delete the bounded
+        // snapshot from last to first instead of looping on a changing array.
+        for "_waypointIndex" from ((count waypoints _crewGroup) - 1) to 0 step -1 do {
+            deleteWaypoint [_crewGroup, _waypointIndex];
+        };
+    };
+    private _driver = driver _drone;
+    if (!isNull _driver && {local _driver}) then {
+        _driver disableAI "MOVE";
+        _driver disableAI "PATH";
+        _driver disableAI "TARGET";
+        _driver disableAI "AUTOTARGET";
+        _driver disableAI "FSM";
+    };
+};
 private _initialDelta = _targetPosASL vectorDiff _spawnASL;
 if (_isProjectile) then {
     [_drone, "FPV_TERMINAL", "PROJECTILE_GUIDANCE_REQUIRED", "NONE"] call DRO2026_fnc_setFlightAuthority;
@@ -287,25 +302,76 @@ if (_isProjectile) then {
 };
 private _timeout = time + 760;
 private _terminalDeadline = -1;
-while {alive _drone && {time < _timeout} && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}} do {
+private _terminalResult = "RUNNING";
+private _bestTerminalDistance = 1e10;
+private _lastTerminalProgressAt = time;
+private _terminalRecoveryAt = -1;
+private _lastDistance = (getPosASL _drone) distance2D _targetPosASL;
+while {alive _drone && {time < _timeout} && {_terminalResult == "RUNNING"} && {!(missionNamespace getVariable ["DRO2026_missionEnding", false])}} do {
     if (!isNull _target && {alive _target}) then {_targetPosASL = getPosASL _target};
     private _distance = (getPosASL _drone) distance2D _targetPosASL;
+    _lastDistance = _distance;
     private _authority = _drone getVariable ["DRO2026_flightAuthority", "NONE"];
-    if (!_isProjectile && {_distance < 950} && {_authority == "ARMA_AI"}) then {
-        if ([_drone, "FPV_TERMINAL", "FINAL_INGRESS", "ARMA_AI"] call DRO2026_fnc_setFlightAuthority) then {_terminalDeadline = time + 45; if (!isNull (driver _drone)) then {(driver _drone) disableAI "PATH"}};
+    if (!_isProjectile && {_distance < 1100} && {_authority == "ARMA_AI"}) then {
+        if ([_drone, "FPV_TERMINAL", "FINAL_INGRESS", "ARMA_AI"] call DRO2026_fnc_setFlightAuthority) then {
+            call _takeTerminalAuthority;
+            _terminalDeadline = time + 60;
+            _bestTerminalDistance = _distance;
+            _lastTerminalProgressAt = time;
+            ["LONG_RANGE_TERMINAL_STARTED",createHashMapFromArray [["class",_launchClass],["vehicleNetId",netId _drone],["distance",_distance],["targetPositionASL",+_targetPosASL]],netId _drone] call DRO2026_fnc_emitEvent;
+        };
     };
     private _terminalActive = _isProjectile || {(_drone getVariable ["DRO2026_flightAuthority", "NONE"]) == "FPV_TERMINAL"};
     if (_terminalActive) then {
-        if (!_isProjectile && {_terminalDeadline > 0 && {time > _terminalDeadline}}) exitWith {};
-        private _clearance = if (_distance > 350) then {45} else {8};
-        private _aimASL = [_drone, _targetPosASL, _clearance, [350,750,1300], 700, 18] call DRO2026_fnc_calculateTerrainAwareAim;
-        private _delta = _aimASL vectorDiff getPosASL _drone; private _length = vectorMagnitude _delta;
-        if (_length > 0.1) then {private _vector = _delta vectorMultiply (1 / _length); private _pulse = 1 + ((sin ((diag_tickTime + _salvoIndex) * 38)) * 0.035); [_drone,_vector,_speed*_pulse] call _applyFlightVector};
+        if (_terminalDeadline < 0) then {_terminalDeadline = time + (if (_isProjectile) then {180} else {60})};
+        if (time > _terminalDeadline) then {_terminalResult = "TERMINAL_TIMEOUT"};
+        if (_distance < (_bestTerminalDistance - 8)) then {
+            _bestTerminalDistance = _distance;
+            _lastTerminalProgressAt = time;
+            _terminalRecoveryAt = -1;
+        };
+        if (_terminalResult == "RUNNING" && {(time - _lastTerminalProgressAt) > 10}) then {
+            if (_terminalRecoveryAt < 0) then {
+                _terminalRecoveryAt = time;
+                ["LONG_RANGE_TERMINAL_RECOVERY",createHashMapFromArray [["class",_launchClass],["vehicleNetId",netId _drone],["distance",_distance],["bestDistance",_bestTerminalDistance]],netId _drone] call DRO2026_fnc_emitEvent;
+            } else {
+                if ((time - _terminalRecoveryAt) > 8) then {_terminalResult = "NO_TERMINAL_PROGRESS"};
+            };
+        };
+        if (_terminalResult == "RUNNING") then {
+            private _recovering = _terminalRecoveryAt >= 0;
+            private _clearance = if (_recovering) then {100} else {if (_distance > 350) then {42} else {8}};
+            private _aimASL = [_drone, _targetPosASL, _clearance, [250,500,800], 650, 0, false] call DRO2026_fnc_calculateTerrainAwareAim;
+            private _delta = _aimASL vectorDiff getPosASL _drone;
+            private _length = vectorMagnitude _delta;
+            if (_length > 0.1) then {
+                private _vector = _delta vectorMultiply (1 / _length);
+                [_drone,_vector,_speed] call _applyFlightVector;
+            };
+        };
     };
-    if (_distance < 7) then {if (_decoy) then {if (_isProjectile) then {deleteVehicle _drone} else {_drone setDamage 1}} else {if (_isProjectile) then {triggerAmmo _drone} else {_drone setDamage 1}}};
-    sleep (if (_terminalActive) then {0.28} else {1.5});
+    if (_distance < 7) then {
+        _terminalResult = if (_decoy) then {"DECOY_TERMINATED"} else {"IMPACT_TRIGGERED"};
+        if (_decoy) then {
+            if (_isProjectile) then {deleteVehicle _drone} else {_drone setDamage 1};
+        } else {
+            if (_isProjectile) then {triggerAmmo _drone} else {_drone setDamage 1};
+        };
+    };
+    sleep (if (_terminalActive) then {0.25} else {1.5});
 };
-[_drone, "NONE", "MISSION_COMPLETE", _drone getVariable ["DRO2026_flightAuthority", "NONE"]] call DRO2026_fnc_setFlightAuthority;
+if (_terminalResult == "RUNNING") then {
+    _terminalResult = if (missionNamespace getVariable ["DRO2026_missionEnding",false]) then {"MISSION_ENDING"} else {if (time >= _timeout) then {"MISSION_TIMEOUT"} else {if (!alive _drone) then {"OBJECT_TERMINATED"} else {"LOOP_EXITED"}}};
+};
+["LONG_RANGE_GUIDANCE_FINISHED",createHashMapFromArray [
+    ["result",_terminalResult],["class",_launchClass],["vehicleNetId",if (isNull _drone) then {""} else {netId _drone}],
+    ["projectile",_isProjectile],["lastDistance",_lastDistance],["bestTerminalDistance",_bestTerminalDistance],
+    ["dronePositionASL",if (isNull _drone) then {[]} else {getPosASL _drone}],["targetPositionASL",+_targetPosASL],
+    ["contactId",_contact getOrDefault ["id",""]],["subjectMode",_contact getOrDefault ["subjectMode","RESOLVABLE"]]
+],_eventSubject] call DRO2026_fnc_emitEvent;
+if (!isNull _drone) then {
+    [_drone, "NONE", _terminalResult, _drone getVariable ["DRO2026_flightAuthority", "NONE"]] call DRO2026_fnc_setFlightAuthority;
+};
 private _activeIndex = DRO2026_activeDrones find _drone;
 if (_activeIndex >= 0) then {DRO2026_activeDrones deleteAt _activeIndex};
 if (!isNull _drone) then {
